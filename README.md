@@ -12,7 +12,7 @@ Requires Python 3.12.
 
 ```bash
 python -m venv .venv
-.venv\Scriptsctivate            # macOS/Linux: source .venv/bin/activate
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env              # optional: only OPENROUTER_API_KEY is needed, for LLM extraction
 uvicorn app.main:app --reload
