@@ -144,7 +144,7 @@ def _contained(norms: list[str]) -> bool:
     return bool(
         verse_index().find_containing(phrase)
         or window_index().find_containing(phrase)
-        or (has_hadith_content(phrase) and hadith_index().find_containing(phrase))
+        or (has_hadith_content(phrase, strict=True) and hadith_index().find_containing(phrase))
     )
 
 
