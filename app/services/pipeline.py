@@ -57,13 +57,16 @@ def _is_commentary_around_quotes(sentence: str, found: list[Located]) -> bool:
 
 
 def verify_sentence(sentence: str, offset: int) -> list[Located]:
+    # Strict first (no "built from real quotes" variants): whether the sentence is itself a quote decides
+    # how it is handled; the richer variant is only used if the sentence ends up being reported whole.
+    strict = Located(offset, offset + len(sentence), verify_segment(sentence, run_variants=False), "sentence")
     whole = Located(offset, offset + len(sentence), verify_segment(sentence), "sentence")
-    if whole.segment.status == "verified":
-        return [whole]
+    if strict.segment.status == "verified":
+        return [strict]
     long_sentence = len(sentence.split()) > SENTENCE_REFINE_MIN_WORDS
     # A short sentence that resembles a verse (variant) is kept whole so that its alteration is reported;
     # one that resembles nothing may still contain a verbatim quote among commentary.
-    if long_sentence or whole.segment.status == "baseless":
+    if long_sentence or strict.segment.status == "baseless":
         found = locate_quotes(sentence)
     else:
         # Resembles a verse: still cut away an attribution ("قال تعالى ...") so that it does not count
