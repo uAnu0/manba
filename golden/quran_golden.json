@@ -625,6 +625,36 @@
       "note": "two words: below the minimum for a verified quote"
     },
     {
+      "id": "A01",
+      "category": "attribution",
+      "text": "قال تعالى إن مع العسر يسرا",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "94:6"
+      },
+      "note": "attribution preface is not part of the quote"
+    },
+    {
+      "id": "A02",
+      "category": "attribution",
+      "text": "وقال الله تعالى قل هو الله أحد",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "112:1"
+      }
+    },
+    {
+      "id": "A03",
+      "category": "attribution",
+      "text": "قال تعالى قل هو الله أحد الله الواحد",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "attributed but altered: still reported as a variant"
+    },
+    {
       "id": "E07",
       "category": "known_gap",
       "known_gap": true,

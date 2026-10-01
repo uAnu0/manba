@@ -17,7 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from app.services.pipeline import verify_text
-from app.services.verifier import verify_segment, verse_index, window_index
+from app.services.verifier import hadith_index, verse_index, window_index
 
 DEFAULT_GOLDEN = Path(__file__).resolve().parent / "golden" / "quran_golden.json"
 
@@ -94,13 +94,14 @@ def main() -> int:
 
     golden = json.loads(args.golden.read_text(encoding="utf-8"))
     items = golden["items"]
-    verse_index(), window_index()  # build indexes outside the timing
+    verse_index(), window_index(), hadith_index()  # build indexes outside the timing
 
     rows, categories = [], defaultdict(lambda: [0, 0])
     t0 = time.time()
     for item in items:
-        result = verify_segment(item["text"])
-        problems = check(item, result)
+        segments = verify_text(item["text"]).segments  # through the pipeline, as the API does
+        result = segments[0]
+        problems = [f"{len(segments)} segments, expected 1"] if len(segments) != 1 else check(item, result)
         rows.append((item, result, problems))
         if not item.get("known_gap"):
             categories[item["category"]][0] += not problems

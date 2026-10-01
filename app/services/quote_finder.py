@@ -57,6 +57,7 @@ class Located:
     start: int
     end: int
     segment: Segment
+    kind: str = "region"  # "region": a marked claim; "run": an unmarked verbatim run
 
 
 @dataclass(frozen=True)
@@ -168,8 +169,11 @@ def find_runs(words: list[Word], blocked: set[int]) -> list[tuple[int, int]]:
     return runs
 
 
-def locate_quotes(text: str) -> list[Located]:
-    """Quran quotes in `text`, in reading order. Plain commentary is not reported."""
+def locate_quotes(text: str, runs: bool = True) -> list[Located]:
+    """Quotes in `text`, in reading order. Plain commentary is not reported.
+
+    With runs=False only marked claims (brackets, attribution) are returned, not unmarked verbatim runs.
+    """
     words = tokenize(text)
     regions = find_regions(text, words)
     found: list[Located] = []
@@ -185,10 +189,10 @@ def locate_quotes(text: str) -> list[Located]:
             found.append(Located(r.start, r.end, segment))
 
     blocked = {k for k, w in enumerate(words) if any(r.start <= w.start < r.end for r in regions)}
-    for i, j in find_runs(words, blocked):
+    for i, j in find_runs(words, blocked) if runs else []:
         claim = text[words[i].start : words[j - 1].end].strip(_TRIM)
         segment = verify_segment(claim)
         if segment.status == "verified":
-            found.append(Located(words[i].start, words[j - 1].end, segment))
+            found.append(Located(words[i].start, words[j - 1].end, segment, "run"))
 
     return sorted(found, key=lambda item: item.start)
