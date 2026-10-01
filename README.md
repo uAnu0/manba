@@ -1,13 +1,55 @@
-﻿# Manba
+# Manba
 
-Verification tool built with FastAPI.
+Verification service for Islamic text. It takes raw text (a sentence or a whole sermon), finds the Quran verses and hadith in it,
+and checks each against local corpora: word for word, with the source, and an exact account of what differs when a quote is altered.
+A language model is optional and only *finds* candidate quotes; it never decides a verdict.
+
+**Private repository: for the team only.** The hadith texts come from sunnah.com-derived datasets without a license file (see Data sources).
+
+## Quick start
+
+Requires Python 3.12.
 
 ```bash
-.venv\Scripts\activate
+python -m venv .venv
+.venv\Scriptsctivate            # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env              # optional: only OPENROUTER_API_KEY is needed, for LLM extraction
 uvicorn app.main:app --reload
 ```
 
-Docs: http://127.0.0.1:8000/docs
+- Test console (throwaway page): http://127.0.0.1:8000/
+- API docs: http://127.0.0.1:8000/docs
+- Startup takes about 10 s (it builds the search indexes) and about 300 MB of memory.
+
+`.env` is git-ignored. Never commit a key. Ask the owner for the OpenRouter key; without it everything works except `use_llm`.
+
+## API
+
+`POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.
+Each segment has `segment_text`, `classification` (quran | hadith | unverified), `status` (verified | semantic_variant | baseless),
+`match_type` (full | partial), `confidence`, `is_claim`, `source` (book, chapter, number, matched_text, other_matches_count) and `differences`.
+
+`verified` means the words are in the corpus, not that a hadith is authentic: gradings are in the corpus but not returned yet.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `python eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
+| `python validate_corpus.py` | Checks `corpus.json` against the Tanzil files character for character. |
+| `python ingest_quran.py` | Rebuilds `corpus.json` from `data/tanzil/` (offline). |
+| `python ingest_hadith.py` | Rebuilds `corpus_hadith.json.gz`; downloads the raw hadith files on first run (about 100 MB, SHA-256 pinned). |
+
+Run `python eval_golden.py` before and after any change to matching code. The golden set was written by one person and is a smoke test, not proof of accuracy.
+
+## Layout
+
+- `app/services/verifier.py`: normalization, corpus loading, indexes, `verify_segment`.
+- `app/services/quote_finder.py`: finds quotes inside long text (brackets, attributions, verbatim runs).
+- `app/services/pipeline.py`: sentence splitting, local pass, optional LLM merge.
+- `app/services/llm_extractor.py`: OpenRouter call (`openai/gpt-4o-mini`) that lists quotes; claims must occur in the original text.
+- `app/static/index.html`: test console.
 
 ## Data sources
 
