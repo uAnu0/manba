@@ -1,60 +1,66 @@
-"""Download the Quran from semarketir/quranjson and write it to corpus.json.
+"""Build corpus.json from the Tanzil Quran texts in data/tanzil/ (no network needed).
+
+Each entry keeps the Uthmani verse as `text` (reference/display) and the Tanzil simple-clean verse as
+`match_text` (modern spelling, what people type). Tanzil text is used unmodified, except that the basmala
+Tanzil prepends to ayah 1 of every surah other than 1 and 9 is removed (it is not part of the ayah).
+
+Tanzil Project, https://tanzil.net, CC BY 3.0: keep the credit and the link to tanzil.net.
 
 Usage: python ingest_quran.py
 """
 import json
-import time
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-BASE_URL = "https://raw.githubusercontent.com/semarketir/quranjson/master/source/surah/surah_{n}.json"
-OUTPUT = Path(__file__).resolve().parent / "corpus.json"
+ROOT = Path(__file__).resolve().parent
+TANZIL_DIR = ROOT / "data" / "tanzil"
+SURAH_NAMES = ROOT / "data" / "surah_names.json"
+OUTPUT = ROOT / "corpus.json"
 BOOK = "القرآن الكريم"
-SURAH_COUNT = 114
+BASMALA_WORDS = 4  # بسم الله الرحمن الرحيم
+EXPECTED_AYAHS = 6236
 
 
-def fetch_surah(n: int, retries: int = 3) -> dict:
-    url = BASE_URL.format(n=n)
-    for attempt in range(1, retries + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
-                return json.loads(resp.read().decode("utf-8-sig"))
-        except Exception:
-            if attempt == retries:
-                raise
-            time.sleep(2 * attempt)
-
-
-def surah_entries(n: int, data: dict) -> list[dict]:
-    entries = []
-    for key, text in data["verse"].items():
-        ayah = int(key.removeprefix("verse_"))
-        if ayah == 0:  # unnumbered basmala header, not an ayah
+def load_tanzil(name: str) -> dict[tuple[int, int], str]:
+    verses = {}
+    for line in (TANZIL_DIR / name).read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
             continue
-        entries.append(
-            {
-                "classification": "quran",
-                "text": text.replace("﻿", "").strip(),
-                "source": {"book": BOOK, "chapter": data["name"].strip(), "number": f"{n}:{ayah}"},
-            }
-        )
-    return sorted(entries, key=lambda e: int(e["source"]["number"].split(":")[1]))
+        sura, ayah, text = line.split("|", 2)
+        verses[(int(sura), int(ayah))] = text.strip()
+    return verses
+
+
+def strip_basmala(sura: int, ayah: int, text: str) -> str:
+    if ayah == 1 and sura not in (1, 9):
+        words = text.split()
+        if len(words) <= BASMALA_WORDS:
+            raise ValueError(f"surah {sura}: ayah 1 is shorter than the basmala")
+        return " ".join(words[BASMALA_WORDS:])
+    return text
 
 
 def main() -> None:
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        surahs = list(pool.map(fetch_surah, range(1, SURAH_COUNT + 1)))
+    uthmani = load_tanzil("quran-uthmani.txt")
+    simple = load_tanzil("quran-simple-clean.txt")
+    if uthmani.keys() != simple.keys():
+        raise SystemExit("Tanzil Uthmani and simple-clean files do not cover the same ayahs")
+    names = json.loads(SURAH_NAMES.read_text(encoding="utf-8"))
 
     corpus = []
-    for n, data in enumerate(surahs, start=1):
-        entries = surah_entries(n, data)
-        if len(entries) != data.get("count", len(entries)):
-            print(f"warning: surah {n} has {len(entries)} verses, expected {data['count']}")
-        corpus.extend(entries)
+    for sura, ayah in sorted(uthmani):
+        corpus.append(
+            {
+                "classification": "quran",
+                "text": strip_basmala(sura, ayah, uthmani[(sura, ayah)]),
+                "match_text": strip_basmala(sura, ayah, simple[(sura, ayah)]),
+                "source": {"book": BOOK, "chapter": names[sura - 1], "number": f"{sura}:{ayah}"},
+            }
+        )
 
+    if len(corpus) != EXPECTED_AYAHS:
+        raise SystemExit(f"expected {EXPECTED_AYAHS} ayahs, got {len(corpus)}")
     OUTPUT.write_text(json.dumps(corpus, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"Wrote {len(corpus)} ayahs from {len(surahs)} surahs to {OUTPUT}")
+    print(f"Wrote {len(corpus)} ayahs to {OUTPUT}")
 
 
 if __name__ == "__main__":
