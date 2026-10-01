@@ -7,6 +7,7 @@ when classification is missing it is inferred from the book name.
 """
 import difflib
 from collections import defaultdict
+import gzip
 import json
 import math
 import os
@@ -29,7 +30,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 # CORPUS_PATH may hold several files separated by os.pathsep; by default every corpus file that exists is loaded.
 CORPUS_PATHS = tuple(
     Path(p) for p in os.getenv("CORPUS_PATH", "").split(os.pathsep) if p
-) or tuple(p for p in (_ROOT / "corpus.json", _ROOT / "corpus_hadith.json") if p.exists())
+) or tuple(p for p in (_ROOT / "corpus.json", _ROOT / "corpus_hadith.json.gz") if p.exists())
 CORPUS_PATH = CORPUS_PATHS[0]  # the Quran corpus (kept for tools that validate it)
 
 _DAGGER_ALEF = "\u0670"
@@ -137,7 +138,8 @@ def _infer_classification(book: str) -> str:
 def load_corpus() -> tuple[Entry, ...]:
     raw = []
     for path in CORPUS_PATHS:
-        with open(path, encoding="utf-8") as f:
+        opener = gzip.open if path.suffix == ".gz" else open
+        with opener(path, "rt", encoding="utf-8") as f:
             raw.extend(json.load(f))
     entries = []
     for item in raw:

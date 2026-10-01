@@ -3,3 +3,4 @@
 __pycache__/
 *.pyc
 data/hadith/*.json
+data/hadith2/*.json

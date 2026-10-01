@@ -528,7 +528,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "صحيح البخاري"
+        "book": "صحيح البخاري",
+        "source": "1"
       },
       "note": "hadith text (Bukhari, first in corpus order; also occurs elsewhere)"
     },
@@ -540,7 +541,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "صحيح مسلم"
+        "book": "صحيح مسلم",
+        "source": "223"
       },
       "note": "Muslim kitab al-tahara"
     },
@@ -563,7 +565,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "صحيح البخاري"
+        "book": "صحيح البخاري",
+        "source": "10"
       }
     },
     {
@@ -574,7 +577,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "صحيح البخاري"
+        "book": "صحيح البخاري",
+        "source": "13"
       }
     },
     {
@@ -585,7 +589,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "صحيح البخاري"
+        "book": "صحيح البخاري",
+        "source": "6406"
       }
     },
     {
@@ -680,7 +685,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "جامع الترمذي"
+        "book": "جامع الترمذي",
+        "source": "1924"
       },
       "note": "outside Bukhari and Muslim"
     },
@@ -692,7 +698,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "سنن أبي داود"
+        "book": "سنن أبي داود",
+        "source": "236"
       },
       "note": "also in Tirmidhi; Abu Dawud comes first in corpus order"
     },
@@ -704,7 +711,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "سنن ابن ماجه"
+        "book": "سنن ابن ماجه",
+        "source": "2340"
       }
     },
     {
@@ -715,7 +723,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "سنن أبي داود"
+        "book": "سنن أبي داود",
+        "source": "61"
       }
     },
     {
@@ -726,7 +735,8 @@
         "status": "verified",
         "match_type": "partial",
         "classification": "hadith",
-        "book": "سنن أبي داود"
+        "book": "سنن أبي داود",
+        "source": "4833"
       }
     },
     {
