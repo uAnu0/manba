@@ -20,6 +20,11 @@ from app.services.verifier import normalize, verify_segment
 # prose with quotes inside, so the quotes are located first.
 SENTENCE_REFINE_MIN_WORDS = 12
 
+# If unmarked verbatim runs make up at least this share of a sentence, the sentence IS a quote (with a changed,
+# added or dropped word somewhere), not commentary around quotes: keep it whole so the change is reported
+# instead of being trimmed away behind the part that matches.
+MAX_RUN_COVERAGE = 0.6
+
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?؟\n])\s+")
 
 
@@ -32,6 +37,13 @@ def sentence_spans(text: str) -> list[tuple[int, int]]:
     return [(a, b) for a, b in spans if text[a:b].strip()]
 
 
+def _is_commentary_around_quotes(sentence: str, found: list[Located]) -> bool:
+    if any(f.kind == "region" for f in found):
+        return True  # marked claims are explicit; trust them
+    covered = sum(len(f.segment.segment_text.split()) for f in found)
+    return covered / len(sentence.split()) < MAX_RUN_COVERAGE
+
+
 def verify_sentence(sentence: str, offset: int) -> list[Located]:
     whole = Located(offset, offset + len(sentence), verify_segment(sentence))
     if whole.segment.status == "verified":
@@ -41,8 +53,12 @@ def verify_sentence(sentence: str, offset: int) -> list[Located]:
     # one that resembles nothing may still contain a verbatim quote among commentary.
     if long_sentence or whole.segment.status == "baseless":
         found = locate_quotes(sentence)
-        if found:
-            return [Located(offset + f.start, offset + f.end, f.segment) for f in found]
+    else:
+        # Resembles a verse: still cut away an attribution ("قال تعالى ...") so that it does not count
+        # as an alteration of the quote, but do not trim anything unmarked.
+        found = locate_quotes(sentence, runs=False)
+    if found and _is_commentary_around_quotes(sentence, found):
+        return [Located(offset + f.start, offset + f.end, f.segment, f.kind) for f in found]
     return [whole]
 
 
