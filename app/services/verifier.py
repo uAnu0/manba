@@ -24,8 +24,9 @@ CORPUS_PATH = Path(os.getenv("CORPUS_PATH", Path(__file__).resolve().parents[2] 
 
 _DAGGER_ALEF = "\u0670"
 _MARKS = "[ً-ٟ]*"
-# Dagger alef on alef maqsura/yaa (على, موسى) is the same sound as the maqsura: drop it, don't add an alef.
-_DAGGER_AFTER_YAA = re.compile("([ىي]" + _MARKS + ")ٰ")
+# Dagger alef on alef maqsura (على, موسى) is the same sound as the maqsura: drop it, don't add an alef.
+# Only U+0649: after a true yaa (U+064A) it is a long a (القيامة, آيات) and must become an alef.
+_DAGGER_AFTER_MAQSURA = re.compile("([\u0649]" + _MARKS + ")\u0670")
 # Uthmani waw + dagger alef before taa marbuta (الصلوٰة) is Imlaei alef (الصلاة): the waw becomes alef.
 _WAW_DAGGER_TAA = re.compile("و" + _MARKS + "ٰ(?=" + _MARKS + "ة)")
 # Tashkeel (fathatan..sukun), superscript alef, and Quranic annotation marks.
@@ -94,7 +95,7 @@ class Entry:
 def normalize_arabic_text(text: str) -> str:
     """Convert dagger alef to alef, strip tashkeel and tatweel, unify Alef forms to bare Alef and Taa Marbuta to Haa."""
     # Uthmani shorthand -> Imlaei spelling (e.g. العٰلمين -> العالمين); must run before diacritics are stripped.
-    text = _DAGGER_AFTER_YAA.sub(r"\1", text)
+    text = _DAGGER_AFTER_MAQSURA.sub(r"\1", text)
     text = _WAW_DAGGER_TAA.sub("\u0627", text)
     text = text.replace(_DAGGER_ALEF, "\u0627")
     text = _DIACRITICS.sub("", text)
