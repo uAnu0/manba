@@ -1,8 +1,8 @@
 """Text verification against a reference corpus loaded from corpus.json.
 
 corpus.json is a list of objects:
-    [{"text": "...", "source": {"book": "...", "chapter": "...", "number": "..."}}]
-`number` and a top-level `classification` ("quran" | "hadith") are optional;
+    [{"text": "...", "match_text": "...", "source": {"book": "...", "chapter": "...", "number": "..."}}]
+`match_text` (modern spelling), `number` and a top-level `classification` ("quran" | "hadith") are optional;
 when classification is missing it is inferred from the book name.
 """
 import difflib
@@ -89,7 +89,11 @@ class Entry:
     chapter: str
     number: str
     text: str
-    normalized: str
+    forms: tuple[str, ...]  # normalized spellings to match against; forms[0] is the primary one
+
+    @property
+    def normalized(self) -> str:
+        return self.forms[0]
 
 
 def normalize_arabic_text(text: str) -> str:
@@ -125,6 +129,9 @@ def load_corpus() -> tuple[Entry, ...]:
     for item in raw:
         src = item.get("source", {})
         book = src.get("book", "")
+        # `match_text` is the modern-spelling text (Tanzil simple-clean for the Quran); `text` is the
+        # reference/display text (Uthmani). Both are accepted as input, so copy-pasted mushaf text also matches.
+        forms = tuple(dict.fromkeys(normalize(t) for t in (item.get("match_text"), item["text"]) if t))
         entries.append(
             Entry(
                 classification=item.get("classification") or _infer_classification(book),
@@ -132,7 +139,7 @@ def load_corpus() -> tuple[Entry, ...]:
                 chapter=src.get("chapter", ""),
                 number=str(src.get("number", "")),
                 text=item["text"],
-                normalized=normalize(item["text"]),
+                forms=forms,
             )
         )
     return tuple(entries)
@@ -148,8 +155,9 @@ def _word_index() -> dict[str, tuple[int, ...]]:
     """Inverted index: normalized word -> indices of corpus entries containing it."""
     index: dict[str, set[int]] = defaultdict(set)
     for i, entry in enumerate(load_corpus()):
-        for word in entry.normalized.split():
-            index[word].add(i)
+        for form in entry.forms:
+            for word in form.split():
+                index[word].add(i)
     return {w: tuple(ids) for w, ids in index.items()}
 
 
@@ -171,7 +179,8 @@ def _exact_index() -> dict[str, tuple[int, ...]]:
     """Normalized text -> corpus entries with exactly that text (repeated verses share one key)."""
     index: dict[str, list[int]] = defaultdict(list)
     for i, entry in enumerate(load_corpus()):
-        index[entry.normalized].append(i)
+        for form in entry.forms:
+            index[form].append(i)
     return {text: tuple(ids) for text, ids in index.items()}
 
 
@@ -193,17 +202,19 @@ def find_containing(norm: str) -> list[Entry]:
     for p in postings:
         ids.intersection_update(p)
     needle = f" {norm} "
-    return [corpus[i] for i in sorted(ids) if needle in f" {corpus[i].normalized} "]
+    return [corpus[i] for i in sorted(ids) if any(needle in f" {form} " for form in corpus[i].forms)]
 
 
-def find_best_match(segment: str) -> tuple[Entry | None, float]:
+def find_best_match(segment: str) -> tuple[Entry | None, float, str]:
+    """Best fuzzy match: (entry, similarity, the normalized form of the entry that scored best)."""
     norm = normalize(segment)
-    best, best_score = None, 0.0
+    best, best_score, best_form = None, 0.0, ""
     for entry in candidate_entries(norm):
-        score = difflib.SequenceMatcher(None, norm, entry.normalized).ratio()
-        if score > best_score:
-            best, best_score = entry, score
-    return best, best_score
+        for form in entry.forms:
+            score = difflib.SequenceMatcher(None, norm, form).ratio()
+            if score > best_score:
+                best, best_score, best_form = entry, score, form
+    return best, best_score, best_form
 
 
 def word_differences(segment: str, reference: str) -> list[str]:
@@ -257,7 +268,7 @@ def verify_segment(segment: str) -> Segment:
             source=_source(entry, len(containing) - 1),
         )
 
-    entry, score = find_best_match(segment)
+    entry, score, form = find_best_match(segment)
     if entry is None or score < VARIANT_THRESHOLD:
         return Segment(
             segment_text=segment,
@@ -271,7 +282,7 @@ def verify_segment(segment: str) -> Segment:
         status="semantic_variant",
         confidence=round(score, 2),
         source=_source(entry),
-        differences=word_differences(segment, entry.text),
+        differences=word_differences(segment, form),
     )
 
 
