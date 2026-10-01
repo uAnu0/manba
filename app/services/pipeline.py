@@ -90,6 +90,11 @@ def _response(text: str, located: list[Located], extraction: ExtractionInfo | No
     )
 
 
+def _redact(message: str) -> str:
+    """Provider error messages can quote part of the API key that was used: never pass those on."""
+    return re.sub(r"sk-[A-Za-z0-9_-]{6,}", "[redacted]", message)
+
+
 def verify_text(text: str) -> VerifyResponse:
     return _response(text, verify_local(text))
 
@@ -142,12 +147,12 @@ def merge_claims(text: str, local: list[Located], claims: list[str]) -> tuple[li
     return sorted(merged, key=lambda l: l.start), info
 
 
-async def verify_text_llm(text: str) -> VerifyResponse:
+async def verify_text_llm(text: str, api_key: str | None = None) -> VerifyResponse:
     """Local pass plus the LLM extraction pass; falls back to the local result if the LLM step fails."""
     local = verify_local(text)
     try:
-        claims = await extract_claims(text)
+        claims = await extract_claims(text, api_key)
     except Exception as exc:  # no key, network, timeout, malformed output: the local result still stands
-        return _response(text, local, ExtractionInfo(used=False, error=f"{type(exc).__name__}: {exc}"))
+        return _response(text, local, ExtractionInfo(used=False, error=_redact(f"{type(exc).__name__}: {exc}")))
     merged, info = merge_claims(text, local, claims)
     return _response(text, merged, info)
