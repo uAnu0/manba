@@ -29,6 +29,9 @@ class Segment(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     source: Optional[Source] = None
     differences: list[str] = Field(default_factory=list)
+    # False for a sentence in which the LLM step found no quote or claim (ordinary commentary): it is still
+    # returned, but it is not a claim that failed verification.
+    is_claim: bool = True
 
 
 class ExtractionInfo(BaseModel):

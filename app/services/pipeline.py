@@ -25,6 +25,13 @@ SENTENCE_REFINE_MIN_WORDS = 12
 # instead of being trimmed away behind the part that matches.
 MAX_RUN_COVERAGE = 0.6
 
+# A sentence that cites a hadith or verse is making (or discussing) a religious claim even when the LLM
+# extracted nothing from it, e.g. "ويقول بعض الناس اختلاف أمتي رحمة، وهذا الحديث لا أصل له": it stays a claim
+# and is never demoted to commentary. Praise formulas ("نبينا محمد", "سبحانه وتعالى") are deliberately not cues.
+HARD_CUES = frozenset("حديث الحديث احاديث الاحاديث روى رواه روي اخرجه الايه ايه الايات القران قرانا".split())
+SAID_VERBS = frozenset("قال وقال فقال يقول ويقول قالت قوله وقوله".split())
+SOURCE_WORDS = frozenset("النبي رسول تعالى سبحانه".split())
+
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?؟\n])\s+")
 
 
@@ -37,6 +44,11 @@ def sentence_spans(text: str) -> list[tuple[int, int]]:
     return [(a, b) for a, b in spans if text[a:b].strip()]
 
 
+def _has_claim_cue(sentence: str) -> bool:
+    norms = {w.norm for w in tokenize(sentence)}
+    return bool(norms & HARD_CUES) or bool(norms & SAID_VERBS and norms & SOURCE_WORDS)
+
+
 def _is_commentary_around_quotes(sentence: str, found: list[Located]) -> bool:
     if any(f.kind == "region" for f in found):
         return True  # marked claims are explicit; trust them
@@ -45,7 +57,7 @@ def _is_commentary_around_quotes(sentence: str, found: list[Located]) -> bool:
 
 
 def verify_sentence(sentence: str, offset: int) -> list[Located]:
-    whole = Located(offset, offset + len(sentence), verify_segment(sentence))
+    whole = Located(offset, offset + len(sentence), verify_segment(sentence), "sentence")
     if whole.segment.status == "verified":
         return [whole]
     long_sentence = len(sentence.split()) > SENTENCE_REFINE_MIN_WORDS
@@ -115,6 +127,14 @@ def merge_claims(text: str, local: list[Located], claims: list[str]) -> tuple[li
         if l.segment.status != "verified" and any(l.start < a.end and a.start < l.end for a in accepted)
     }
     merged = [l for l in local if id(l) not in replaced] + accepted
+    # With the LLM having looked at the whole text, a sentence it found nothing in, and that resembles no verse
+    # or hadith, is commentary. It stays in the response (never silently dropped) but is flagged as such.
+    merged = [
+        Located(l.start, l.end, l.segment.model_copy(update={"is_claim": False}), l.kind)
+        if l.kind == "sentence" and l.segment.status == "baseless" and not _has_claim_cue(text[l.start : l.end])
+        else l
+        for l in merged
+    ]
     info = ExtractionInfo(used=True, claims_found=len(claims), claims_accepted=len(accepted), rejected=rejected)
     return sorted(merged, key=lambda l: l.start), info
 
