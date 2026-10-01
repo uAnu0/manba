@@ -34,6 +34,10 @@ SPEAKER = {"تعالى", "وتعالى", "سبحانه", "وسبحانه", "جل
 # Names of God only count as the speaker straight after the verb ("قال الله ..."); further on they are part
 # of the quote itself ("قال الواعظ إن الله يحب ...").
 SPEAKER_NAMES = {"الله", "ربنا", "ربكم"}
+# "قال النبي صلى الله عليه وسلم ..." / "وقال أيضا ..." : the Prophet, or a connective, in place of God as the speaker.
+PROPHET = {"النبي", "رسول", "الرسول"}
+FILLER = {"ايضا", "كذلك", "ثم"}
+HONORIFIC = ["صلى", "الله", "عليه", "وسلم"]
 CONTEXT = {"التنزيل", "القران", "الايه", "الايات", "ايه", "كتابه", "محكم"}  # "في محكم التنزيل", "في كتابه"
 
 _QURAN_BRACKETS = "[﴾﴿]"
@@ -118,14 +122,22 @@ def find_regions(text: str, words: list[Word]) -> list[Region]:
                 (
                     k
                     for k in range(i + 1, min(i + 4, len(words)))
-                    if words[k].norm in SPEAKER or (k == i + 1 and words[k].norm in SPEAKER_NAMES)
+                    if words[k].norm in SPEAKER | PROPHET | FILLER or (k == i + 1 and words[k].norm in SPEAKER_NAMES)
                 ),
                 None,
             )
             if marker is not None:
                 first = marker + 1
-                while first < len(words) and words[first].norm in SPEAKER:
-                    first += 1
+                while first < len(words):
+                    norm = words[first].norm
+                    if norm in SPEAKER or norm in PROPHET:
+                        first += 1
+                    elif norm == "الله" and words[first - 1].norm == "رسول":  # "رسول الله"
+                        first += 1
+                    elif [w.norm for w in words[first : first + 4]] == HONORIFIC:  # "صلى الله عليه وسلم"
+                        first += 4
+                    else:
+                        break
                 if first < len(words):
                     start = words[first].start
                     m = _CLAUSE_END.search(text, start)
