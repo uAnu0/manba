@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from app.schemas import Segment, Source, VerifyResponse
+from app.schemas import Segment, Source
 
 VARIANT_THRESHOLD = 0.60
 CANDIDATE_LIMIT = 20
@@ -368,12 +368,4 @@ def verify_segment(segment: str) -> Segment:
         confidence=round(score, 2),
         source=_source(entry),
         differences=word_differences(segment, form),
-    )
-
-
-def verify_text(text: str) -> VerifyResponse:
-    return VerifyResponse(
-        original_text=text,
-        word_count=len(text.split()),
-        segments=[verify_segment(s) for s in split_segments(text)],
     )

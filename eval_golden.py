@@ -16,6 +16,7 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
+from app.services.pipeline import verify_text
 from app.services.verifier import verify_segment, verse_index, window_index
 
 DEFAULT_GOLDEN = Path(__file__).resolve().parent / "golden" / "quran_golden.json"
@@ -48,13 +49,47 @@ def check(item: dict, result) -> list[str]:
     return problems
 
 
+def check_sermon(item: dict, segments: list) -> list[str]:
+    expected = item["expect_segments"]
+    if len(segments) != len(expected):
+        return [f"{len(segments)} segments, expected {len(expected)}"]
+    problems = []
+    for i, (exp, seg) in enumerate(zip(expected, segments), start=1):
+        for p in check({"expect": exp}, seg):
+            problems.append(f"segment {i}: {p}")
+    return problems
+
+
+def run_sermons(sermons: list[dict], verbose: bool) -> int:
+    """Whole paragraphs through the pipeline. Returns the number of non-gap failures."""
+    if not sermons:
+        return 0
+    print("\nSermons (full pipeline):")
+    failed = 0
+    for item in sermons:
+        segments = verify_text(item["text"]).segments
+        problems = check_sermon(item, segments)
+        gap = item.get("known_gap")
+        failed += bool(problems) and not gap
+        state = "ok" if not problems else ("KNOWN GAP" if gap else "FAIL")
+        print(f"  {item['id']:5} {state}  {item.get('note', '')}")
+        if problems or verbose:
+            for seg in segments:
+                src = seg.source.number if seg.source else "-"
+                print(f"        got {seg.status}/{seg.match_type} {src}: {seg.segment_text[:50]}")
+            for p in problems:
+                print(f"        - {p}")
+    return failed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN)
     parser.add_argument("-v", "--verbose", action="store_true", help="print every item, not only failures")
     args = parser.parse_args()
 
-    items = json.loads(args.golden.read_text(encoding="utf-8"))["items"]
+    golden = json.loads(args.golden.read_text(encoding="utf-8"))
+    items = golden["items"]
     verse_index(), window_index()  # build indexes outside the timing
 
     rows, categories = [], defaultdict(lambda: [0, 0])
@@ -114,7 +149,8 @@ def main() -> int:
             for p in problems:
                 print(f"        - {p}")
 
-    return 1 if failures or false_confirmations else 0
+    sermon_failures = run_sermons(golden.get("sermons", []), args.verbose)
+    return 1 if failures or false_confirmations or sermon_failures else 0
 
 
 if __name__ == "__main__":
