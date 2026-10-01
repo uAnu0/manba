@@ -24,7 +24,7 @@ async def verify(
     x_openrouter_key: Optional[str] = Header(default=None),
 ) -> VerifyResponse:
     if settings.api_access_token and not secrets.compare_digest(
-        (x_access_token or "").encode(), settings.api_access_token.encode()
+        (x_access_token or "").strip().encode(), settings.api_access_token.encode()
     ):
         raise HTTPException(status_code=401, detail="missing or wrong access token (X-Access-Token header)")
     if payload.use_llm:
