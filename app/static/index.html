@@ -40,6 +40,8 @@
   .src { font-size: 14px; } .src b { font-weight: 600; }
   ul.diff { margin: 4px 0 0; padding-left: 20px; direction: rtl; text-align: right; } ul.diff li { margin: 2px 0; }
   details { margin-top: 16px; } pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow: auto; direction: ltr; text-align: left; font-size: 12px; }
+  .note-line { color: var(--muted); font-size: 13px; border-left: 3px solid var(--line); padding: 4px 12px; margin: 0 0 12px; }
+  .note-line .ar { font-size: 16px; line-height: 1.7; }
   .err { background: var(--bad-bg); color: var(--bad); padding: 10px 14px; border-radius: 8px; }
 </style>
 </head>
@@ -85,11 +87,18 @@ for (const [name, text] of SAMPLES) {
 
 function render(data) {
   const counts = {};
-  for (const s of data.segments) counts[s.status] = (counts[s.status] || 0) + 1;
-  let html = `<div class="summary"><span>${data.word_count} words</span><span>${data.segments.length} segment(s)</span>` +
-    Object.entries(counts).map(([k, v]) => `<span class="chip ${k}">${v} ${STATUS_LABEL[k]}</span>`).join("") + `</div>`;
+  const claims = data.segments.filter(s => s.is_claim !== false);
+  for (const s of claims) counts[s.status] = (counts[s.status] || 0) + 1;
+  const quiet = data.segments.length - claims.length;
+  let html = `<div class="summary"><span>${data.word_count} words</span><span>${claims.length} claim(s)</span>` +
+    Object.entries(counts).map(([k, v]) => `<span class="chip ${k}">${v} ${STATUS_LABEL[k]}</span>`).join("") +
+    (quiet ? `<span class="chip plain">${quiet} commentary</span>` : "") + `</div>`;
 
   for (const s of data.segments) {
+    if (s.is_claim === false) {
+      html += `<div class="note-line"><span class="label" style="margin:0">Commentary, no claim found</span><div class="ar">${esc(s.segment_text)}</div></div>`;
+      continue;
+    }
     html += `<div class="seg ${s.status}"><div class="top">
       <span class="chip ${s.status}">${STATUS_LABEL[s.status]}</span>
       <span class="chip plain">${esc(s.classification)}</span>
