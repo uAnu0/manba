@@ -52,6 +52,7 @@
   <div class="row">
     <button id="go" class="primary">Verify</button>
     <button id="clear">Clear</button>
+    <label class="sub" style="margin:0"><input type="checkbox" id="llm"> Use LLM claim extraction</label>
     <span class="sub" id="timing" style="margin:0"></span>
   </div>
   <div class="samples" id="samples"></div>
@@ -106,6 +107,14 @@ function render(data) {
     }
     html += `</div>`;
   }
+  const x = data.extraction;
+  if (x) {
+    html = `<div class="seg ${x.used ? "" : "baseless"}"><div class="top"><span class="chip plain">LLM extraction</span>
+      <span class="chip plain">${x.used ? `${x.claims_accepted} of ${x.claims_found} claims used` : "not used"}</span></div>` +
+      (x.error ? `<div class="err">${esc(x.error)}</div>` : "") +
+      (x.rejected.length ? `<div class="label">Rejected (not found in your text)</div><ul class="diff">${x.rejected.map(r => `<li>${esc(r)}</li>`).join("")}</ul>` : "") +
+      `</div>` + html;
+  }
   $("out").innerHTML = html;
 }
 
@@ -115,7 +124,7 @@ async function run() {
   $("go").disabled = true; $("out").innerHTML = ""; $("timing").textContent = "";
   const t0 = performance.now();
   try {
-    const res = await fetch("/api/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+    const res = await fetch("/api/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, use_llm: $("llm").checked }) });
     const data = await res.json();
     $("timing").textContent = `${Math.round(performance.now() - t0)} ms`;
     if (!res.ok) throw new Error(JSON.stringify(data));

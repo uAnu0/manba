@@ -23,9 +23,10 @@ MAX_RUN_WORDS = 400
 
 # Normalized forms (see verifier.normalize): said-verbs, and words that mark God / the Quran as the speaker.
 SAID = {"قال", "وقال", "فقال", "يقول", "ويقول", "قوله", "وقوله", "فيقول"}
-SPEAKER = {
-    "تعالى", "وتعالى", "سبحانه", "وسبحانه", "جل", "وجل", "عز", "وعز", "وعلا", "الله", "ربنا", "ربكم",
-}
+SPEAKER = {"تعالى", "وتعالى", "سبحانه", "وسبحانه", "جل", "وجل", "عز", "وعز", "وعلا"}
+# Names of God only count as the speaker straight after the verb ("قال الله ..."); further on they are part
+# of the quote itself ("قال الواعظ إن الله يحب ...").
+SPEAKER_NAMES = {"الله", "ربنا", "ربكم"}
 CONTEXT = {"التنزيل", "القران", "الايه", "الايات", "ايه", "كتابه", "محكم"}  # "في محكم التنزيل", "في كتابه"
 
 _QURAN_BRACKETS = "[﴾﴿]"
@@ -40,6 +41,15 @@ BRACKET_PATTERNS = (
 # End of an unbracketed attributed quote: sentence/clause punctuation or the start of another bracket.
 _CLAUSE_END = re.compile("[.؟!؛،\n]|" + _QURAN_BRACKETS + "|[«“\"(\\[]")
 _TRIM = " \t\r\n:.،؛؟!()[]«»“”\"﴾﴿-"
+
+
+@dataclass(frozen=True)
+class Located:
+    """A verified segment together with where it sits in the text it came from."""
+
+    start: int
+    end: int
+    segment: Segment
 
 
 @dataclass(frozen=True)
@@ -96,7 +106,14 @@ def find_regions(text: str, words: list[Word]) -> list[Region]:
     i = 0
     while i < len(words):
         if words[i].norm in SAID:
-            marker = next((k for k in range(i + 1, min(i + 4, len(words))) if words[k].norm in SPEAKER), None)
+            marker = next(
+                (
+                    k
+                    for k in range(i + 1, min(i + 4, len(words)))
+                    if words[k].norm in SPEAKER or (k == i + 1 and words[k].norm in SPEAKER_NAMES)
+                ),
+                None,
+            )
             if marker is not None:
                 first = marker + 1
                 while first < len(words) and words[first].norm in SPEAKER:
@@ -140,11 +157,11 @@ def find_runs(words: list[Word], blocked: set[int]) -> list[tuple[int, int]]:
     return runs
 
 
-def locate_quotes(text: str) -> list[Segment]:
+def locate_quotes(text: str) -> list[Located]:
     """Quran quotes in `text`, in reading order. Plain commentary is not reported."""
     words = tokenize(text)
     regions = find_regions(text, words)
-    found: list[tuple[int, Segment]] = []
+    found: list[Located] = []
 
     for r in regions:
         claim = text[r.text_start : r.text_end].strip(_TRIM)
@@ -154,13 +171,13 @@ def locate_quotes(text: str) -> list[Segment]:
         # Brackets and quote marks are also used for citations and asides: keep an unattributed
         # region only if it actually resembles the Quran.
         if r.attributed or segment.status != "baseless":
-            found.append((r.start, segment))
+            found.append(Located(r.start, r.end, segment))
 
     blocked = {k for k, w in enumerate(words) if any(r.start <= w.start < r.end for r in regions)}
     for i, j in find_runs(words, blocked):
         claim = text[words[i].start : words[j - 1].end].strip(_TRIM)
         segment = verify_segment(claim)
         if segment.status == "verified":
-            found.append((words[i].start, segment))
+            found.append(Located(words[i].start, words[j - 1].end, segment))
 
-    return [segment for _, segment in sorted(found, key=lambda item: item[0])]
+    return sorted(found, key=lambda item: item.start)

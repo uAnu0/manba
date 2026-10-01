@@ -2,7 +2,10 @@
 import json
 import os
 
+from dotenv import load_dotenv
 from openai import AsyncOpenAI
+
+load_dotenv()
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 MODEL = "openai/gpt-4o-mini"
