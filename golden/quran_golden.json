@@ -1,60 +1,650 @@
 {
-  "description": "Golden set for the Quran verifier. Texts are typed by hand (not copied from corpus.json). `expect.status` is one string or a list of acceptable statuses; `not_verified` means any status except verified. Items with known_gap=true state the IDEAL outcome and are reported separately.",
+  "description": "Golden set for the Quran verifier. Texts are typed by hand (not copied from corpus.json). `expect.status` is one string or a list of acceptable statuses; `not_verified` means any status except verified. Items with known_gap=true state the IDEAL outcome and are reported separately. The `sermons` list runs whole paragraphs through the pipeline (sentence split + quote finder); expect_segments lists the segments in reading order.",
   "items": [
-    {"id": "E01", "category": "exact_verse", "text": "بسم الله الرحمن الرحيم", "expect": {"status": "verified", "match_type": "full", "source": "1:1", "other_matches_count": 0}},
-    {"id": "E02", "category": "exact_verse", "text": "الحمد لله رب العالمين", "expect": {"status": "verified", "match_type": "full", "source": "1:2", "other_matches_count": 0}},
-    {"id": "E03", "category": "exact_verse", "text": "إياك نعبد وإياك نستعين", "expect": {"status": "verified", "match_type": "full", "source": "1:5", "other_matches_count": 0}},
-    {"id": "E04", "category": "exact_verse", "text": "قل هو الله أحد", "expect": {"status": "verified", "match_type": "full", "source": "112:1", "other_matches_count": 0}},
-    {"id": "E05", "category": "exact_verse", "text": "إن مع العسر يسرا", "expect": {"status": "verified", "match_type": "full", "source": "94:6", "other_matches_count": 0}},
-    {"id": "E06", "category": "exact_verse", "text": "يا أيها الذين آمنوا كتب عليكم الصيام كما كتب على الذين من قبلكم لعلكم تتقون", "expect": {"status": "verified", "match_type": "full", "source": "2:183", "other_matches_count": 0}},
-    {"id": "E07", "category": "known_gap", "known_gap": true, "text": "الله لا إله إلا هو الحي القيوم لا تأخذه سنة ولا نوم له ما في السماوات وما في الأرض من ذا الذي يشفع عنده إلا بإذنه يعلم ما بين أيديهم وما خلفهم ولا يحيطون بشيء من علمه إلا بما شاء وسع كرسيه السماوات والأرض ولا يؤوده حفظهما وهو العلي العظيم", "expect": {"status": "verified", "match_type": "full", "source": "2:255", "other_matches_count": 0}, "note": "Ayat al-Kursi typed with يؤوده; Tanzil spells it يئوده (hamza seat)"},
-    {"id": "E08", "category": "exact_verse", "text": "وما خلقت الجن والإنس إلا ليعبدون", "expect": {"status": "verified", "match_type": "full", "source": "51:56", "other_matches_count": 0}},
-    {"id": "E09", "category": "exact_verse", "text": "سبح اسم ربك الأعلى", "expect": {"status": "verified", "match_type": "full", "source": "87:1", "other_matches_count": 0}},
-    {"id": "R01", "category": "repeated_verse", "text": "فبأي آلاء ربكما تكذبان", "expect": {"status": "verified", "match_type": "full", "source": "55:13", "other_matches_count": 30}, "note": "refrain, 31 occurrences in Surah Ar-Rahman; typed with ي, corpus Uthmani uses ى"},
-    {"id": "R02", "category": "repeated_verse", "text": "ولقد يسرنا القرآن للذكر فهل من مدكر", "expect": {"status": "verified", "match_type": "full", "source": "54:17", "other_matches_count": 3}, "note": "54:17, 22, 32, 40"},
-    {"id": "R03", "category": "repeated_verse", "text": "الم", "expect": {"status": "verified", "match_type": "full", "source": "2:1", "other_matches_count": 5}, "note": "2:1, 3:1, 29:1, 30:1, 31:1, 32:1"},
-    {"id": "R04", "category": "exact_verse", "text": "يس", "expect": {"status": "verified", "match_type": "full", "source": "36:1", "other_matches_count": 0}},
-    {"id": "M01", "category": "multi_verse", "text": "قل هو الله أحد الله الصمد", "expect": {"status": "verified", "match_type": "full", "source": "112:1-2"}},
-    {"id": "M02", "category": "multi_verse", "text": "الله الصمد لم يلد ولم يولد", "expect": {"status": "verified", "match_type": "full", "source": "112:2-3"}},
-    {"id": "M03", "category": "multi_verse", "text": "قل هو الله أحد الله الصمد لم يلد ولم يولد ولم يكن له كفوا أحد", "expect": {"status": "verified", "match_type": "full", "source": "112:1-4"}},
-    {"id": "M04", "category": "multi_verse", "text": "والعصر إن الإنسان لفي خسر إلا الذين آمنوا وعملوا الصالحات وتواصوا بالحق وتواصوا بالصبر", "expect": {"status": "verified", "match_type": "full", "source": "103:1-3"}},
-    {"id": "M05", "category": "multi_verse", "text": "إنا أعطيناك الكوثر فصل لربك وانحر إن شانئك هو الأبتر", "expect": {"status": "verified", "match_type": "full", "source": "108:1-3"}},
-    {"id": "M06", "category": "multi_verse", "text": "قل أعوذ برب الناس ملك الناس إله الناس", "expect": {"status": "verified", "match_type": "full", "source": "114:1-3"}},
-    {"id": "M07", "category": "multi_verse", "text": "الحمد لله رب العالمين الرحمن الرحيم مالك يوم الدين", "expect": {"status": "verified", "match_type": "full", "source": "1:2-4"}},
-    {"id": "M08", "category": "multi_verse", "text": "الحمد لله رب العالمين الرحمن الرحيم مالك يوم الدين إياك نعبد وإياك نستعين اهدنا الصراط المستقيم", "expect": {"status": "verified", "match_type": "full", "source": "1:2-6"}, "note": "five verses: the longest window"},
-    {"id": "M09", "category": "multi_verse", "text": "فإن مع العسر يسرا إن مع العسر يسرا", "expect": {"status": "verified", "match_type": "full", "source": "94:5-6"}},
-    {"id": "S01", "category": "spelling", "text": "قُلْ هُوَ ٱللَّهُ أَحَدٌ", "expect": {"status": "verified", "match_type": "full", "source": "112:1"}, "note": "Uthmani paste with alef wasla"},
-    {"id": "S02", "category": "spelling", "text": "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ", "expect": {"status": "verified", "match_type": "full", "source": "1:2"}, "note": "Uthmani paste with tatweel and dagger alef"},
-    {"id": "S03", "category": "spelling", "text": "إِنَّ مَعَ الْعُسْرِ يُسْرًا", "expect": {"status": "verified", "match_type": "full", "source": "94:6"}, "note": "modern spelling with tashkeel"},
-    {"id": "S04", "category": "spelling", "text": "فى قلوبهم مرض فزادهم الله مرضا", "expect": {"status": "verified", "match_type": "partial", "source": "2:10"}, "note": "final yaa typed as maqsura"},
-    {"id": "S05", "category": "spelling", "text": "في قلوبهم مرض فزادهم الله مرضا", "expect": {"status": "verified", "match_type": "partial", "source": "2:10"}},
-    {"id": "P01", "category": "partial_quote", "text": "على هدى من ربهم", "expect": {"status": "verified", "match_type": "partial", "source": "2:5", "other_matches_count": 1}, "note": "also 31:5"},
-    {"id": "P02", "category": "partial_quote", "text": "كل نفس ذائقة الموت", "expect": {"status": "verified", "match_type": "partial", "source": "3:185", "other_matches_count": 2}, "note": "3:185, 21:35, 29:57"},
-    {"id": "P03", "category": "partial_quote", "text": "إن أكرمكم عند الله أتقاكم", "expect": {"status": "verified", "match_type": "partial", "source": "49:13", "other_matches_count": 0}},
-    {"id": "P04", "category": "partial_quote", "text": "لا يكلف الله نفسا إلا وسعها", "expect": {"status": "verified", "match_type": "partial", "source": "2:286", "other_matches_count": 0}},
-    {"id": "P05", "category": "partial_quote", "text": "إنا لله وإنا إليه راجعون", "expect": {"status": "verified", "match_type": "partial", "source": "2:156", "other_matches_count": 0}},
-    {"id": "P06", "category": "partial_quote", "text": "ولا تقربوا الزنى", "expect": {"status": "verified", "match_type": "partial", "source": "17:32", "other_matches_count": 0}},
-    {"id": "P07", "category": "partial_quote", "text": "الله نور السماوات والأرض", "expect": {"status": "verified", "match_type": "partial", "source": "24:35", "other_matches_count": 0}},
-    {"id": "B01", "category": "cross_boundary", "text": "لا ريب فيه هدى للمتقين الذين يؤمنون بالغيب", "expect": {"status": "verified", "match_type": "partial", "source": "2:2-3"}},
-    {"id": "B02", "category": "cross_boundary", "text": "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم", "expect": {"status": "verified", "match_type": "partial", "source": "1:6-7"}},
-    {"id": "V01", "category": "altered_verse", "text": "قل هو الله أحد الله الواحد", "expect": {"status": "semantic_variant"}, "note": "one word replaced"},
-    {"id": "V02", "category": "altered_verse", "text": "إنا أعطيناك الكوثر فصل لربك وانحر إن عدوك هو الأبتر", "expect": {"status": "semantic_variant"}, "note": "شانئك replaced by عدوك"},
-    {"id": "V03", "category": "altered_verse", "text": "الحمد لله رب العالمين الرحمن الرحيم مالك يوم القيامة", "expect": {"status": "semantic_variant"}},
-    {"id": "V04", "category": "altered_verse", "text": "رب الحمد لله العالمين", "expect": {"status": "semantic_variant"}, "note": "word order scrambled"},
-    {"id": "V05", "category": "altered_verse", "text": "قل هو الله أحد الله الصمد لم يلد ولم يولد لم يكن له كفوا أحد", "expect": {"status": "semantic_variant"}, "note": "one connective dropped"},
-    {"id": "V06", "category": "altered_verse", "text": "إن الله مع الصابرين دائما", "expect": {"status": "semantic_variant"}, "note": "extra word added to a real phrase"},
-    {"id": "V07", "category": "meaning_flip", "text": "إن الله يغفر أن يشرك به ويغفر ما دون ذلك لمن يشاء", "expect": {"status": "not_verified"}, "note": "negation removed from 4:48; must never verify"},
-    {"id": "V08", "category": "meaning_flip", "text": "إن الله لا يحب المحسنين", "expect": {"status": "not_verified"}, "note": "negation added to a real phrase (2:195 says يحب)"},
-    {"id": "N01", "category": "false_attribution", "text": "النظافة من الإيمان", "expect": {"status": "baseless"}, "note": "popular saying, not Quran"},
-    {"id": "N02", "category": "false_attribution", "text": "اطلبوا العلم ولو في الصين", "expect": {"status": "baseless"}},
-    {"id": "N03", "category": "false_attribution", "text": "الجنة تحت أقدام الأمهات", "expect": {"status": "baseless"}},
-    {"id": "N04", "category": "commentary", "text": "اليوم أخبركم عن أهمية الصبر في حياتنا اليومية وكيف نتعامل مع الصعاب", "expect": {"status": "baseless"}},
-    {"id": "N05", "category": "fabricated", "text": "ومن يصبر على البلاء يرزقه الله الجنة بغير حساب", "expect": {"status": "not_verified"}, "note": "Quran-style but invented"},
-    {"id": "N06", "category": "fabricated", "text": "قل هو الله أحد الله خالق كل شيء لم يلد ولم يولد", "expect": {"status": "not_verified"}, "note": "real verses mixed with invented words"},
-    {"id": "N07", "category": "out_of_scope", "text": "Say: He is Allah, the One", "expect": {"status": "baseless"}, "note": "English translation"},
-    {"id": "N08", "category": "by_design", "text": "رب العالمين", "expect": {"status": "not_verified"}, "note": "two words: below PARTIAL_MIN_WORDS"},
-    {"id": "N09", "category": "out_of_scope", "text": "إنما الأعمال بالنيات", "expect": {"status": "baseless"}, "note": "hadith: no hadith corpus yet"},
-    {"id": "G01", "category": "known_gap", "known_gap": true, "text": "ولا تقربوا الزنا", "expect": {"status": "verified", "match_type": "partial", "source": "17:32"}, "note": "standard modern spelling الزنا; Tanzil writes الزنى"},
-    {"id": "G02", "category": "known_gap", "known_gap": true, "text": "قُلْ هُوَ اللَّهُ أَحِدٌ", "expect": {"status": "not_verified"}, "note": "wrong vowel on أحد; tashkeel is ignored so this verifies today"}
+    {
+      "id": "E01",
+      "category": "exact_verse",
+      "text": "بسم الله الرحمن الرحيم",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "1:1",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E02",
+      "category": "exact_verse",
+      "text": "الحمد لله رب العالمين",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "1:2",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E03",
+      "category": "exact_verse",
+      "text": "إياك نعبد وإياك نستعين",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "1:5",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E04",
+      "category": "exact_verse",
+      "text": "قل هو الله أحد",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "112:1",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E05",
+      "category": "exact_verse",
+      "text": "إن مع العسر يسرا",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "94:6",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E06",
+      "category": "exact_verse",
+      "text": "يا أيها الذين آمنوا كتب عليكم الصيام كما كتب على الذين من قبلكم لعلكم تتقون",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "2:183",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E07",
+      "category": "known_gap",
+      "known_gap": true,
+      "text": "الله لا إله إلا هو الحي القيوم لا تأخذه سنة ولا نوم له ما في السماوات وما في الأرض من ذا الذي يشفع عنده إلا بإذنه يعلم ما بين أيديهم وما خلفهم ولا يحيطون بشيء من علمه إلا بما شاء وسع كرسيه السماوات والأرض ولا يؤوده حفظهما وهو العلي العظيم",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "2:255",
+        "other_matches_count": 0
+      },
+      "note": "Ayat al-Kursi typed with يؤوده; Tanzil spells it يئوده (hamza seat)"
+    },
+    {
+      "id": "E08",
+      "category": "exact_verse",
+      "text": "وما خلقت الجن والإنس إلا ليعبدون",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "51:56",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "E09",
+      "category": "exact_verse",
+      "text": "سبح اسم ربك الأعلى",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "87:1",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "R01",
+      "category": "repeated_verse",
+      "text": "فبأي آلاء ربكما تكذبان",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "55:13",
+        "other_matches_count": 30
+      },
+      "note": "refrain, 31 occurrences in Surah Ar-Rahman; typed with ي, corpus Uthmani uses ى"
+    },
+    {
+      "id": "R02",
+      "category": "repeated_verse",
+      "text": "ولقد يسرنا القرآن للذكر فهل من مدكر",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "54:17",
+        "other_matches_count": 3
+      },
+      "note": "54:17, 22, 32, 40"
+    },
+    {
+      "id": "R03",
+      "category": "repeated_verse",
+      "text": "الم",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "2:1",
+        "other_matches_count": 5
+      },
+      "note": "2:1, 3:1, 29:1, 30:1, 31:1, 32:1"
+    },
+    {
+      "id": "R04",
+      "category": "exact_verse",
+      "text": "يس",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "36:1",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "M01",
+      "category": "multi_verse",
+      "text": "قل هو الله أحد الله الصمد",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "112:1-2"
+      }
+    },
+    {
+      "id": "M02",
+      "category": "multi_verse",
+      "text": "الله الصمد لم يلد ولم يولد",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "112:2-3"
+      }
+    },
+    {
+      "id": "M03",
+      "category": "multi_verse",
+      "text": "قل هو الله أحد الله الصمد لم يلد ولم يولد ولم يكن له كفوا أحد",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "112:1-4"
+      }
+    },
+    {
+      "id": "M04",
+      "category": "multi_verse",
+      "text": "والعصر إن الإنسان لفي خسر إلا الذين آمنوا وعملوا الصالحات وتواصوا بالحق وتواصوا بالصبر",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "103:1-3"
+      }
+    },
+    {
+      "id": "M05",
+      "category": "multi_verse",
+      "text": "إنا أعطيناك الكوثر فصل لربك وانحر إن شانئك هو الأبتر",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "108:1-3"
+      }
+    },
+    {
+      "id": "M06",
+      "category": "multi_verse",
+      "text": "قل أعوذ برب الناس ملك الناس إله الناس",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "114:1-3"
+      }
+    },
+    {
+      "id": "M07",
+      "category": "multi_verse",
+      "text": "الحمد لله رب العالمين الرحمن الرحيم مالك يوم الدين",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "1:2-4"
+      }
+    },
+    {
+      "id": "M08",
+      "category": "multi_verse",
+      "text": "الحمد لله رب العالمين الرحمن الرحيم مالك يوم الدين إياك نعبد وإياك نستعين اهدنا الصراط المستقيم",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "1:2-6"
+      },
+      "note": "five verses: the longest window"
+    },
+    {
+      "id": "M09",
+      "category": "multi_verse",
+      "text": "فإن مع العسر يسرا إن مع العسر يسرا",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "94:5-6"
+      }
+    },
+    {
+      "id": "S01",
+      "category": "spelling",
+      "text": "قُلْ هُوَ ٱللَّهُ أَحَدٌ",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "112:1"
+      },
+      "note": "Uthmani paste with alef wasla"
+    },
+    {
+      "id": "S02",
+      "category": "spelling",
+      "text": "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَـٰلَمِينَ",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "1:2"
+      },
+      "note": "Uthmani paste with tatweel and dagger alef"
+    },
+    {
+      "id": "S03",
+      "category": "spelling",
+      "text": "إِنَّ مَعَ الْعُسْرِ يُسْرًا",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "94:6"
+      },
+      "note": "modern spelling with tashkeel"
+    },
+    {
+      "id": "S04",
+      "category": "spelling",
+      "text": "فى قلوبهم مرض فزادهم الله مرضا",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "2:10"
+      },
+      "note": "final yaa typed as maqsura"
+    },
+    {
+      "id": "S05",
+      "category": "spelling",
+      "text": "في قلوبهم مرض فزادهم الله مرضا",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "2:10"
+      }
+    },
+    {
+      "id": "P01",
+      "category": "partial_quote",
+      "text": "على هدى من ربهم",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "2:5",
+        "other_matches_count": 1
+      },
+      "note": "also 31:5"
+    },
+    {
+      "id": "P02",
+      "category": "partial_quote",
+      "text": "كل نفس ذائقة الموت",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "3:185",
+        "other_matches_count": 2
+      },
+      "note": "3:185, 21:35, 29:57"
+    },
+    {
+      "id": "P03",
+      "category": "partial_quote",
+      "text": "إن أكرمكم عند الله أتقاكم",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "49:13",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "P04",
+      "category": "partial_quote",
+      "text": "لا يكلف الله نفسا إلا وسعها",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "2:286",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "P05",
+      "category": "partial_quote",
+      "text": "إنا لله وإنا إليه راجعون",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "2:156",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "P06",
+      "category": "partial_quote",
+      "text": "ولا تقربوا الزنى",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "17:32",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "P07",
+      "category": "partial_quote",
+      "text": "الله نور السماوات والأرض",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "24:35",
+        "other_matches_count": 0
+      }
+    },
+    {
+      "id": "B01",
+      "category": "cross_boundary",
+      "text": "لا ريب فيه هدى للمتقين الذين يؤمنون بالغيب",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "2:2-3"
+      }
+    },
+    {
+      "id": "B02",
+      "category": "cross_boundary",
+      "text": "اهدنا الصراط المستقيم صراط الذين أنعمت عليهم",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "1:6-7"
+      }
+    },
+    {
+      "id": "V01",
+      "category": "altered_verse",
+      "text": "قل هو الله أحد الله الواحد",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "one word replaced"
+    },
+    {
+      "id": "V02",
+      "category": "altered_verse",
+      "text": "إنا أعطيناك الكوثر فصل لربك وانحر إن عدوك هو الأبتر",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "شانئك replaced by عدوك"
+    },
+    {
+      "id": "V03",
+      "category": "altered_verse",
+      "text": "الحمد لله رب العالمين الرحمن الرحيم مالك يوم القيامة",
+      "expect": {
+        "status": "semantic_variant"
+      }
+    },
+    {
+      "id": "V04",
+      "category": "altered_verse",
+      "text": "رب الحمد لله العالمين",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "word order scrambled"
+    },
+    {
+      "id": "V05",
+      "category": "altered_verse",
+      "text": "قل هو الله أحد الله الصمد لم يلد ولم يولد لم يكن له كفوا أحد",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "one connective dropped"
+    },
+    {
+      "id": "V06",
+      "category": "altered_verse",
+      "text": "إن الله مع الصابرين دائما",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "extra word added to a real phrase"
+    },
+    {
+      "id": "V07",
+      "category": "meaning_flip",
+      "text": "إن الله يغفر أن يشرك به ويغفر ما دون ذلك لمن يشاء",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "negation removed from 4:48; must never verify"
+    },
+    {
+      "id": "V08",
+      "category": "meaning_flip",
+      "text": "إن الله لا يحب المحسنين",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "negation added to a real phrase (2:195 says يحب)"
+    },
+    {
+      "id": "N01",
+      "category": "false_attribution",
+      "text": "النظافة من الإيمان",
+      "expect": {
+        "status": "baseless"
+      },
+      "note": "popular saying, not Quran"
+    },
+    {
+      "id": "N02",
+      "category": "false_attribution",
+      "text": "اطلبوا العلم ولو في الصين",
+      "expect": {
+        "status": "baseless"
+      }
+    },
+    {
+      "id": "N03",
+      "category": "false_attribution",
+      "text": "الجنة تحت أقدام الأمهات",
+      "expect": {
+        "status": "baseless"
+      }
+    },
+    {
+      "id": "N04",
+      "category": "commentary",
+      "text": "اليوم أخبركم عن أهمية الصبر في حياتنا اليومية وكيف نتعامل مع الصعاب",
+      "expect": {
+        "status": "baseless"
+      }
+    },
+    {
+      "id": "N05",
+      "category": "fabricated",
+      "text": "ومن يصبر على البلاء يرزقه الله الجنة بغير حساب",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "Quran-style but invented"
+    },
+    {
+      "id": "N06",
+      "category": "fabricated",
+      "text": "قل هو الله أحد الله خالق كل شيء لم يلد ولم يولد",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "real verses mixed with invented words"
+    },
+    {
+      "id": "N07",
+      "category": "out_of_scope",
+      "text": "Say: He is Allah, the One",
+      "expect": {
+        "status": "baseless"
+      },
+      "note": "English translation"
+    },
+    {
+      "id": "N08",
+      "category": "by_design",
+      "text": "رب العالمين",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "two words: below PARTIAL_MIN_WORDS"
+    },
+    {
+      "id": "N09",
+      "category": "out_of_scope",
+      "text": "إنما الأعمال بالنيات",
+      "expect": {
+        "status": "baseless"
+      },
+      "note": "hadith: no hadith corpus yet"
+    },
+    {
+      "id": "G01",
+      "category": "known_gap",
+      "known_gap": true,
+      "text": "ولا تقربوا الزنا",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "source": "17:32"
+      },
+      "note": "standard modern spelling الزنا; Tanzil writes الزنى"
+    },
+    {
+      "id": "G02",
+      "category": "known_gap",
+      "known_gap": true,
+      "text": "قُلْ هُوَ اللَّهُ أَحِدٌ",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "wrong vowel on أحد; tashkeel is ignored so this verifies today"
+    }
+  ],
+  "sermons": [
+    {
+      "id": "SM01",
+      "text": "الحمد لله رب العالمين، القائل في محكم التنزيل: (يَا أَيُّهَا الَّذِينَ آمَنُوا كُتِبَ عَلَيْكُمُ الصِّيَامُ كَمَا كُتِبَ عَلَى الَّذِينَ مِن قَبْلِكُمْ لَعَلَّكُمْ تَتَّقُونَ)، والقائل سبحانه وتعالى: (وَإِذَا أَرَدْنَا أَنْ نُعِزَّ قَوْمًا جَعَلْنَا لَهُمْ مِنْ لَدُنَّا نُورًا يَمْشُونَ بِهِ فِي النَّاسِ كَافَّةً).",
+      "note": "bracketed real verse, then an invented verse in brackets",
+      "expect_segments": [
+        {
+          "status": "verified",
+          "source": "1:2"
+        },
+        {
+          "status": "verified",
+          "source": "2:183",
+          "match_type": "full"
+        },
+        {
+          "status": "baseless"
+        }
+      ]
+    },
+    {
+      "id": "SM02",
+      "text": "واعلموا عباد الله أن من علامات التقوى الإخلاص، كما جاء في قوله: (قُلْ يَا عِبَادِيَ الَّذِينَ أَسْرَفُوا عَلَىٰ أَنفُسِهِمْ لَا تَقْنَطُوا مِن رَّحْمَةِ اللَّهِ إِنَّ اللَّهَ يَغْفِرُ الذُّنُوبَ جَمِيعًا)، وتذكروا كذلك قوله تعالى: (كُتِبَ عَلَيْكُمُ الْجِهَادُ كَمَا كُتِبَ عَلَى الَّذِينَ مِن قَبْلِكُمْ لَعَلَّكُمْ تَتَّقُونَ).",
+      "note": "real partial verse, then a blend of 2:183 with an invented word (الجهاد for الصيام)",
+      "expect_segments": [
+        {
+          "status": "verified",
+          "source": "39:53",
+          "match_type": "partial"
+        },
+        {
+          "status": "semantic_variant"
+        }
+      ]
+    },
+    {
+      "id": "SM03",
+      "text": "فاتقوا الله حق تقاته، وصدق الله العظيم إذ يقول: (وَقُل رَّبِّ أَدْخِلْنِي مُدْخَلَ صِدْقٍ وَأَخْرِجْنِي مُخْرَجَ صِدْقٍ وَاجْعَل لِّي مِن لَّدُنكَ سُلْطَانًا نَّصِيرًا).",
+      "note": "commentary before a bracketed verse (17:80)",
+      "expect_segments": [
+        {
+          "status": "verified",
+          "source": "17:80",
+          "match_type": "full"
+        }
+      ]
+    },
+    {
+      "id": "SM04",
+      "text": "ومن المعلوم أن لا يكلف الله نفسا إلا وسعها فاحرصوا على الصلاة.",
+      "note": "unmarked verbatim quote among commentary",
+      "expect_segments": [
+        {
+          "status": "verified",
+          "source": "2:286",
+          "match_type": "partial"
+        }
+      ]
+    },
+    {
+      "id": "SM05",
+      "known_gap": true,
+      "text": "وقد قال تعالى إن مع العسر يسرا ثم تحدث الإمام عن الصبر وفضله في حياة المسلم المعاصر وكيف يتعامل مع الصعاب.",
+      "note": "attributed verse followed by unpunctuated commentary: the whole tail is treated as the claim (needs the LLM step to split)",
+      "expect_segments": [
+        {
+          "status": "verified",
+          "source": "94:6"
+        }
+      ]
+    },
+    {
+      "id": "SM06",
+      "text": "سمعت أخي يقول ما رأيك في هذا الموضوع وكيف نتعامل معه في حياتنا اليومية مع الأهل والأصدقاء والجيران.",
+      "note": "plain speech with no Quran at all: must not produce any verified quote",
+      "expect_segments": [
+        {
+          "status": "baseless"
+        }
+      ]
+    }
   ]
 }

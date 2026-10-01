@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.schemas import VerifyRequest, VerifyResponse
-from app.services.verifier import verify_text
+from app.services.pipeline import verify_text
 
 router = APIRouter(prefix="/api", tags=["verify"])
 
