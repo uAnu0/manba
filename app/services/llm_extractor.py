@@ -39,12 +39,13 @@ class ExtractionError(RuntimeError):
 
 
 def server_has_key() -> bool:
-    return bool(os.getenv("OPENROUTER_API_KEY"))
+    return bool((os.getenv("OPENROUTER_API_KEY") or "").strip())
 
 
 def _get_client(api_key: str | None = None) -> AsyncOpenAI:
     """`api_key` is a key supplied with the request; otherwise the server's shared OPENROUTER_API_KEY is used."""
-    api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+    # Values pasted into hosting dashboards or piped from a shell often carry a trailing newline.
+    api_key = (api_key or os.getenv("OPENROUTER_API_KEY") or "").strip()
     if not api_key:
         raise ExtractionError("no OpenRouter key: set OPENROUTER_API_KEY on the server or send your own key")
     return AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
