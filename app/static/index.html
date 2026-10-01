@@ -98,9 +98,9 @@ function render(data) {
       <div class="ar">${esc(s.segment_text)}</div>`;
     if (s.source) {
       const o = s.source.other_matches_count;
-      html += `<div class="label">Source</div><div class="src"><b>${esc(s.source.chapter)}</b> &middot; ${esc(s.source.number)} &middot; ${esc(s.source.book)}` +
+      html += `<div class="label">Source</div><div class="src"><b>${esc(s.source.chapter)}</b> ${s.source.number ? `&middot; ${esc(s.source.number)} ` : ""}&middot; ${esc(s.source.book)}` +
         (o ? ` <span class="chip plain">+${o} other match${o > 1 ? "es" : ""}</span>` : "") + `</div>` +
-        `<div class="label">${s.status === "verified" ? "Matched text" : "Closest text"}</div><div class="ar">${esc(s.source.matched_text)}</div>`;
+        `<div class="label">${s.status === "verified" ? "Matched text" : "Closest text"}</div><div class="ar">${esc(s.source.matched_text.length > 600 ? s.source.matched_text.slice(0, 600) + " …" : s.source.matched_text)}</div>`;
     }
     if (s.differences && s.differences.length) {
       html += `<div class="label">Differences</div><ul class="diff">${s.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>`;

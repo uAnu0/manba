@@ -37,6 +37,10 @@ def check(item: dict, result) -> list[str]:
         return problems
     if result.status != "verified":
         return problems
+    if "classification" in expect and result.classification != expect["classification"]:
+        problems.append(f"classification {result.classification!r}, expected {expect['classification']!r}")
+    if "book" in expect and (result.source is None or result.source.book != expect["book"]):
+        problems.append(f"book {result.source and result.source.book!r}, expected {expect['book']!r}")
     if "match_type" in expect and result.match_type != expect["match_type"]:
         problems.append(f"match_type {result.match_type!r}, expected {expect['match_type']!r}")
     src = result.source

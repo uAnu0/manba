@@ -23,7 +23,12 @@ PARTIAL_MIN_WORDS = 3  # shorter phrases are too ambiguous to call a verified qu
 MAX_WINDOW_VERSES = 5  # longest run of consecutive ayahs that can be matched as one quote
 WINDOW_CANDIDATE_LIMIT = 10
 
-CORPUS_PATH = Path(os.getenv("CORPUS_PATH", Path(__file__).resolve().parents[2] / "corpus.json"))
+_ROOT = Path(__file__).resolve().parents[2]
+# CORPUS_PATH may hold several files separated by os.pathsep; by default every corpus file that exists is loaded.
+CORPUS_PATHS = tuple(
+    Path(p) for p in os.getenv("CORPUS_PATH", "").split(os.pathsep) if p
+) or tuple(p for p in (_ROOT / "corpus.json", _ROOT / "corpus_hadith.json") if p.exists())
+CORPUS_PATH = CORPUS_PATHS[0]  # the Quran corpus (kept for tools that validate it)
 
 _DAGGER_ALEF = "\u0670"
 _MARKS = "[ً-ٟ]*"
@@ -70,6 +75,7 @@ _SUFFIXES = ("", "\u0647", "\u0647\u0627", "\u0647\u0645", "\u0647\u0645\u0627",
 _MAX_PREFIX = 3
 
 
+@lru_cache(maxsize=None)  # pure function of the word; the corpus repeats the same words millions of times
 def _apply_imlaei_exceptions(word: str) -> str:
     """Whole-word replacement, allowing up to three clitic letters before and a pronoun ending after.
 
@@ -127,8 +133,10 @@ def _infer_classification(book: str) -> str:
 
 @lru_cache(maxsize=1)
 def load_corpus() -> tuple[Entry, ...]:
-    with open(CORPUS_PATH, encoding="utf-8") as f:
-        raw = json.load(f)
+    raw = []
+    for path in CORPUS_PATHS:
+        with open(path, encoding="utf-8") as f:
+            raw.extend(json.load(f))
     entries = []
     for item in raw:
         src = item.get("source", {})
@@ -198,6 +206,9 @@ class CorpusIndex:
         top = sorted(scores, key=scores.__getitem__, reverse=True)[:limit]
         return [self.entries[i] for i in top]
 
+    def word_idf(self, word: str) -> float:
+        return self._idf.get(word, self._unseen_idf)
+
     def find_exact(self, norm: str) -> list[Entry]:
         return [self.entries[i] for i in self._exact.get(norm, ())]
 
@@ -259,12 +270,33 @@ def build_windows(entries: tuple[Entry, ...]) -> list[Entry]:
 
 @lru_cache(maxsize=1)
 def verse_index() -> CorpusIndex:
-    return CorpusIndex(load_corpus())
+    """Single Quran verses. Quran and hadith are indexed separately: hadith texts quote verses, and a
+    verse quoted inside a hadith must not outrank (or inflate the match count of) the verse itself."""
+    return CorpusIndex([e for e in load_corpus() if e.classification == "quran"])
 
 
 @lru_cache(maxsize=1)
 def window_index() -> CorpusIndex:
-    return CorpusIndex(build_windows(load_corpus()))
+    return CorpusIndex(build_windows(tuple(e for e in load_corpus() if e.classification == "quran")))
+
+
+@lru_cache(maxsize=1)
+def hadith_index() -> CorpusIndex:
+    return CorpusIndex([e for e in load_corpus() if e.classification != "quran"])
+
+
+# Hadith texts are long and full of everyday words, so a short run of common words ("ما رأيك في هذا",
+# "قال رسول الله صلى الله عليه وسلم") occurs somewhere and says nothing about which hadith is meant.
+# A phrase counts as a hadith quote only if it contains distinctive words. Thresholds were tuned on the
+# golden hadith quotes (second-rarest word IDF 4.2-8.2, total 13.9-42) against everyday phrases that
+# occur in the corpus (second-rarest 2.0-2.4, total 7-15); see golden/quran_golden.json (category hadith).
+HADITH_MIN_SECOND_IDF = 4.0
+HADITH_MIN_TOTAL_IDF = 12.0
+
+
+def has_hadith_content(norm: str) -> bool:
+    idfs = sorted(hadith_index().word_idf(w) for w in norm.split())
+    return len(idfs) >= 2 and idfs[-2] >= HADITH_MIN_SECOND_IDF and sum(idfs) >= HADITH_MIN_TOTAL_IDF
 
 
 def similarity(a: str, b: str) -> float:
@@ -281,8 +313,10 @@ def similarity(a: str, b: str) -> float:
 def find_best_match(segment: str) -> tuple[Entry | None, float, str]:
     """Best fuzzy match over single verses and multi-verse windows: (entry, similarity, best normalized form)."""
     norm = normalize(segment)
-    candidates = verse_index().candidates(norm, CANDIDATE_LIMIT) + window_index().candidates(
-        norm, WINDOW_CANDIDATE_LIMIT
+    candidates = (
+        verse_index().candidates(norm, CANDIDATE_LIMIT)
+        + window_index().candidates(norm, WINDOW_CANDIDATE_LIMIT)
+        + hadith_index().candidates(norm, WINDOW_CANDIDATE_LIMIT)
     )
     best, best_score, best_form = None, 0.0, ""
     for entry in candidates:
@@ -352,6 +386,16 @@ def verify_segment(segment: str) -> Segment:
         tightest = min(e.verses for e in containing)
         tight = [e for e in containing if e.verses == tightest]
         return _verified(segment, tight[0], "partial", len(tight) - 1)
+
+    # Hadith: the quote is usually a slice of a long entry (chain of narrators + text).
+    if has_hadith_content(norm):
+        hadiths = hadith_index()
+        exact = hadiths.find_exact(norm)
+        if exact:
+            return _verified(segment, exact[0], "full", len(exact) - 1)
+        containing = hadiths.find_containing(norm)
+        if containing:
+            return _verified(segment, containing[0], "partial", len(containing) - 1)
 
     entry, score, form = find_best_match(segment)
     if entry is None or score < VARIANT_THRESHOLD:
