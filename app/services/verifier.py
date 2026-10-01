@@ -8,6 +8,7 @@ when classification is missing it is inferred from the book name.
 import difflib
 from collections import defaultdict
 import json
+import math
 import os
 import re
 from dataclasses import dataclass
@@ -19,6 +20,8 @@ from app.schemas import Segment, Source, VerifyResponse
 VARIANT_THRESHOLD = 0.60
 CANDIDATE_LIMIT = 20
 PARTIAL_MIN_WORDS = 3  # shorter phrases are too ambiguous to call a verified quote
+MAX_WINDOW_VERSES = 5  # longest run of consecutive ayahs that can be matched as one quote
+WINDOW_CANDIDATE_LIMIT = 10
 
 CORPUS_PATH = Path(os.getenv("CORPUS_PATH", Path(__file__).resolve().parents[2] / "corpus.json"))
 
@@ -90,6 +93,7 @@ class Entry:
     number: str
     text: str
     forms: tuple[str, ...]  # normalized spellings to match against; forms[0] is the primary one
+    verses: int = 1  # number of consecutive ayahs this entry spans (>1 for multi-verse windows)
 
     @property
     def normalized(self) -> str:
@@ -150,66 +154,127 @@ def split_segments(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+class CorpusIndex:
+    """Inverted word index plus exact-text lookup over a list of entries."""
+
+    def __init__(self, entries: list[Entry] | tuple[Entry, ...]):
+        self.entries = tuple(entries)
+        words: dict[str, set[int]] = defaultdict(set)
+        exact: dict[str, list[int]] = defaultdict(list)
+        for i, entry in enumerate(self.entries):
+            for form in entry.forms:
+                exact[form].append(i)
+                for word in form.split():
+                    words[word].add(i)
+        self._words = {w: tuple(ids) for w, ids in words.items()}
+        self._exact = {text: tuple(ids) for text, ids in exact.items()}
+        n = max(len(self.entries), 1)
+        self._idf = {w: math.log(1 + n / len(ids)) for w, ids in self._words.items()}
+        self._unseen_idf = math.log(1 + n)
+        entry_words: list[set[str]] = [set() for _ in self.entries]
+        for w, ids in self._words.items():
+            for i in ids:
+                entry_words[i].add(w)
+        self._entry_weight = [sum(self._idf[w] for w in ws) for ws in entry_words]
+
+    def candidates(self, norm: str, limit: int) -> list[Entry]:
+        """Top entries by IDF-weighted Jaccard overlap of words.
+
+        Rare shared words count most, and entries stuffed with unrelated words (long multi-verse
+        windows) are penalized, so tight matches outrank them.
+        """
+        query_weight = 0.0
+        overlap: dict[int, float] = defaultdict(float)
+        for word in set(norm.split()):
+            postings = self._words.get(word)
+            if postings is None:
+                query_weight += self._unseen_idf
+                continue
+            weight = self._idf[word]
+            query_weight += weight
+            for i in postings:
+                overlap[i] += weight
+        scores = {i: o / (query_weight + self._entry_weight[i] - o) for i, o in overlap.items()}
+        top = sorted(scores, key=scores.__getitem__, reverse=True)[:limit]
+        return [self.entries[i] for i in top]
+
+    def find_exact(self, norm: str) -> list[Entry]:
+        return [self.entries[i] for i in self._exact.get(norm, ())]
+
+    def find_containing(self, norm: str) -> list[Entry]:
+        """Entries that contain `norm` as a run of consecutive whole words."""
+        words = norm.split()
+        if len(words) < PARTIAL_MIN_WORDS:
+            return []
+        postings = [self._words.get(w, ()) for w in set(words)]
+        if not all(postings):
+            return []
+        ids = set(min(postings, key=len))
+        for p in postings:
+            ids.intersection_update(p)
+        needle = f" {norm} "
+        return [self.entries[i] for i in sorted(ids) if any(needle in f" {form} " for form in self.entries[i].forms)]
+
+
+_VERSE_REF = re.compile(r"^(\d+):(\d+)$")
+
+
+def _merge_verses(members: list[Entry]) -> Entry:
+    """One entry for a run of consecutive ayahs, e.g. 112:1-2."""
+    first, last = members[0], members[-1]
+    n_forms = max(len(m.forms) for m in members)
+    forms = tuple(
+        dict.fromkeys(
+            " ".join(m.forms[min(k, len(m.forms) - 1)] for m in members) for k in range(n_forms)
+        )
+    )
+    return Entry(
+        classification=first.classification,
+        book=first.book,
+        chapter=first.chapter,
+        number=f"{first.number}-{last.number.split(':')[1]}",
+        text=" ".join(m.text for m in members),
+        forms=forms,
+        verses=len(members),
+    )
+
+
+def build_windows(entries: tuple[Entry, ...]) -> list[Entry]:
+    """Every run of 2..MAX_WINDOW_VERSES consecutive ayahs of the same surah ("sura:ayah" numbers only)."""
+    windows = []
+    for start, first in enumerate(entries):
+        m = _VERSE_REF.match(first.number)
+        if not m:
+            continue
+        sura, ayah = int(m[1]), int(m[2])
+        members = [first]
+        for nxt in entries[start + 1 : start + MAX_WINDOW_VERSES]:
+            n = _VERSE_REF.match(nxt.number)
+            if not n or (nxt.book, int(n[1]), int(n[2])) != (first.book, sura, ayah + len(members)):
+                break
+            members.append(nxt)
+            windows.append(_merge_verses(members))
+    return windows
+
+
 @lru_cache(maxsize=1)
-def _word_index() -> dict[str, tuple[int, ...]]:
-    """Inverted index: normalized word -> indices of corpus entries containing it."""
-    index: dict[str, set[int]] = defaultdict(set)
-    for i, entry in enumerate(load_corpus()):
-        for form in entry.forms:
-            for word in form.split():
-                index[word].add(i)
-    return {w: tuple(ids) for w, ids in index.items()}
-
-
-def candidate_entries(norm: str, limit: int = CANDIDATE_LIMIT) -> list[Entry]:
-    """Top entries by IDF-weighted word overlap, so rare shared words count most."""
-    corpus, index = load_corpus(), _word_index()
-    scores: dict[int, float] = defaultdict(float)
-    for word in set(norm.split()):
-        postings = index.get(word, ())
-        for i in postings:
-            scores[i] += 1.0 / len(postings)
-    # Ties (common in short queries) are broken toward entries of similar length.
-    top = sorted(scores, key=lambda i: (-scores[i], abs(len(corpus[i].normalized) - len(norm))))[:limit]
-    return [corpus[i] for i in top]
+def verse_index() -> CorpusIndex:
+    return CorpusIndex(load_corpus())
 
 
 @lru_cache(maxsize=1)
-def _exact_index() -> dict[str, tuple[int, ...]]:
-    """Normalized text -> corpus entries with exactly that text (repeated verses share one key)."""
-    index: dict[str, list[int]] = defaultdict(list)
-    for i, entry in enumerate(load_corpus()):
-        for form in entry.forms:
-            index[form].append(i)
-    return {text: tuple(ids) for text, ids in index.items()}
-
-
-def find_exact(norm: str) -> list[Entry]:
-    corpus = load_corpus()
-    return [corpus[i] for i in _exact_index().get(norm, ())]
-
-
-def find_containing(norm: str) -> list[Entry]:
-    """Entries that contain `norm` as a run of consecutive whole words."""
-    words = norm.split()
-    if len(words) < PARTIAL_MIN_WORDS:
-        return []
-    index, corpus = _word_index(), load_corpus()
-    postings = [index.get(w, ()) for w in set(words)]
-    if not all(postings):
-        return []
-    ids = set(min(postings, key=len))
-    for p in postings:
-        ids.intersection_update(p)
-    needle = f" {norm} "
-    return [corpus[i] for i in sorted(ids) if any(needle in f" {form} " for form in corpus[i].forms)]
+def window_index() -> CorpusIndex:
+    return CorpusIndex(build_windows(load_corpus()))
 
 
 def find_best_match(segment: str) -> tuple[Entry | None, float, str]:
-    """Best fuzzy match: (entry, similarity, the normalized form of the entry that scored best)."""
+    """Best fuzzy match over single verses and multi-verse windows: (entry, similarity, best normalized form)."""
     norm = normalize(segment)
+    candidates = verse_index().candidates(norm, CANDIDATE_LIMIT) + window_index().candidates(
+        norm, WINDOW_CANDIDATE_LIMIT
+    )
     best, best_score, best_form = None, 0.0, ""
-    for entry in candidate_entries(norm):
+    for entry in candidates:
         for form in entry.forms:
             score = difflib.SequenceMatcher(None, norm, form).ratio()
             if score > best_score:
@@ -240,33 +305,42 @@ def _source(entry: Entry, other_matches: int = 0) -> Source:
     )
 
 
+def _verified(segment: str, entry: Entry, match_type: str, others: int) -> Segment:
+    return Segment(
+        segment_text=segment,
+        classification=entry.classification,
+        status="verified",
+        match_type=match_type,
+        confidence=1.0,
+        source=_source(entry, others),
+    )
+
+
 def verify_segment(segment: str) -> Segment:
     norm = normalize(segment)
+    verses, windows = verse_index(), window_index()
 
     # Word-for-word match after normalization; a high character score alone is never enough.
-    exact = find_exact(norm)
+    exact = verses.find_exact(norm)
     if exact:
-        entry = exact[0]
-        return Segment(
-            segment_text=segment,
-            classification=entry.classification,
-            status="verified",
-            confidence=1.0,
-            source=_source(entry, len(exact) - 1),
-        )
+        return _verified(segment, exact[0], "full", len(exact) - 1)
 
-    # A run of consecutive words quoted from inside a longer entry.
-    containing = find_containing(norm)
+    # A run of consecutive words quoted from inside one verse.
+    containing = verses.find_containing(norm)
     if containing:
-        entry = containing[0]
-        return Segment(
-            segment_text=segment,
-            classification=entry.classification,
-            status="verified",
-            match_type="partial",
-            confidence=1.0,
-            source=_source(entry, len(containing) - 1),
-        )
+        return _verified(segment, containing[0], "partial", len(containing) - 1)
+
+    # Several consecutive verses quoted whole (112:1-2) ...
+    exact = windows.find_exact(norm)
+    if exact:
+        return _verified(segment, exact[0], "full", len(exact) - 1)
+
+    # ... or a phrase that crosses a verse boundary. Use the tightest window(s) that hold it.
+    containing = windows.find_containing(norm)
+    if containing:
+        tightest = min(e.verses for e in containing)
+        tight = [e for e in containing if e.verses == tightest]
+        return _verified(segment, tight[0], "partial", len(tight) - 1)
 
     entry, score, form = find_best_match(segment)
     if entry is None or score < VARIANT_THRESHOLD:
