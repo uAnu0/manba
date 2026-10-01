@@ -296,9 +296,18 @@ HADITH_MIN_SECOND_IDF = 4.0
 HADITH_MIN_TOTAL_IDF = 12.0
 
 
-def has_hadith_content(norm: str) -> bool:
+# Stricter bar for text that is NOT already known to be a claim: runs picked out of plain speech, and verbatim
+# parts of an unrecognised text. With the nine-book corpus, everyday phrases such as "أريد أن أسألك عن" or
+# "الحمد لله على كل حال" occur inside narrations and pass the normal bar (second-rarest IDF 4.6-5.5, total
+# 13-20), while the distinctive golden quotes sit at 6.1+ and 18+.
+HADITH_STRICT_SECOND_IDF = 5.5
+HADITH_STRICT_TOTAL_IDF = 18.0
+
+
+def has_hadith_content(norm: str, strict: bool = False) -> bool:
+    second, total = (HADITH_STRICT_SECOND_IDF, HADITH_STRICT_TOTAL_IDF) if strict else (HADITH_MIN_SECOND_IDF, HADITH_MIN_TOTAL_IDF)
     idfs = sorted(hadith_index().word_idf(w) for w in norm.split())
-    return len(idfs) >= 2 and idfs[-2] >= HADITH_MIN_SECOND_IDF and sum(idfs) >= HADITH_MIN_TOTAL_IDF
+    return len(idfs) >= 2 and idfs[-2] >= second and sum(idfs) >= total
 
 
 def similarity(a: str, b: str) -> float:
@@ -366,7 +375,7 @@ def _verified(segment: str, entry: Entry, match_type: str, others: int) -> Segme
 def _first_containing(phrase: str) -> Entry | None:
     """The corpus entry that holds `phrase` verbatim (verse, then multi-verse window, then hadith), if any."""
     found = verse_index().find_containing(phrase) or window_index().find_containing(phrase)
-    if not found and has_hadith_content(phrase):
+    if not found and has_hadith_content(phrase, strict=True):
         found = hadith_index().find_containing(phrase)
     return found[0] if found else None
 

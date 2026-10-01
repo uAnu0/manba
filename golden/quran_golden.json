@@ -673,6 +673,93 @@
       "note": "two words: never a variant of a verse that happens to contain them"
     },
     {
+      "id": "H11",
+      "category": "hadith",
+      "text": "الراحمون يرحمهم الرحمن ارحموا من في الأرض يرحمكم من في السماء",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "جامع الترمذي"
+      },
+      "note": "outside Bukhari and Muslim"
+    },
+    {
+      "id": "H12",
+      "category": "hadith",
+      "text": "إنما النساء شقائق الرجال",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "سنن أبي داود"
+      },
+      "note": "also in Tirmidhi; Abu Dawud comes first in corpus order"
+    },
+    {
+      "id": "H13",
+      "category": "hadith",
+      "text": "لا ضرر ولا ضرار",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "سنن ابن ماجه"
+      }
+    },
+    {
+      "id": "H14",
+      "category": "hadith",
+      "text": "مفتاح الصلاة الطهور وتحريمها التكبير وتحليلها التسليم",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "سنن أبي داود"
+      }
+    },
+    {
+      "id": "H15",
+      "category": "hadith",
+      "text": "الرجل على دين خليله فلينظر أحدكم من يخالل",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "سنن أبي داود"
+      }
+    },
+    {
+      "id": "H16",
+      "category": "hadith",
+      "text": "بعثت لأتمم حسن الأخلاق",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "موطأ مالك"
+      },
+      "note": "Muwatta"
+    },
+    {
+      "id": "H17",
+      "category": "hadith",
+      "text": "اختلاف أمتي رحمة",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "popular saying with no basis in the nine books; two words in any case"
+    },
+    {
+      "id": "H18",
+      "category": "hadith",
+      "text": "أريد أن أسألك عن حكم الصلاة في السفر وكيف نؤديها مع الأهل",
+      "expect": {
+        "status": "baseless"
+      },
+      "note": "everyday request that shares a phrase with narrations: must not become a hadith quote"
+    },
+    {
       "id": "E07",
       "category": "known_gap",
       "known_gap": true,
