@@ -655,6 +655,24 @@
       "note": "attributed but altered: still reported as a variant"
     },
     {
+      "id": "F01",
+      "category": "fabricated",
+      "text": "وَاعْتَصِمُوا بِحَبْلِ اللَّهِ جَمِيعًا وَلَا تَمُوتُنَّ عَلَى الْفُرْقَةِ إِنَّ اللَّهَ غَفُورٌ رَحِيمٌ",
+      "expect": {
+        "status": "semantic_variant"
+      },
+      "note": "real fragments of 3:103 and a common phrase glued to an invented clause: reported with the matching and non-matching parts, not a bare baseless"
+    },
+    {
+      "id": "F02",
+      "category": "fabricated",
+      "text": "عباد الله",
+      "expect": {
+        "status": "baseless"
+      },
+      "note": "two words: never a variant of a verse that happens to contain them"
+    },
+    {
       "id": "E07",
       "category": "known_gap",
       "known_gap": true,

@@ -20,6 +20,8 @@ from app.schemas import Segment, Source
 VARIANT_THRESHOLD = 0.60
 CANDIDATE_LIMIT = 20
 PARTIAL_MIN_WORDS = 3  # shorter phrases are too ambiguous to call a verified quote
+VARIANT_MIN_WORDS = 3  # a one- or two-word fragment is never reported as a variant of a verse
+VARIANT_RUN_MIN_WORDS = 4  # verbatim parts shorter than this are too common to point at a source
 MAX_WINDOW_VERSES = 5  # longest run of consecutive ayahs that can be matched as one quote
 WINDOW_CANDIDATE_LIMIT = 10
 
@@ -361,7 +363,68 @@ def _verified(segment: str, entry: Entry, match_type: str, others: int) -> Segme
     )
 
 
-def verify_segment(segment: str) -> Segment:
+def _first_containing(phrase: str) -> Entry | None:
+    """The corpus entry that holds `phrase` verbatim (verse, then multi-verse window, then hadith), if any."""
+    found = verse_index().find_containing(phrase) or window_index().find_containing(phrase)
+    if not found and has_hadith_content(phrase):
+        found = hadith_index().find_containing(phrase)
+    return found[0] if found else None
+
+
+def verbatim_parts(words: list[str]) -> list[tuple[int, int, Entry]]:
+    """Maximal runs [i, j) of >= VARIANT_RUN_MIN_WORDS words found word for word in the corpus, left to right."""
+    parts, i = [], 0
+    while i + VARIANT_RUN_MIN_WORDS <= len(words):
+        entry = _first_containing(" ".join(words[i : i + VARIANT_RUN_MIN_WORDS]))
+        if entry is None:
+            i += 1
+            continue
+        j = i + VARIANT_RUN_MIN_WORDS
+        while j < len(words):
+            longer = _first_containing(" ".join(words[i : j + 1]))
+            if longer is None:
+                break
+            entry, j = longer, j + 1
+        parts.append((i, j, entry))
+        i = j
+    return parts
+
+
+def _label(entry: Entry) -> str:
+    return f"{entry.chapter} {entry.number}".strip() if entry.number else f"{entry.book}, {entry.chapter}".strip(", ")
+
+
+def partial_match(segment: str, words: list[str]) -> Segment | None:
+    """A text that is neither a quote nor a clean variant but is built from real quoted parts.
+
+    Reported as a variant of the entry holding its longest verbatim part, with the matching and the
+    non-matching stretches listed in reading order, instead of a bare "baseless".
+    """
+    parts = verbatim_parts(words)
+    if not parts:
+        return None
+    longest = max(parts, key=lambda p: p[1] - p[0])
+    differences, pos = [], 0
+    for i, j, entry in parts:
+        if i > pos:
+            differences.append(f"not found in the corpus: '{' '.join(words[pos:i])}'")
+        differences.append(f"verbatim: '{' '.join(words[i:j])}' ({_label(entry)})")
+        pos = j
+    if pos < len(words):
+        differences.append(f"not found in the corpus: '{' '.join(words[pos:])}'")
+    covered = sum(j - i for i, j, _ in parts)
+    entry = longest[2]
+    return Segment(
+        segment_text=segment,
+        classification=entry.classification,
+        status="semantic_variant",
+        confidence=round(covered / len(words), 2),
+        source=_source(entry),
+        differences=differences,
+    )
+
+
+def verify_segment(segment: str, run_variants: bool = True) -> Segment:
     norm = normalize(segment)
     verses, windows = verse_index(), window_index()
 
@@ -398,7 +461,11 @@ def verify_segment(segment: str) -> Segment:
             return _verified(segment, containing[0], "partial", len(containing) - 1)
 
     entry, score, form = find_best_match(segment)
-    if entry is None or score < VARIANT_THRESHOLD:
+    if entry is None or score < VARIANT_THRESHOLD or len(norm.split()) < VARIANT_MIN_WORDS:
+        if run_variants:
+            built_from_quotes = partial_match(segment, norm.split())
+            if built_from_quotes:
+                return built_from_quotes
         return Segment(
             segment_text=segment,
             classification="unverified",
