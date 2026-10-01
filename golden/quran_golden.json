@@ -770,6 +770,32 @@
       "note": "everyday request that shares a phrase with narrations: must not become a hadith quote"
     },
     {
+      "id": "A04",
+      "category": "attribution",
+      "text": "قال النبي صلى الله عليه وسلم الطهور شطر الإيمان",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح مسلم",
+        "source": "223"
+      },
+      "note": "Prophet attribution and honorific are not part of the quote"
+    },
+    {
+      "id": "A05",
+      "category": "attribution",
+      "text": "وقال أيضا إنما الأعمال بالنيات وإنما لكل امرئ ما نوى",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح البخاري",
+        "source": "1"
+      },
+      "note": "connective instead of a speaker"
+    },
+    {
       "id": "E07",
       "category": "known_gap",
       "known_gap": true,
