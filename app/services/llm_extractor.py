@@ -38,18 +38,23 @@ class ExtractionError(RuntimeError):
     pass
 
 
-def _get_client() -> AsyncOpenAI:
-    api_key = os.getenv("OPENROUTER_API_KEY")
+def server_has_key() -> bool:
+    return bool(os.getenv("OPENROUTER_API_KEY"))
+
+
+def _get_client(api_key: str | None = None) -> AsyncOpenAI:
+    """`api_key` is a key supplied with the request; otherwise the server's shared OPENROUTER_API_KEY is used."""
+    api_key = api_key or os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        raise ExtractionError("OPENROUTER_API_KEY is not set")
+        raise ExtractionError("no OpenRouter key: set OPENROUTER_API_KEY on the server or send your own key")
     return AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
 
 
-async def extract_claims(text: str) -> list[str]:
+async def extract_claims(text: str, api_key: str | None = None) -> list[str]:
     if not text.strip():
         return []
 
-    response = await _get_client().chat.completions.create(
+    response = await _get_client(api_key).chat.completions.create(
         model=MODEL,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},

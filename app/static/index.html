@@ -57,6 +57,16 @@
     <label class="sub" style="margin:0"><input type="checkbox" id="llm"> Use LLM claim extraction</label>
     <span class="sub" id="timing" style="margin:0"></span>
   </div>
+  <details id="settings" style="margin:14px 0">
+    <summary>Settings <span class="sub" id="cfgnote" style="margin:0"></span></summary>
+    <div style="margin-top:10px; display:grid; gap:10px">
+      <label class="sub" style="margin:0">Access code (only if the server asks for one)<br>
+        <input id="token" type="password" autocomplete="off" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text)"></label>
+      <label class="sub" style="margin:0">Your OpenRouter key for LLM extraction (only if the server has no shared key)<br>
+        <input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..." style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text)"></label>
+      <div class="sub" style="margin:0">Both are kept only in this browser (localStorage) and sent to this server over HTTPS as request headers. The server never stores them.</div>
+    </div>
+  </details>
   <div class="samples" id="samples"></div>
 
   <div id="out" style="margin-top:20px"></div>
@@ -133,8 +143,12 @@ async function run() {
   $("go").disabled = true; $("out").innerHTML = ""; $("timing").textContent = "";
   const t0 = performance.now();
   try {
-    const res = await fetch("/api/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, use_llm: $("llm").checked }) });
+    const headers = { "Content-Type": "application/json" };
+    if ($("token").value) headers["X-Access-Token"] = $("token").value;
+    if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
+    const res = await fetch("/api/verify", { method: "POST", headers, body: JSON.stringify({ text, use_llm: $("llm").checked }) });
     const data = await res.json();
+    if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
     $("timing").textContent = `${Math.round(performance.now() - t0)} ms`;
     if (!res.ok) throw new Error(JSON.stringify(data));
     render(data);
@@ -143,6 +157,19 @@ async function run() {
     $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`;
   } finally { $("go").disabled = false; }
 }
+
+// Settings live in this browser only.
+for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
+  try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
+  $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value); } catch (e) {} });
+}
+fetch("/api/config").then(r => r.json()).then(c => {
+  const notes = [];
+  if (c.access_required) notes.push("access code required");
+  notes.push(c.server_has_llm_key ? "server has a shared LLM key" : "no server LLM key: add yours here");
+  $("cfgnote").textContent = "(" + notes.join(", ") + ")";
+  if (c.access_required && !$("token").value) $("settings").open = true;
+}).catch(() => {});
 
 $("go").onclick = run;
 $("clear").onclick = () => { $("text").value = ""; $("out").innerHTML = ""; $("rawbox").hidden = true; $("timing").textContent = ""; };

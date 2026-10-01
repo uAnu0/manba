@@ -24,6 +24,25 @@ uvicorn app.main:app --reload
 
 `.env` is git-ignored. Never commit a key. Ask the owner for the OpenRouter key; without it everything works except `use_llm`.
 
+## Keys and access (local and Vercel)
+
+LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provide one, and both can be used together:
+
+1. **Shared team key (server side).** Set the environment variable `OPENROUTER_API_KEY` where the app runs. Locally that is `.env`; on Vercel
+   it is Project Settings, Environment Variables: add `OPENROUTER_API_KEY` (tick Production, and Preview if you use it, and mark it Sensitive),
+   then **redeploy**, because a running deployment does not see new variables. CLI alternative: `vercel env add OPENROUTER_API_KEY production`.
+   The key stays on the server and is never sent to browsers.
+2. **Your own key (per request).** In the test console open Settings and paste your key. It is kept in your browser only and sent with each request
+   in the `X-OpenRouter-Key` header; the server uses it for that call and never stores or logs it. A key sent this way takes priority over the shared one.
+
+**Protect a deployed app.** With a shared key on a public URL, anyone who finds the URL can spend your OpenRouter credit. Also set
+`API_ACCESS_TOKEN` (any long random string) in the same place. `POST /api/verify` then answers 401 unless the request carries it in the
+`X-Access-Token` header; the test console has an access-code field in Settings. Share the code with teammates directly, not in the repo.
+`GET /api/config` reports only whether a code is required and whether the server has a shared key.
+
+Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
+On Vercel give the function enough memory and duration, and expect a slow first request after a cold start.
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.
