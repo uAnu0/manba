@@ -267,6 +267,17 @@ def window_index() -> CorpusIndex:
     return CorpusIndex(build_windows(load_corpus()))
 
 
+def similarity(a: str, b: str) -> float:
+    """Mean of character-level and word-level similarity.
+
+    Character similarity alone is inflated for short texts (an unrelated three-word saying can share
+    two thirds of its letters with a verse); word similarity alone ignores spelling slips inside a word.
+    """
+    chars = difflib.SequenceMatcher(None, a, b).ratio()
+    words = difflib.SequenceMatcher(None, a.split(), b.split(), autojunk=False).ratio()
+    return (chars + words) / 2
+
+
 def find_best_match(segment: str) -> tuple[Entry | None, float, str]:
     """Best fuzzy match over single verses and multi-verse windows: (entry, similarity, best normalized form)."""
     norm = normalize(segment)
@@ -276,7 +287,7 @@ def find_best_match(segment: str) -> tuple[Entry | None, float, str]:
     best, best_score, best_form = None, 0.0, ""
     for entry in candidates:
         for form in entry.forms:
-            score = difflib.SequenceMatcher(None, norm, form).ratio()
+            score = similarity(norm, form)
             if score > best_score:
                 best, best_score, best_form = entry, score, form
     return best, best_score, best_form
