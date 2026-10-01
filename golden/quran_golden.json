@@ -68,19 +68,6 @@
       }
     },
     {
-      "id": "E07",
-      "category": "known_gap",
-      "known_gap": true,
-      "text": "الله لا إله إلا هو الحي القيوم لا تأخذه سنة ولا نوم له ما في السماوات وما في الأرض من ذا الذي يشفع عنده إلا بإذنه يعلم ما بين أيديهم وما خلفهم ولا يحيطون بشيء من علمه إلا بما شاء وسع كرسيه السماوات والأرض ولا يؤوده حفظهما وهو العلي العظيم",
-      "expect": {
-        "status": "verified",
-        "match_type": "full",
-        "source": "2:255",
-        "other_matches_count": 0
-      },
-      "note": "Ayat al-Kursi typed with يؤوده; Tanzil spells it يئوده (hamza seat)"
-    },
-    {
       "id": "E08",
       "category": "exact_verse",
       "text": "وما خلقت الجن والإنس إلا ليعبدون",
@@ -535,12 +522,120 @@
     },
     {
       "id": "N09",
-      "category": "out_of_scope",
+      "category": "hadith",
       "text": "إنما الأعمال بالنيات",
       "expect": {
-        "status": "baseless"
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح البخاري"
       },
-      "note": "hadith: no hadith corpus yet"
+      "note": "hadith text (Bukhari, first in corpus order; also occurs elsewhere)"
+    },
+    {
+      "id": "H02",
+      "category": "hadith",
+      "text": "الطهور شطر الإيمان",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح مسلم"
+      },
+      "note": "Muslim kitab al-tahara"
+    },
+    {
+      "id": "H03",
+      "category": "hadith",
+      "text": "من كان يؤمن بالله واليوم الآخر فليقل خيرا أو ليصمت",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح البخاري"
+      }
+    },
+    {
+      "id": "H04",
+      "category": "hadith",
+      "text": "المسلم من سلم المسلمون من لسانه ويده",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح البخاري"
+      }
+    },
+    {
+      "id": "H05",
+      "category": "hadith",
+      "text": "لا يؤمن أحدكم حتى يحب لأخيه ما يحب لنفسه",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح البخاري"
+      }
+    },
+    {
+      "id": "H06",
+      "category": "hadith",
+      "text": "كلمتان خفيفتان على اللسان ثقيلتان في الميزان حبيبتان إلى الرحمن",
+      "expect": {
+        "status": "verified",
+        "match_type": "partial",
+        "classification": "hadith",
+        "book": "صحيح البخاري"
+      }
+    },
+    {
+      "id": "H07",
+      "category": "hadith",
+      "text": "قال رسول الله صلى الله عليه وسلم",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "boilerplate only: never a quote"
+    },
+    {
+      "id": "H08",
+      "category": "hadith",
+      "text": "إنما الأعمال بالنيات وإنما لكل امرئ ما أراد",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "ending altered (ما نوى -> ما أراد)"
+    },
+    {
+      "id": "H09",
+      "category": "hadith",
+      "text": "قال رسول الله صلى الله عليه وسلم من قرأ هذه الكلمات دخل الجنة بغير حساب ولو كان عاصيا",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "invented hadith with the usual preface"
+    },
+    {
+      "id": "H10",
+      "category": "hadith",
+      "text": "الدين النصيحة",
+      "expect": {
+        "status": "not_verified"
+      },
+      "note": "two words: below the minimum for a verified quote"
+    },
+    {
+      "id": "E07",
+      "category": "known_gap",
+      "known_gap": true,
+      "text": "الله لا إله إلا هو الحي القيوم لا تأخذه سنة ولا نوم له ما في السماوات وما في الأرض من ذا الذي يشفع عنده إلا بإذنه يعلم ما بين أيديهم وما خلفهم ولا يحيطون بشيء من علمه إلا بما شاء وسع كرسيه السماوات والأرض ولا يؤوده حفظهما وهو العلي العظيم",
+      "expect": {
+        "status": "verified",
+        "match_type": "full",
+        "source": "2:255",
+        "other_matches_count": 0
+      },
+      "note": "Ayat al-Kursi typed with يؤوده; Tanzil spells it يئوده (hamza seat)"
     },
     {
       "id": "G01",

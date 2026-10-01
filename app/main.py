@@ -15,6 +15,7 @@ async def lifespan(_: FastAPI):
     # Build the corpus indexes at startup so the first request does not pay for them.
     verifier.verse_index()
     verifier.window_index()
+    verifier.hadith_index()
     yield
 
 

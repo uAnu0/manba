@@ -14,7 +14,14 @@ import re
 from dataclasses import dataclass
 
 from app.schemas import Segment
-from app.services.verifier import normalize, verify_segment, verse_index, window_index
+from app.services.verifier import (
+    has_hadith_content,
+    hadith_index,
+    normalize,
+    verify_segment,
+    verse_index,
+    window_index,
+)
 
 SPAN_MIN_WORDS = 4  # unmarked runs: shorter ones are common speech ("في سبيل الله") and too noisy
 REGION_MIN_WORDS = 3
@@ -133,7 +140,11 @@ def find_regions(text: str, words: list[Word]) -> list[Region]:
 
 def _contained(norms: list[str]) -> bool:
     phrase = " ".join(norms)
-    return bool(verse_index().find_containing(phrase) or window_index().find_containing(phrase))
+    return bool(
+        verse_index().find_containing(phrase)
+        or window_index().find_containing(phrase)
+        or (has_hadith_content(phrase) and hadith_index().find_containing(phrase))
+    )
 
 
 def find_runs(words: list[Word], blocked: set[int]) -> list[tuple[int, int]]:
