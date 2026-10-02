@@ -50,11 +50,18 @@ an excerpt (a hadith without its chain of narrators), the full text, and the gra
 It also returns `refer_to_scholar` with a reason (sensitive topics such as family law, finance and medicine; personal situations; no clear evidence)
 and a notice that this is evidence, not a ruling. Test page: `/evidence`.
 
-How it finds texts: keyword search (BM25 over normalized, lightly stemmed Arabic) always runs. With `use_llm`, a model also *recites* the evidence it
-knows; every recitation is looked up in the corpus, and only corpus text reaches the user (recitations that are not found are discarded and listed in
-`query.rejected`). The model never answers or issues a ruling. Measured on `golden/evidence_golden.json` (25 questions, 36 expected texts):
-keywords alone find 17% of the expected texts, keywords plus recitation about 53% (60% of the questions get at least one expected text).
-That is a baseline, not a quality bar: it needs semantic search and scholar-reviewed questions. Run `python eval_evidence.py --llm` to re-measure.
+How it finds texts. Three searches run and their rankings are merged; only corpus text is ever shown:
+1. **Meaning search** (always, when `corpus_embeddings.npz` and an OpenRouter key are available): every verse and hadith was turned into a vector once
+   (`python embed_corpus.py`, model `google/gemini-embedding-001`, 768 numbers per text, about 37 MB); the question is embedded at request time and the
+   nearest texts are taken. It finds "من قتل نفسه" for a question about suicide, which keywords cannot.
+2. **Keyword search** (always): BM25 over normalized, lightly stemmed Arabic; hadith are searched without their chain of narrators.
+3. **LLM step** (`use_llm`): the model *recites* the evidence it knows (each recitation is looked up in the corpus; unconfirmed ones are discarded and
+   listed in `query.rejected`), then picks the final texts among the retrieved candidates. It only picks from a numbered list; it writes no evidence and no ruling.
+
+Measured on `golden/evidence_golden.json` (25 questions, 36 expected texts, written by the developer) with the card as shown (8 verses + 10 hadith):
+keywords only 22% of the expected texts (32% of the questions); meaning + keywords 47% (60%); with the LLM step 67% (80%).
+That is a baseline on a small set, not a quality bar: it needs scholar-reviewed questions. Run `python eval_evidence.py [--llm] [--no-meaning]` to re-measure.
+Memory with everything loaded is about 510 MB and startup about 20 s (the indexes are built at first use).
 
 ## API
 
@@ -69,7 +76,8 @@ Each segment has `segment_text`, `classification` (quran | hadith | unverified),
 | Command | What it does |
 |---|---|
 | `python eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
-| `python eval_evidence.py [--llm]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 25 cheap model calls. |
+| `python eval_evidence.py [--llm] [--no-meaning]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 75 cheap model calls. |
+| `python embed_corpus.py` | Rebuilds `corpus_embeddings.npz` (about 4 million tokens, under a dollar; resumable). Needed after the corpus changes. |
 | `python validate_corpus.py` | Checks `corpus.json` against the Tanzil files character for character. |
 | `python ingest_quran.py` | Rebuilds `corpus.json` from `data/tanzil/` (offline). |
 | `python ingest_hadith.py` | Rebuilds `corpus_hadith.json.gz`; downloads the raw hadith files on first run (about 100 MB, SHA-256 pinned). |

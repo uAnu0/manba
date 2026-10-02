@@ -39,7 +39,7 @@ async def run(use_llm: bool, use_meaning: bool, limit: int, verbose: bool) -> No
     suggested = confirmed = 0
     for q in questions:
         card = await build_card(q["question"], use_llm=use_llm, use_meaning=use_meaning)
-        shown = card.quran[:limit] + card.hadith[:limit]
+        shown = card.quran + card.hadith  # the card as a user would see it
         texts = [normalize(i.full_text) for i in shown]
         suggested += card.query.suggested
         confirmed += card.query.found_in_corpus

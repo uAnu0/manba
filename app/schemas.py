@@ -86,6 +86,7 @@ class QueryInfo(BaseModel):
     rejected: list[str] = Field(default_factory=list)  # recalled texts that are not in the corpus (never shown as evidence)
     error: Optional[str] = None
     meaning_used: bool = False  # the embedding search ran
+    reranked: bool = False  # an LLM chose the final texts among the retrieved candidates (it writes no evidence)
     meaning_error: Optional[str] = None
 
 

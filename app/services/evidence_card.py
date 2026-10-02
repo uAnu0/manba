@@ -12,8 +12,10 @@ from functools import lru_cache
 
 from app.schemas import EvidenceItem, EvidenceResponse, QueryInfo
 from app.services.dense import dense_index, embed_query
-from app.services.evidence import index, item_for, matn_start, retrieve, stem, terms
-from app.services.llm_query import suggest_evidence
+import asyncio
+
+from app.services.evidence import excerpt, index, item_for, matn_start, retrieve, stem, terms
+from app.services.llm_query import rerank, suggest_evidence
 from app.services.pipeline import _redact
 from app.services.verifier import normalize, partial_match, verify_verbatim
 
@@ -25,6 +27,7 @@ _ANNOTATION = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")  # "(حديث صحيح)
 QURAN_LIMIT = 8
 HADITH_LIMIT = 10
 POOL = 30  # candidates taken from each search before merging
+RERANK_POOL = 30  # merged candidates per type shown to the LLM that picks the final texts
 
 # Weights of the three searches in the merged ranking, and the usual reciprocal-rank constant.
 WEIGHT_MEANING = 1.0
@@ -209,12 +212,32 @@ async def build_card(
         except Exception as exc:
             info.error = _redact(f"{type(exc).__name__}: {exc}")
 
+    limits = {"quran": QURAN_LIMIT, "hadith": HADITH_LIMIT}
+    fused = {
+        c: fuse(keyword[c], meaning[c], recited[c], RERANK_POOL if use_llm else limits[c]) for c in limits
+    }
+    if use_llm:
+        # An LLM picks the final texts among the retrieved candidates; if it fails, the merged order stands.
+        try:
+            picks = await asyncio.gather(
+                *(
+                    rerank(question, [excerpt(entries[i].text, c, query_words) for i, _, _ in fused[c]], limits[c], api_key)
+                    for c in limits
+                )
+            )
+            for c, chosen in zip(limits, picks):
+                if chosen:
+                    fused[c] = [fused[c][k] for k in chosen]
+            info.reranked = True
+        except Exception as exc:
+            info.error = (info.error + "; " if info.error else "") + "rerank: " + _redact(f"{type(exc).__name__}: {exc}")
+
     cards: dict[str, list[EvidenceItem]] = {}
-    for classification, limit in (("quran", QURAN_LIMIT), ("hadith", HADITH_LIMIT)):
+    for classification, limit in limits.items():
         items = []
         if classification == "quran":
             items += windows
-        for i, score, sources in fuse(keyword[classification], meaning[classification], recited[classification], limit):
+        for i, score, sources in fused[classification]:
             matched = next((m for j, _, m in keyword[classification] if j == i), [])
             item = item_for(entries[i], query_words, score * 1000, matched, sorted(sources), exact.get(i, True))
             item.similarity = round(similarity[i], 3) if i in similarity else None
