@@ -8,7 +8,7 @@ reported as rejected. The model neither answers the question nor produces a ruli
 """
 import json
 
-from app.services.llm_extractor import MODEL, ExtractionError, _get_client
+from app.services.llm_extractor import ExtractionError, _get_client, llm_model
 
 SYSTEM_PROMPT = (
     "You are a retrieval helper for a Quran and hadith search tool. The user asks a question about Islam in any "
@@ -38,7 +38,7 @@ SUGGESTIONS_SCHEMA = {
 async def suggest_evidence(question: str, api_key: str | None = None) -> list[str]:
     """The model's recitations (verses first, then hadith). Unverified: callers must check them against the corpus."""
     response = await _get_client(api_key).chat.completions.create(
-        model=MODEL,
+        model=llm_model(),
         messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": question}],
         response_format={"type": "json_schema", "json_schema": SUGGESTIONS_SCHEMA},
         temperature=0,
