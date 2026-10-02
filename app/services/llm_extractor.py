@@ -8,7 +8,12 @@ from openai import AsyncOpenAI
 load_dotenv()
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-MODEL = "openai/gpt-4o-mini"
+DEFAULT_MODEL = "openai/gpt-4o-mini"
+
+
+def llm_model() -> str:
+    """The chat model for extraction and recall. Set LLM_MODEL to use another one (e.g. a ":free" model)."""
+    return (os.getenv("LLM_MODEL") or DEFAULT_MODEL).strip()
 
 SYSTEM_PROMPT = (
     "You extract verifiable religious content from raw text such as a sermon or a social media post. "
@@ -56,7 +61,7 @@ async def extract_claims(text: str, api_key: str | None = None) -> list[str]:
         return []
 
     response = await _get_client(api_key).chat.completions.create(
-        model=MODEL,
+        model=llm_model(),
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": text},
