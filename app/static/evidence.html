@@ -44,7 +44,8 @@
   <textarea id="q" dir="auto" placeholder="مثال: ما حكم الرشوة؟   Example: What is the evidence on honouring parents?"></textarea>
   <div class="row">
     <button id="go" class="primary">Find evidence</button>
-    <label class="small"><input type="checkbox" id="llm" checked> Use LLM recall (finds better evidence; every text is checked against the corpus)</label>
+    <label class="small"><input type="checkbox" id="meaning" checked> Meaning search (embeddings)</label>
+    <label class="small"><input type="checkbox" id="llm"> LLM recall (slower; every text is checked against the corpus)</label>
   </div>
   <div class="samples" id="samples"></div>
 
@@ -70,7 +71,7 @@ function renderItem(it) {
   const where = [s.book, s.chapter && it.classification === "hadith" ? s.chapter : (it.classification === "quran" ? s.chapter : ""), s.number].filter(Boolean).join(" · ");
   const full = it.full_text && it.full_text !== s.matched_text ? `<details><summary>${it.classification === "hadith" ? "Full text with chain of narrators" : "Full text"}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
   return `<div class="item"><div class="meta"><span class="src">${esc(where)}</span>${grades}
-    ${it.found_by === "suggestion" ? `<span class="chip">recalled by LLM, found in corpus</span>` : `<span class="chip">keyword match</span>`}
+    ${(it.found_by || []).map(f => `<span class="chip">${{ meaning: "by meaning" + (it.similarity ? " " + it.similarity.toFixed(2) : ""), keyword: "keywords", suggestion: "recalled by LLM, found in corpus" }[f]}</span>`).join("")}
     ${it.exact_wording ? "" : `<span class="chip warn">close wording, not identical</span>`}</div>
     <div class="ar">${esc(s.matched_text)}</div>${full}</div>`;
 }
@@ -78,6 +79,7 @@ function render(d) {
   let h = "";
   if (d.refer_to_scholar) h += `<div class="banner refer"><b>Please ask a qualified scholar</b>${esc(d.reason || "")}</div>`;
   h += `<div class="banner notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
+  if (d.query && d.query.meaning_error) h += `<div class="err" style="margin-top:8px">Meaning search failed: ${esc(d.query.meaning_error)}</div>`;
   if (d.query && d.query.used) h += `<div class="small">LLM recalled ${d.query.suggested} texts; ${d.query.found_in_corpus} found in the corpus${d.query.rejected.length ? `, ${d.query.rejected.length} not found and discarded` : ""}.</div>`;
   if (d.query && d.query.error) h += `<div class="err" style="margin-top:8px">${esc(d.query.error)}</div>`;
   h += `<h2>Quran (${d.quran.length})</h2>` + (d.quran.map(renderItem).join("") || `<div class="small">No verse found.</div>`);
@@ -91,7 +93,7 @@ async function run() {
   if ($("token").value) headers["X-Access-Token"] = $("token").value;
   if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
   try {
-    const res = await fetch("/api/evidence", { method: "POST", headers, body: JSON.stringify({ question, use_llm: $("llm").checked }) });
+    const res = await fetch("/api/evidence", { method: "POST", headers, body: JSON.stringify({ question, use_llm: $("llm").checked, use_meaning: $("meaning").checked }) });
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
     const data = await res.json(); if (!res.ok) throw new Error(JSON.stringify(data));
     render(data);

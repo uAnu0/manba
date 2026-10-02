@@ -156,7 +156,7 @@ def item_for(
     query_words: set[str],
     score: float = 0.0,
     matched: list[str] | None = None,
-    found_by: str = "keyword",
+    found_by: list[str] | None = None,
     exact_wording: bool = True,
 ) -> EvidenceItem:
     return EvidenceItem(
@@ -171,7 +171,7 @@ def item_for(
             grades=[Grade(name=n, grade=g) for n, g in entry.grades],
         ),
         full_text=entry.text,
-        found_by=found_by,
+        found_by=found_by or ["keyword"],
         exact_wording=exact_wording,
     )
 

@@ -61,7 +61,8 @@ class VerifyResponse(BaseModel):
 
 class EvidenceRequest(BaseModel):
     question: str = Field(..., min_length=2, max_length=1000)
-    use_llm: bool = False  # let an LLM turn the question (any language) into Arabic search terms
+    use_llm: bool = False  # also let an LLM recite the evidence it knows (each text is checked against the corpus)
+    use_meaning: bool = True  # meaning-based search with embeddings (needs an OpenRouter key and corpus_embeddings.npz)
 
 
 class EvidenceItem(BaseModel):
@@ -70,7 +71,9 @@ class EvidenceItem(BaseModel):
     matched_terms: list[str] = Field(default_factory=list)
     source: Source  # matched_text is an excerpt; for a hadith it starts after the chain of narrators
     full_text: str  # the whole corpus text, including the chain of narrators for a hadith
-    found_by: Literal["keyword", "suggestion"] = "keyword"  # suggestion: recalled by the LLM, then found in the corpus
+    found_by: list[Literal["meaning", "keyword", "suggestion"]] = Field(default_factory=list)
+    # meaning: nearest by embedding; keyword: matching words; suggestion: recalled by the LLM and then found in the corpus
+    similarity: Optional[float] = None  # cosine similarity of the meaning search (1.0 = identical meaning)
     exact_wording: bool = True  # False when the LLM's recitation differed slightly from the corpus text
 
 
@@ -82,6 +85,8 @@ class QueryInfo(BaseModel):
     found_in_corpus: int = 0
     rejected: list[str] = Field(default_factory=list)  # recalled texts that are not in the corpus (never shown as evidence)
     error: Optional[str] = None
+    meaning_used: bool = False  # the embedding search ran
+    meaning_error: Optional[str] = None
 
 
 class EvidenceResponse(BaseModel):
