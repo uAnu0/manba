@@ -48,3 +48,40 @@ async def suggest_evidence(question: str, api_key: str | None = None) -> list[st
     if not all(isinstance(t, str) for t in texts):
         raise ExtractionError(f"Model returned an unexpected shape: {content!r}")
     return [t.strip() for t in texts if t.strip()][:16]
+
+
+RERANK_SCHEMA = {
+    "name": "relevant_texts",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {"relevant": {"type": "array", "items": {"type": "integer"}}},
+        "required": ["relevant"],
+        "additionalProperties": False,
+    },
+}
+RERANK_PROMPT = (
+    "You rank search results. The user asks a question about Islam. Below are numbered Quran verses or hadith texts "
+    "retrieved from a library. Do NOT answer the question. Return the numbers of the texts that are DIRECT evidence "
+    "for the topic of the question (the ones a scholar would cite), best first, at most {n}. "
+    "Return only numbers that appear in the list."
+)
+
+
+async def rerank(question: str, excerpts: list[str], limit: int, api_key: str | None = None) -> list[int]:
+    """Positions (into `excerpts`) of the most relevant texts, best first. The model only picks from what it is
+    shown: it writes no evidence, and anything outside the list is ignored."""
+    lines = "\n".join(f"{k}. {text[:300]}" for k, text in enumerate(excerpts))
+    content = await chat_json(
+        [
+            {"role": "system", "content": RERANK_PROMPT.format(n=limit)},
+            {"role": "user", "content": f"Question: {question}\n\n{lines}"},
+        ],
+        RERANK_SCHEMA,
+        api_key,
+    )
+    try:
+        picked = json.loads(content)["relevant"]
+    except (TypeError, ValueError, KeyError) as exc:
+        raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
+    return [k for k in dict.fromkeys(picked) if isinstance(k, int) and 0 <= k < len(excerpts)][:limit]
