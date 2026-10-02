@@ -15,7 +15,7 @@ from app.services.dense import dense_index, embed_query
 import asyncio
 
 from app.services.evidence import excerpt, index, item_for, matn_start, retrieve, stem, terms
-from app.services.llm_query import rerank, suggest_evidence
+from app.services.llm_query import judge, suggest_evidence
 from app.services.pipeline import _redact
 from app.services.verifier import normalize, partial_match, verify_verbatim
 
@@ -27,7 +27,8 @@ _ANNOTATION = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")  # "(حديث صحيح)
 QURAN_LIMIT = 8
 HADITH_LIMIT = 10
 POOL = 30  # candidates taken from each search before merging
-RERANK_POOL = 30  # merged candidates per type shown to the LLM that picks the final texts
+JUDGE_POOL = 30  # merged candidates per type shown to the LLM judge
+MIN_DIRECT = 3  # "related" texts are added only while fewer than this many are judged direct
 
 # Weights of the three searches in the merged ranking, and the usual reciprocal-rank constant.
 WEIGHT_MEANING = 1.0
@@ -214,24 +215,30 @@ async def build_card(
 
     limits = {"quran": QURAN_LIMIT, "hadith": HADITH_LIMIT}
     fused = {
-        c: fuse(keyword[c], meaning[c], recited[c], RERANK_POOL if use_llm else limits[c]) for c in limits
+        c: fuse(keyword[c], meaning[c], recited[c], JUDGE_POOL if use_llm else limits[c]) for c in limits
     }
+    relevance: dict[int, str] = {}
+    in_scope = True
     if use_llm:
-        # An LLM picks the final texts among the retrieved candidates; if it fails, the merged order stands.
+        # An LLM judge grades every candidate (direct / related / unrelated) and says whether the question is about
+        # Islam at all. Unrelated texts are dropped. If the judge fails, the merged order stands.
         try:
-            picks = await asyncio.gather(
-                *(
-                    rerank(question, [excerpt(entries[i].text, c, query_words) for i, _, _ in fused[c]], limits[c], api_key)
-                    for c in limits
-                )
+            results = await asyncio.gather(
+                *(judge(question, [excerpt(entries[i].text, c, query_words) for i, _, _ in fused[c]], api_key) for c in limits)
             )
-            # An empty pick means the model saw no direct evidence among the candidates: show none of that type
-            # (meaning search always returns the nearest texts, so this is the signal that nothing relevant exists).
-            for c, chosen in zip(limits, picks):
-                fused[c] = [fused[c][k] for k in chosen]
+            in_scope = any(on_topic for on_topic, _ in results)
+            for c, (_, verdicts) in zip(limits, results):
+                candidates = fused[c]
+                direct = [t for k, t in enumerate(candidates) if verdicts.get(k) == "direct"]
+                related = [t for k, t in enumerate(candidates) if verdicts.get(k) == "related"]
+                chosen = direct[: limits[c]]
+                if len(direct) < MIN_DIRECT:
+                    chosen += related[: limits[c] - len(chosen)]
+                relevance.update({i: ("direct" if t in direct else "related") for t in chosen for i in [t[0]]})
+                fused[c] = chosen if in_scope else []
             info.reranked = True
         except Exception as exc:
-            info.error = (info.error + "; " if info.error else "") + "rerank: " + _redact(f"{type(exc).__name__}: {exc}")
+            info.error = (info.error + "; " if info.error else "") + "judge: " + _redact(f"{type(exc).__name__}: {exc}")
 
     cards: dict[str, list[EvidenceItem]] = {}
     for classification, limit in limits.items():
@@ -242,10 +249,13 @@ async def build_card(
             matched = next((m for j, _, m in keyword[classification] if j == i), [])
             item = item_for(entries[i], query_words, score * 1000, matched, sorted(sources), exact.get(i, True))
             item.similarity = round(similarity[i], 3) if i in similarity else None
+            item.relevance = relevance.get(i)
             items.append(item)
-        cards[classification] = items[:limit]
+        cards[classification] = (items if in_scope else [])[:limit]
 
     refer, reason = referral(question, len(cards["quran"]) + len(cards["hadith"]))
+    if not in_scope:
+        refer, reason = False, "This does not look like a question about Islam, so no texts are shown."
     return EvidenceResponse(
         question=question,
         search_terms=sorted(words),
@@ -253,6 +263,7 @@ async def build_card(
         quran=cards["quran"],
         hadith=cards["hadith"],
         refer_to_scholar=refer,
+        in_scope=in_scope,
         reason=reason,
         notice_ar=NOTICE_AR,
         notice_en=NOTICE_EN,
