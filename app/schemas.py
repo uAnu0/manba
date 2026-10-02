@@ -75,6 +75,7 @@ class EvidenceItem(BaseModel):
     # meaning: nearest by embedding; keyword: matching words; suggestion: recalled by the LLM and then found in the corpus
     similarity: Optional[float] = None  # cosine similarity of the meaning search (1.0 = identical meaning)
     exact_wording: bool = True  # False when the LLM's recitation differed slightly from the corpus text
+    relevance: Optional[Literal["direct", "related"]] = None  # the LLM judge's verdict, when the LLM step ran
 
 
 class QueryInfo(BaseModel):
@@ -86,7 +87,7 @@ class QueryInfo(BaseModel):
     rejected: list[str] = Field(default_factory=list)  # recalled texts that are not in the corpus (never shown as evidence)
     error: Optional[str] = None
     meaning_used: bool = False  # the embedding search ran
-    reranked: bool = False  # an LLM chose the final texts among the retrieved candidates (it writes no evidence)
+    reranked: bool = False  # an LLM judged each retrieved candidate and dropped the unrelated ones (it writes no evidence)
     meaning_error: Optional[str] = None
 
 
@@ -97,6 +98,7 @@ class EvidenceResponse(BaseModel):
     quran: list[EvidenceItem]
     hadith: list[EvidenceItem]
     refer_to_scholar: bool
+    in_scope: bool = True  # False when the LLM judge says the question is not about Islam
     reason: Optional[str] = None
     notice_ar: str
     notice_en: str

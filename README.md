@@ -56,11 +56,13 @@ How it finds texts. Three searches run and their rankings are merged; only corpu
    nearest texts are taken. It finds "من قتل نفسه" for a question about suicide, which keywords cannot.
 2. **Keyword search** (always): BM25 over normalized, lightly stemmed Arabic; hadith are searched without their chain of narrators.
 3. **LLM step** (`use_llm`): the model *recites* the evidence it knows (each recitation is looked up in the corpus; unconfirmed ones are discarded and
-   listed in `query.rejected`), then picks the final texts among the retrieved candidates. It only picks from a numbered list; it writes no evidence and no ruling.
+   listed in `query.rejected`), then **judges every retrieved candidate** as direct / related / unrelated and says whether the question is about Islam at all.
+   Unrelated texts are dropped, "related" ones are shown only when fewer than three are direct, and an off-topic question (`in_scope: false`) gets no texts.
+   The model only grades numbered texts it is shown; it writes no evidence and no ruling.
 
 Measured on `golden/evidence_golden.json` (25 questions, 36 expected texts, written by the developer) with the card as shown (8 verses + 10 hadith):
-keywords only 22% of the expected texts (32% of the questions); meaning + keywords 47% (60%); with the LLM step 67% (80%).
-That is a baseline on a small set, not a quality bar: it needs scholar-reviewed questions. Run `python eval_evidence.py [--llm] [--no-meaning]` to re-measure.
+keywords only 22% of the expected texts (32% of the questions); meaning + keywords 47% (60%); with the LLM step 72% (84%).
+Precision (how many shown texts are really relevant) is not measured yet. That is a baseline on a small set, not a quality bar: it needs scholar-reviewed questions. Run `python eval_evidence.py [--llm] [--no-meaning]` to re-measure.
 Memory with everything loaded is about 510 MB and startup about 20 s (the indexes are built at first use).
 
 ## API

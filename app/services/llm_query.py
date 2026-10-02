@@ -50,39 +50,60 @@ async def suggest_evidence(question: str, api_key: str | None = None) -> list[st
     return [t.strip() for t in texts if t.strip()][:16]
 
 
-RERANK_SCHEMA = {
-    "name": "relevant_texts",
+JUDGE_SCHEMA = {
+    "name": "judgments",
     "strict": True,
     "schema": {
         "type": "object",
-        "properties": {"relevant": {"type": "array", "items": {"type": "integer"}}},
-        "required": ["relevant"],
+        "properties": {
+            "on_topic": {"type": "boolean"},
+            "verdicts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "number": {"type": "integer"},
+                        "relevance": {"type": "string", "enum": ["direct", "related", "unrelated"]},
+                    },
+                    "required": ["number", "relevance"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": ["on_topic", "verdicts"],
         "additionalProperties": False,
     },
 }
-RERANK_PROMPT = (
-    "You rank search results. The user asks a question about Islam. Below are numbered Quran verses or hadith texts "
-    "retrieved from a library. Do NOT answer the question. Return the numbers of the texts that are DIRECT evidence "
-    "for the topic of the question (the ones a scholar would cite), best first, at most {n}. "
-    "Be strict: if the question is not about religion, or none of the texts is direct evidence for its topic, "
-    "return an empty list. Return only numbers that appear in the list."
+JUDGE_PROMPT = (
+    "You judge search results for a Quran and hadith search tool. The user asks a question. Below are numbered Quran "
+    "verses or hadith texts retrieved from a library. Do NOT answer the question and do not write any evidence. "
+    "First decide on_topic: true only if the question is about Islam, Islamic law, belief, worship or ethics as "
+    "found in the Quran and hadith; false for anything else (cooking, weather, general facts, chit-chat). "
+    "If on_topic is false, return no verdicts. Otherwise give a verdict for every text: "
+    "'direct' = a scholar would cite this text as evidence on the topic of the question; "
+    "'related' = it is about the same subject but is not what the question asks; "
+    "'unrelated' = it has nothing to do with the question. Be strict: a text that merely shares a word with the "
+    "question is 'unrelated'."
 )
 
 
-async def rerank(question: str, excerpts: list[str], limit: int, api_key: str | None = None) -> list[int]:
-    """Positions (into `excerpts`) of the most relevant texts, best first. The model only picks from what it is
-    shown: it writes no evidence, and anything outside the list is ignored."""
+async def judge(question: str, excerpts: list[str], api_key: str | None = None) -> tuple[bool, dict[int, str]]:
+    """(is the question on topic, verdict per text position). The model only grades texts it is shown: it writes no
+    evidence, and verdicts for positions outside the list are ignored."""
     lines = "\n".join(f"{k}. {text[:300]}" for k, text in enumerate(excerpts))
     content = await chat_json(
-        [
-            {"role": "system", "content": RERANK_PROMPT.format(n=limit)},
-            {"role": "user", "content": f"Question: {question}\n\n{lines}"},
-        ],
-        RERANK_SCHEMA,
+        [{"role": "system", "content": JUDGE_PROMPT}, {"role": "user", "content": f"Question: {question}\n\n{lines}"}],
+        JUDGE_SCHEMA,
         api_key,
     )
     try:
-        picked = json.loads(content)["relevant"]
+        data = json.loads(content)
+        on_topic = bool(data["on_topic"])
+        verdicts = {
+            v["number"]: v["relevance"]
+            for v in data["verdicts"]
+            if isinstance(v["number"], int) and 0 <= v["number"] < len(excerpts)
+        }
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
-    return [k for k in dict.fromkeys(picked) if isinstance(k, int) and 0 <= k < len(excerpts)][:limit]
+    return on_topic, verdicts

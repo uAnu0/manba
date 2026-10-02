@@ -72,11 +72,13 @@ function renderItem(it) {
   const full = it.full_text && it.full_text !== s.matched_text ? `<details><summary>${it.classification === "hadith" ? "Full text with chain of narrators" : "Full text"}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
   return `<div class="item"><div class="meta"><span class="src">${esc(where)}</span>${grades}
     ${(it.found_by || []).map(f => `<span class="chip">${{ meaning: "by meaning" + (it.similarity ? " " + it.similarity.toFixed(2) : ""), keyword: "keywords", suggestion: "recalled by LLM, found in corpus" }[f]}</span>`).join("")}
+    ${it.relevance ? `<span class="chip ${it.relevance === "direct" ? "sahih" : "hasan"}">${it.relevance === "direct" ? "direct evidence" : "related"} (AI judged)</span>` : ""}
     ${it.exact_wording ? "" : `<span class="chip warn">close wording, not identical</span>`}</div>
     <div class="ar">${esc(s.matched_text)}</div>${full}</div>`;
 }
 function render(d) {
   let h = "";
+  if (d.in_scope === false) h += `<div class="banner refer"><b>Outside the scope</b>${esc(d.reason || "")}</div>`;
   if (d.refer_to_scholar) h += `<div class="banner refer"><b>Please ask a qualified scholar</b>${esc(d.reason || "")}</div>`;
   h += `<div class="banner notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
   if (d.query && d.query.meaning_error) h += `<div class="err" style="margin-top:8px">Meaning search failed: ${esc(d.query.meaning_error)}</div>`;
