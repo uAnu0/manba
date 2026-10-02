@@ -11,9 +11,11 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 
 
-def llm_model() -> str:
-    """The chat model for extraction and recall. Set LLM_MODEL to use another one (e.g. a ":free" model)."""
-    return (os.getenv("LLM_MODEL") or DEFAULT_MODEL).strip()
+def llm_models() -> list[str]:
+    """Chat models to try in order. LLM_MODEL may list several, separated by commas (e.g. free models that are
+    often rate-limited): the next one is tried when a model fails."""
+    configured = [m.strip() for m in (os.getenv("LLM_MODEL") or "").split(",") if m.strip()]
+    return configured or [DEFAULT_MODEL]
 
 SYSTEM_PROMPT = (
     "You extract verifiable religious content from raw text such as a sermon or a social media post. "
@@ -56,21 +58,34 @@ def _get_client(api_key: str | None = None) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
 
 
+async def chat_json(messages: list[dict], schema: dict, api_key: str | None = None) -> str:
+    """The JSON text of a structured chat completion, trying each configured model until one answers."""
+    client = _get_client(api_key)
+    error: Exception | None = None
+    for model in llm_models():
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                response_format={"type": "json_schema", "json_schema": schema},
+                temperature=0,
+            )
+            content = response.choices[0].message.content
+            if content:
+                return content
+            error = ExtractionError(f"{model} returned an empty answer")
+        except Exception as exc:  # rate limit, model unavailable, unsupported parameter ...
+            error = exc
+    raise error or ExtractionError("no chat model configured")
+
+
 async def extract_claims(text: str, api_key: str | None = None) -> list[str]:
     if not text.strip():
         return []
 
-    response = await _get_client(api_key).chat.completions.create(
-        model=llm_model(),
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": text},
-        ],
-        response_format={"type": "json_schema", "json_schema": CLAIMS_SCHEMA},
-        temperature=0,
+    content = await chat_json(
+        [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": text}], CLAIMS_SCHEMA, api_key
     )
-
-    content = response.choices[0].message.content
     try:
         claims = json.loads(content)["claims"]
     except (TypeError, ValueError, KeyError) as exc:
