@@ -225,9 +225,10 @@ async def build_card(
                     for c in limits
                 )
             )
+            # An empty pick means the model saw no direct evidence among the candidates: show none of that type
+            # (meaning search always returns the nearest texts, so this is the signal that nothing relevant exists).
             for c, chosen in zip(limits, picks):
-                if chosen:
-                    fused[c] = [fused[c][k] for k in chosen]
+                fused[c] = [fused[c][k] for k in chosen]
             info.reranked = True
         except Exception as exc:
             info.error = (info.error + "; " if info.error else "") + "rerank: " + _redact(f"{type(exc).__name__}: {exc}")
