@@ -43,6 +43,19 @@ LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provid
 Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
 On Vercel give the function enough memory and duration, and expect a slow first request after a cold start.
 
+## Evidence finder (version 0)
+
+`POST /api/evidence` with `{"question": "...", "use_llm": true}` returns the Quran verses and hadith that bear on a topic, each with its source,
+an excerpt (a hadith without its chain of narrators), the full text, and the gradings scholars gave it (when the dataset has them).
+It also returns `refer_to_scholar` with a reason (sensitive topics such as family law, finance and medicine; personal situations; no clear evidence)
+and a notice that this is evidence, not a ruling. Test page: `/evidence`.
+
+How it finds texts: keyword search (BM25 over normalized, lightly stemmed Arabic) always runs. With `use_llm`, a model also *recites* the evidence it
+knows; every recitation is looked up in the corpus, and only corpus text reaches the user (recitations that are not found are discarded and listed in
+`query.rejected`). The model never answers or issues a ruling. Measured on `golden/evidence_golden.json` (25 questions, 36 expected texts):
+keywords alone find 17% of the expected texts, keywords plus recitation about 53% (60% of the questions get at least one expected text).
+That is a baseline, not a quality bar: it needs semantic search and scholar-reviewed questions. Run `python eval_evidence.py --llm` to re-measure.
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.
@@ -56,6 +69,7 @@ Each segment has `segment_text`, `classification` (quran | hadith | unverified),
 | Command | What it does |
 |---|---|
 | `python eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
+| `python eval_evidence.py [--llm]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 25 cheap model calls. |
 | `python validate_corpus.py` | Checks `corpus.json` against the Tanzil files character for character. |
 | `python ingest_quran.py` | Rebuilds `corpus.json` from `data/tanzil/` (offline). |
 | `python ingest_hadith.py` | Rebuilds `corpus_hadith.json.gz`; downloads the raw hadith files on first run (about 100 MB, SHA-256 pinned). |

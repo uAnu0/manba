@@ -12,6 +12,7 @@ Two kinds of quote are found:
 """
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 
 from app.schemas import Segment
 from app.services.verifier import (
@@ -81,11 +82,16 @@ class Region:
     attributed: bool
 
 
+@lru_cache(maxsize=None)
+def _normalize_token(token: str) -> str:
+    return normalize(token)  # cached: the corpus repeats the same tokens millions of times
+
+
 def tokenize(text: str) -> list[Word]:
     """Whitespace tokens with their normalized form and position; punctuation-only tokens are dropped."""
     words = []
     for m in re.finditer(r"\S+", text):
-        norm = normalize(m.group())
+        norm = _normalize_token(m.group())
         if norm:
             words.append(Word(norm, m.start(), m.end()))
     return words
