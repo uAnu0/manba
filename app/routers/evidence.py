@@ -14,4 +14,6 @@ async def evidence(
     payload: EvidenceRequest, x_openrouter_key: Optional[str] = Header(default=None)
 ) -> EvidenceResponse:
     """Quran verses and hadith that bear on the question, with sources and gradings. Not a ruling."""
-    return await build_card(payload.question, use_llm=payload.use_llm, api_key=x_openrouter_key)
+    return await build_card(
+        payload.question, use_llm=payload.use_llm, api_key=x_openrouter_key, use_meaning=payload.use_meaning
+    )

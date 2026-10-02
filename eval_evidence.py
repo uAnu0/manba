@@ -4,7 +4,7 @@ For every question and every expected phrase: is it contained in one of the retu
 Reports recall (phrases found) and the share of questions with at least one expected text found, with and without the
 optional LLM query expansion.
 
-Usage: python eval_evidence.py [--llm] [--limit 10] [-v]
+Usage: python eval_evidence.py [--llm] [--no-meaning] [--limit 8] [-v]
 The LLM run needs OPENROUTER_API_KEY (from .env) and costs about one cheap call per question.
 """
 import argparse
@@ -23,7 +23,7 @@ def contains(texts: list[str], phrase: str) -> bool:
     return any(needle in text for text in texts)
 
 
-async def run(use_llm: bool, limit: int, verbose: bool) -> None:
+async def run(use_llm: bool, use_meaning: bool, limit: int, verbose: bool) -> None:
     questions = json.loads(GOLDEN.read_text(encoding="utf-8"))["questions"]
     corpus = load_corpus()
     quran_all = [e.normalized for e in corpus if e.classification == "quran"]
@@ -38,7 +38,7 @@ async def run(use_llm: bool, limit: int, verbose: bool) -> None:
     found = total = answered = with_expected = 0
     suggested = confirmed = 0
     for q in questions:
-        card = await build_card(q["question"], use_llm=use_llm)
+        card = await build_card(q["question"], use_llm=use_llm, use_meaning=use_meaning)
         shown = card.quran[:limit] + card.hadith[:limit]
         texts = [normalize(i.full_text) for i in shown]
         suggested += card.query.suggested
@@ -66,8 +66,9 @@ async def run(use_llm: bool, limit: int, verbose: bool) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--llm", action="store_true")
+    parser.add_argument("--llm", action="store_true", help="also let the LLM recite evidence")
+    parser.add_argument("--no-meaning", action="store_true", help="keyword search only (plus --llm if given)")
     parser.add_argument("--limit", type=int, default=8)
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
-    asyncio.run(run(args.llm, args.limit, args.verbose))
+    asyncio.run(run(args.llm, not args.no_meaning, args.limit, args.verbose))
