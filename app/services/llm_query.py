@@ -64,7 +64,8 @@ RERANK_PROMPT = (
     "You rank search results. The user asks a question about Islam. Below are numbered Quran verses or hadith texts "
     "retrieved from a library. Do NOT answer the question. Return the numbers of the texts that are DIRECT evidence "
     "for the topic of the question (the ones a scholar would cite), best first, at most {n}. "
-    "Return only numbers that appear in the list."
+    "Be strict: if the question is not about religion, or none of the texts is direct evidence for its topic, "
+    "return an empty list. Return only numbers that appear in the list."
 )
 
 
