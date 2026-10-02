@@ -6,14 +6,14 @@ Three searches feed the card and their rankings are merged (reciprocal rank fusi
   recitation - texts an LLM recalls for the question that the corpus then confirms (llm_query.py); optional
 Only corpus text is ever shown.
 """
+import asyncio
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
 
 from app.schemas import EvidenceItem, EvidenceResponse, QueryInfo
 from app.services.dense import dense_index, embed_query
-import asyncio
-
 from app.services.evidence import excerpt, index, item_for, matn_start, retrieve, stem, terms
 from app.services.llm_query import judge, suggest_evidence
 from app.services.pipeline import _redact
@@ -144,20 +144,24 @@ def resolve_suggestion(text: str) -> tuple[int | None, bool, EvidenceItem | None
 
 
 def fuse(
-    keyword: list[tuple[int, float, list[str]]],
-    meaning: list[tuple[int, float]],
+    keyword: list[list[tuple[int, float, list[str]]]],
+    meaning: list[list[tuple[int, float]]],
     recited: list[int],
     limit: int,
 ) -> list[tuple[int, float, set[str]]]:
-    """Merge the three rankings: (entry index, fused score, which searches found it), best first."""
+    """Merge the rankings: (entry index, fused score, which searches found it), best first.
+
+    `keyword` and `meaning` hold one ranking per query (a claim verifier searches for the claim and for its opposite)."""
     score: dict[int, float] = defaultdict(float)
     found_by: dict[int, set[str]] = defaultdict(set)
-    for rank, (i, _, _) in enumerate(keyword):
-        score[i] += WEIGHT_KEYWORD / (RRF_K + rank + 1)
-        found_by[i].add("keyword")
-    for rank, (i, _) in enumerate(meaning):
-        score[i] += WEIGHT_MEANING / (RRF_K + rank + 1)
-        found_by[i].add("meaning")
+    for ranking in keyword:
+        for rank, (i, _, _) in enumerate(ranking):
+            score[i] += WEIGHT_KEYWORD / (RRF_K + rank + 1)
+            found_by[i].add("keyword")
+    for ranking in meaning:
+        for rank, (i, _) in enumerate(ranking):
+            score[i] += WEIGHT_MEANING / (RRF_K + rank + 1)
+            found_by[i].add("meaning")
     for rank, i in enumerate(recited):
         score[i] += WEIGHT_RECITATION / (RRF_K + rank + 1)
         found_by[i].add("suggestion")
@@ -165,27 +169,60 @@ def fuse(
     return [(i, score[i], found_by[i]) for i in top]
 
 
-async def build_card(
-    question: str, use_llm: bool = False, api_key: str | None = None, use_meaning: bool = True
-) -> EvidenceResponse:
+@dataclass
+class Gathered:
+    """Candidate texts for one or more queries, before any LLM judgement."""
+
+    entries: tuple
+    query_words: set[str]
+    words: list[str]
+    keyword: dict[str, list[list[tuple[int, float, list[str]]]]]
+    similarity: dict[int, float]
+    exact: dict[int, bool]
+    windows: list[EvidenceItem]
+    info: QueryInfo
+    pool: dict[str, list[tuple[int, float, set[str]]]]
+
+    def item(self, classification: str, i: int, score: float, sources: set[str]) -> EvidenceItem:
+        matched = next((m for ranking in self.keyword[classification] for j, _, m in ranking if j == i), [])
+        item = item_for(self.entries[i], self.query_words, score * 1000, matched, sorted(sources), self.exact.get(i, True))
+        item.similarity = round(self.similarity[i], 3) if i in self.similarity else None
+        return item
+
+
+async def gather(
+    queries: list[str],
+    use_llm: bool,
+    api_key: str | None,
+    use_meaning: bool,
+    pool_size: dict[str, int],
+) -> Gathered:
+    """Run the searches for every query and merge them: keyword, meaning, and (use_llm) the model's recitations."""
     info = QueryInfo(used=False)
     entries = index().entries
-    query_words = set(terms(question))
+    query_words: set[str] = set()
+    words: set[str] = set()
+    keyword: dict[str, list] = {"quran": [], "hadith": []}
+    for q in queries:
+        query_words |= set(terms(q))
+        kw_quran, kw_hadith, w = retrieve(q, None, POOL, POOL)
+        keyword["quran"].append(kw_quran)
+        keyword["hadith"].append(kw_hadith)
+        words |= set(w)
 
-    kw_quran, kw_hadith, words = retrieve(question, None, POOL, POOL)
-    keyword = {"quran": kw_quran, "hadith": kw_hadith}
-
-    meaning: dict[str, list[tuple[int, float]]] = {"quran": [], "hadith": []}
+    meaning: dict[str, list] = {"quran": [], "hadith": []}
     similarity: dict[int, float] = {}
     dense = dense_index() if use_meaning else None
     if dense is not None:
         try:
-            qv = await embed_query(question, api_key)
-            for classification in meaning:
-                meaning[classification] = [
-                    (i, s) for i, s in dense.search(qv, classification, POOL) if s >= MIN_SIMILARITY[classification]
-                ]
-                similarity.update(meaning[classification])
+            for qv in await asyncio.gather(*(embed_query(q, api_key) for q in queries)):
+                for classification in meaning:
+                    ranking = [
+                        (i, s) for i, s in dense.search(qv, classification, POOL) if s >= MIN_SIMILARITY[classification]
+                    ]
+                    meaning[classification].append(ranking)
+                    for i, s in ranking:
+                        similarity[i] = max(s, similarity.get(i, 0.0))
             info.meaning_used = True
         except Exception as exc:  # keyword search still runs
             info.meaning_error = _redact(f"{type(exc).__name__}: {exc}")
@@ -195,7 +232,7 @@ async def build_card(
     windows: list[EvidenceItem] = []
     if use_llm:
         try:
-            suggestions = await suggest_evidence(question, api_key)
+            suggestions = await suggest_evidence(queries[0], api_key)
             rejected = []
             for text in suggestions:
                 i, is_exact, window = resolve_suggestion(text)
@@ -213,10 +250,17 @@ async def build_card(
         except Exception as exc:
             info.error = _redact(f"{type(exc).__name__}: {exc}")
 
+    pool = {c: fuse(keyword[c], meaning[c], recited[c], pool_size[c]) for c in keyword}
+    return Gathered(entries, query_words, sorted(words), keyword, similarity, exact, windows, info, pool)
+
+
+async def build_card(
+    question: str, use_llm: bool = False, api_key: str | None = None, use_meaning: bool = True
+) -> EvidenceResponse:
     limits = {"quran": QURAN_LIMIT, "hadith": HADITH_LIMIT}
-    fused = {
-        c: fuse(keyword[c], meaning[c], recited[c], JUDGE_POOL if use_llm else limits[c]) for c in limits
-    }
+    g = await gather([question], use_llm, api_key, use_meaning, {c: JUDGE_POOL if use_llm else limits[c] for c in limits})
+    info, entries, fused = g.info, g.entries, g.pool
+
     relevance: dict[int, str] = {}
     in_scope = True
     if use_llm:
@@ -224,7 +268,7 @@ async def build_card(
         # Islam at all. Unrelated texts are dropped. If the judge fails, the merged order stands.
         try:
             results = await asyncio.gather(
-                *(judge(question, [excerpt(entries[i].text, c, query_words) for i, _, _ in fused[c]], api_key) for c in limits)
+                *(judge(question, [excerpt(entries[i].text, c, g.query_words) for i, _, _ in fused[c]], api_key) for c in limits)
             )
             in_scope = any(on_topic for on_topic, _ in results)
             for c, (_, verdicts) in zip(limits, results):
@@ -242,13 +286,9 @@ async def build_card(
 
     cards: dict[str, list[EvidenceItem]] = {}
     for classification, limit in limits.items():
-        items = []
-        if classification == "quran":
-            items += windows
+        items = list(g.windows) if classification == "quran" else []
         for i, score, sources in fused[classification]:
-            matched = next((m for j, _, m in keyword[classification] if j == i), [])
-            item = item_for(entries[i], query_words, score * 1000, matched, sorted(sources), exact.get(i, True))
-            item.similarity = round(similarity[i], 3) if i in similarity else None
+            item = g.item(classification, i, score, sources)
             item.relevance = relevance.get(i)
             items.append(item)
         cards[classification] = (items if in_scope else [])[:limit]
@@ -258,7 +298,7 @@ async def build_card(
         refer, reason = False, "This does not look like a question about Islam, so no texts are shown."
     return EvidenceResponse(
         question=question,
-        search_terms=sorted(words),
+        search_terms=g.words,
         query=info,
         quran=cards["quran"],
         hadith=cards["hadith"],

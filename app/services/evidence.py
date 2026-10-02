@@ -12,6 +12,7 @@ from collections import Counter, defaultdict
 from functools import lru_cache
 
 from app.schemas import EvidenceItem, Grade, Source
+from app.services.strength import level_of, strength_of
 from app.services.quote_finder import tokenize
 from app.services.verifier import Entry, load_corpus, normalize
 
@@ -169,6 +170,8 @@ def item_for(
             number=entry.number,
             matched_text=excerpt(entry.text, entry.classification, query_words),
             grades=[Grade(name=n, grade=g) for n, g in entry.grades],
+            level=level_of(entry.classification, entry.book),
+            strength=strength_of(entry.classification, entry.book, entry.grades),
         ),
         full_text=entry.text,
         found_by=found_by or ["keyword"],

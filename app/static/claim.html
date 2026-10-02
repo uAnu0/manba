@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manba claim check</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1b1f27; --muted: #667085; --line: #e3e6ec;
+    --ok: #137a4b; --ok-bg: #e4f6ec; --warn: #9a6200; --warn-bg: #fff3d6; --bad: #b42318; --bad-bg: #fde8e6; --gray-bg: #eceff4; --blue: #3b5bdb; --blue-bg: #e7ecff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #12141a; --card: #1b1e26; --text: #e8eaf0; --muted: #9aa3b2; --line: #2b303b;
+      --ok: #5fd39a; --ok-bg: #123424; --warn: #f2c14e; --warn-bg: #3a2e10; --bad: #ff8a80; --bad-bg: #3d1a17; --gray-bg: #262a33; --blue: #8fa6ff; --blue-bg: #1f2747; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 22px 0 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 14px; } a { color: inherit; }
+  textarea { width: 100%; min-height: 84px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); font: 18px/1.7 system-ui, "Noto Naskh Arabic", serif; resize: vertical; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 10px 0 12px; }
+  button { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; font: inherit; }
+  button.primary { background: #3b5bdb; border-color: #3b5bdb; color: #fff; } button:disabled { opacity: .6; cursor: wait; }
+  .samples { display: flex; gap: 6px; flex-wrap: wrap; } .samples button { font-size: 13px; padding: 5px 10px; }
+  .outcome { border-radius: 12px; padding: 16px 18px; margin: 16px 0; border-left: 6px solid var(--line); background: var(--card); }
+  .outcome h3 { margin: 0 0 6px; font-size: 17px; } .outcome p { margin: 4px 0; }
+  .outcome.supported { border-color: var(--ok); } .outcome.supported h3 { color: var(--ok); }
+  .outcome.supported_weakly, .outcome.mixed, .outcome.refer_to_scholar { border-color: var(--warn); } .outcome.supported_weakly h3, .outcome.mixed h3, .outcome.refer_to_scholar h3 { color: var(--warn); }
+  .outcome.contradicted { border-color: var(--bad); } .outcome.contradicted h3 { color: var(--bad); }
+  .outcome.quote_checked { border-color: var(--blue); } .outcome.quote_checked h3 { color: var(--blue); }
+  .banner { border-radius: 10px; padding: 10px 14px; margin: 10px 0; background: var(--warn-bg); color: var(--warn); }
+  .notice { background: var(--gray-bg); color: var(--muted); font-size: 13px; border-radius: 10px; padding: 10px 14px; margin: 14px 0; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
+  .item.supports { border-left: 4px solid var(--ok); } .item.contradicts { border-left: 4px solid var(--bad); } .item.related { border-left: 4px solid var(--line); }
+  .ar { direction: rtl; text-align: right; font: 20px/1.9 "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif; }
+  .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  .chip { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--gray-bg); color: var(--muted); white-space: nowrap; }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.warn { background: var(--warn-bg); color: var(--warn); } .chip.bad { background: var(--bad-bg); color: var(--bad); } .chip.blue { background: var(--blue-bg); color: var(--blue); }
+  .src { font-weight: 600; } details { margin-top: 6px; } summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .err { background: var(--bad-bg); color: var(--bad); padding: 10px 14px; border-radius: 8px; margin: 8px 0; }
+  .small { font-size: 12px; color: var(--muted); } input[type=password] { padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); width: 100%; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Claim check <span class="small">(test)</span></h1>
+  <p class="sub">Paste a claim about Islam, a quoted verse or hadith, or a question. You get where the evidence stands, never a true/false verdict. <a href="/">Quote verifier</a> · <a href="/evidence">Evidence finder</a></p>
+
+  <textarea id="q" dir="auto" placeholder="مثال: الإسلام يحرم الربا   ·   Example: Islam allows alcohol   ·   قال النبي صلى الله عليه وسلم: النظافة من الإيمان"></textarea>
+  <div class="row">
+    <button id="go" class="primary">Check claim</button>
+    <label class="small"><input type="checkbox" id="llm" checked> Use the AI router and judge (needed for a verdict)</label>
+  </div>
+  <div class="samples" id="samples"></div>
+
+  <details id="settings" style="margin:14px 0"><summary>Settings <span class="small" id="cfgnote"></span></summary>
+    <div style="display:grid; gap:8px; margin-top:8px">
+      <label class="small">Access code (only if the server asks)<input id="token" type="password" autocomplete="off"></label>
+      <label class="small">Your OpenRouter key (only if the server has no shared key)<input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..."></label>
+    </div>
+  </details>
+
+  <div id="out"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const SAMPLES = ["الإسلام يحرم الربا", "الإسلام يبيح شرب الخمر", "Islam commands honouring parents", "الإسلام يأمر بعقوق الوالدين",
+  "قال تعالى: وأحل الله البيع وحرم الربا", "قال النبي صلى الله عليه وسلم: النظافة من الإيمان", "هل يجوز لي أن أطلق زوجتي وهي حائض", "كيف أطبخ الأرز"];
+for (const q of SAMPLES) { const b = document.createElement("button"); b.textContent = q; b.onclick = () => { $("q").value = q; run(); }; $("samples").appendChild(b); }
+
+const TITLES = {
+  supported: "Evidence supports this claim", supported_weakly: "Supported only by weak evidence", contradicted: "Evidence contradicts this claim",
+  mixed: "Evidence on both sides", no_clear_evidence: "No clear evidence found", refer_to_scholar: "Ask a scholar", out_of_scope: "Not a religious claim",
+  quote_checked: "Quoted text checked", evidence_only: "Related texts (no verdict)" };
+const STRENGTH = { quran: ["Quran", "ok"], sahihayn: ["Sahih al-Bukhari / Muslim", "ok"], sahih: ["graded Sahih", "ok"], hasan: ["graded Hasan", "warn"], daif: ["graded weak", "bad"], disputed: ["grading disputed", "warn"], ungraded: ["no grading here", "warn"] };
+function strengthChip(s) { const m = STRENGTH[s.strength]; return m ? `<span class="chip ${m[1]}">Level ${s.level} · ${m[0]}</span>` : ""; }
+function gradeChips(s) { return (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join(""); }
+function item(it, cls) {
+  const s = it.source;
+  const where = [s.book, s.chapter && it.classification === "quran" ? s.chapter : "", s.number].filter(Boolean).join(" · ");
+  const full = it.full_text && it.full_text !== s.matched_text ? `<details><summary>Full text${it.classification === "hadith" ? " with chain of narrators" : ""}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
+  return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(where)}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${full}</div>`;
+}
+function section(title, items, cls) { return items.length ? `<h2>${title} (${items.length})</h2>` + items.map(i => item(i, cls)).join("") : ""; }
+function segment(sg) {
+  const st = { verified: ["Verified", "ok"], semantic_variant: ["Wording differs", "warn"], baseless: ["Not found in the sources", "bad"] }[sg.status];
+  const s = sg.source;
+  return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${(sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}</div>`;
+}
+function render(d) {
+  let h = `<div class="outcome ${d.outcome}"><h3>${TITLES[d.outcome]}</h3><p>${esc(d.summary_en)}</p><p dir="rtl">${esc(d.summary_ar)}</p></div>`;
+  if (d.refer_to_scholar && d.reason) h += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(d.reason)}</div>`;
+  if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
+  if (d.quote_check) h += `<h2>The quoted text</h2>` + d.quote_check.segments.map(segment).join("");
+  h += section("Evidence that supports the claim", d.supporting, "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
+  h += `<div class="notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
+  h += `<details><summary>How this was decided</summary><div class="small">Claim type: <b>${esc(d.claim_type)}</b>. ${d.restated_claim ? `Search aid written by the model (it can be wrong, it is not used as the claim): ${esc(d.restated_claim)}.` : ""} ${d.llm && d.llm.recited ? `The model recalled ${d.llm.recited} texts, ${d.llm.recited_found} of them found in the corpus.` : ""} Sources are ranked by level: 1 Quran, 2 Sahih al-Bukhari and Muslim, 3 other hadith with the gradings scholars gave them.</div></details>`;
+  $("out").innerHTML = h;
+}
+async function run() {
+  const claim = $("q").value.trim(); if (!claim) return;
+  $("go").disabled = true; $("out").innerHTML = `<div class="small">Checking… (up to 30 seconds)</div>`;
+  const headers = { "Content-Type": "application/json" };
+  if ($("token").value) headers["X-Access-Token"] = $("token").value;
+  if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
+  try {
+    const res = await fetch("/api/claim", { method: "POST", headers, body: JSON.stringify({ claim, use_llm: $("llm").checked }) });
+    if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
+    const data = await res.json(); if (!res.ok) throw new Error(JSON.stringify(data));
+    render(data);
+  } catch (e) { $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`; } finally { $("go").disabled = false; }
+}
+for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
+  try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
+  $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value); } catch (e) {} });
+}
+fetch("/api/config").then(r => r.json()).then(c => {
+  $("cfgnote").textContent = "(" + [c.access_required ? "access code required" : null, c.server_has_llm_key ? "server has a shared LLM key" : "no server LLM key"].filter(Boolean).join(", ") + ")";
+  if (c.access_required && !$("token").value) $("settings").open = true;
+}).catch(() => {});
+$("go").onclick = run;
+$("q").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); });
+</script>
+</body>
+</html>
