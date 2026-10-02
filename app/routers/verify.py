@@ -1,10 +1,10 @@
-import secrets
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header
 
 from app.config import settings
 from app.schemas import VerifyRequest, VerifyResponse
+from app.security import require_access
 from app.services.llm_extractor import server_has_key
 from app.services.pipeline import verify_text, verify_text_llm
 
@@ -17,16 +17,8 @@ def config() -> dict:
     return {"access_required": bool(settings.api_access_token), "server_has_llm_key": server_has_key()}
 
 
-@router.post("/verify", response_model=VerifyResponse)
-async def verify(
-    payload: VerifyRequest,
-    x_access_token: Optional[str] = Header(default=None),
-    x_openrouter_key: Optional[str] = Header(default=None),
-) -> VerifyResponse:
-    if settings.api_access_token and not secrets.compare_digest(
-        (x_access_token or "").strip().encode(), settings.api_access_token.encode()
-    ):
-        raise HTTPException(status_code=401, detail="missing or wrong access token (X-Access-Token header)")
+@router.post("/verify", response_model=VerifyResponse, dependencies=[Depends(require_access)])
+async def verify(payload: VerifyRequest, x_openrouter_key: Optional[str] = Header(default=None)) -> VerifyResponse:
     if payload.use_llm:
         # A key sent with the request is used for this call only and is never stored or logged.
         return await verify_text_llm(payload.text, api_key=x_openrouter_key)

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.routers import verify
+from app.routers import evidence, verify
 from app.schemas import HealthResponse
 from app.services import verifier
 
@@ -24,6 +24,7 @@ app = FastAPI(
 )
 
 app.include_router(verify.router)
+app.include_router(evidence.router)
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -35,3 +36,9 @@ def health() -> HealthResponse:
 def test_console() -> FileResponse:
     """Throwaway page for manual testing of /api/verify."""
     return FileResponse(Path(__file__).parent / "static" / "index.html")
+
+
+@app.get("/evidence", include_in_schema=False)
+def evidence_console() -> FileResponse:
+    """Throwaway page for manual testing of /api/evidence."""
+    return FileResponse(Path(__file__).parent / "static" / "evidence.html")

@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from app.schemas import Segment, Source
+from app.schemas import Grade, Segment, Source
 
 VARIANT_THRESHOLD = 0.60
 CANDIDATE_LIMIT = 20
@@ -103,6 +103,7 @@ class Entry:
     text: str
     forms: tuple[str, ...]  # normalized spellings to match against; forms[0] is the primary one
     verses: int = 1  # number of consecutive ayahs this entry spans (>1 for multi-verse windows)
+    grades: tuple[tuple[str, str], ...] = ()  # (scholar, grade) pairs, hadith only
 
     @property
     def normalized(self) -> str:
@@ -156,6 +157,7 @@ def load_corpus() -> tuple[Entry, ...]:
                 number=str(src.get("number", "")),
                 text=item["text"],
                 forms=forms,
+                grades=tuple((g["name"], g["grade"]) for g in item.get("grades", [])),
             )
         )
     return tuple(entries)
@@ -360,6 +362,7 @@ def _source(entry: Entry, other_matches: int = 0) -> Source:
         number=entry.number,
         matched_text=entry.text,
         other_matches_count=other_matches,
+        grades=[Grade(name=n, grade=g) for n, g in entry.grades],
     )
 
 
@@ -435,8 +438,10 @@ def partial_match(segment: str, words: list[str]) -> Segment | None:
     )
 
 
-def verify_segment(segment: str, run_variants: bool = True) -> Segment:
-    norm = normalize(segment)
+def verify_verbatim(segment: str, norm: str | None = None) -> Segment | None:
+    """The fast, exact stages of verification: the text is a verse, part of a verse, a run of consecutive verses
+    or part of a hadith, word for word. None if it is none of these (no fuzzy matching is attempted)."""
+    norm = norm if norm is not None else normalize(segment)
     verses, windows = verse_index(), window_index()
 
     # Word-for-word match after normalization; a high character score alone is never enough.
@@ -470,6 +475,14 @@ def verify_segment(segment: str, run_variants: bool = True) -> Segment:
         containing = hadiths.find_containing(norm)
         if containing:
             return _verified(segment, containing[0], "partial", len(containing) - 1)
+    return None
+
+
+def verify_segment(segment: str, run_variants: bool = True) -> Segment:
+    norm = normalize(segment)
+    verbatim = verify_verbatim(segment, norm)
+    if verbatim:
+        return verbatim
 
     entry, score, form = find_best_match(segment)
     if entry is None or score < VARIANT_THRESHOLD or len(norm.split()) < VARIANT_MIN_WORDS:
