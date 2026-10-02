@@ -43,6 +43,29 @@ LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provid
 Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
 On Vercel give the function enough memory and duration, and expect a slow first request after a cold start.
 
+## Claim check (version 0)
+
+The point of the app is checking claims, so this is where everything else comes together. `POST /api/claim` with `{"claim": "..."}` (any language) returns where the
+evidence stands: never "true" or "false". Test page: `/claim`.
+
+1. **Route** (LLM): is it a *quote* (a verse or hadith, or words attributed to God or the Prophet), a *topic* claim ("Islam forbids X"), a *personal* question, or *not religious*?
+   A text that is itself in the corpus is always treated as a quote.
+2. **Quote** -> the quote verifier (levels, sources, gradings, what differs). **Personal** -> "ask a scholar". **Not religious** -> out of scope.
+3. **Topic** -> evidence for the claim *and* for its opposite is gathered with the evidence finder (meaning + keyword + recitation). The model grades every candidate text as
+   supports / contradicts / related / unrelated against the person's own words. A text may only count as support or contradiction if it names the claim's subject
+   (key terms from the router, else the claim's rare words): this is what stops an invented claim such as "Islam forbids tomatoes" from being "supported" by verses about food in general.
+4. **Outcome** from the two sides, weighted by source strength (Quran and Sahih al-Bukhari/Muslim 3, sahih 2, hasan 1.5, disputed 1, weak or ungraded 0.5): `supported`,
+   `supported_weakly` (only weak or ungraded hadith), `contradicted`, `mixed` (comparable weight on both sides), `no_clear_evidence`. A lone text on the other side does not make a clear case "mixed"; it is shown with a note.
+   Sensitive topics add a "ask a scholar" banner.
+
+Every source carries its level (1 Quran, 2 Sahih al-Bukhari / Sahih Muslim, 3 other hadith) and strength (`quran`, `sahihayn`, `sahih`, `hasan`, `daif`, `disputed`, `ungraded`) with the gradings scholars gave.
+Without a model (`use_llm: false`) only the quote check and the nearest texts are returned (`evidence_only`).
+
+Measured on `golden/claims_golden.json` (30 claims written by the developer: 20 topic, 5 quotes, 2 personal, 2 not religious, 1 invented; run twice, same result):
+claim type right 30/30, outcome acceptable 27/30, quote statuses 5/5, **reversals 0, false support 0**. The three misses are on the cautious side (one `mixed`, one `supported_weakly`, one `no_clear_evidence`).
+Run `python eval_claims.py -v` to re-measure (about 4 model calls per claim). This is a smoke test: a scholar must review the claims and expected outcomes before anyone relies on it.
+A claim takes 15-40 seconds with the model (routing, recitation, two judging calls).
+
 ## Evidence finder (version 0)
 
 `POST /api/evidence` with `{"question": "...", "use_llm": true}` returns the Quran verses and hadith that bear on a topic, each with its source,
@@ -78,6 +101,7 @@ Each segment has `segment_text`, `classification` (quran | hadith | unverified),
 | Command | What it does |
 |---|---|
 | `python eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
+| `python eval_claims.py [-v]` | Runs the golden claims through the claim verifier: type and outcome accuracy, quote statuses, reversals and false support (the two numbers that must be 0). |
 | `python eval_evidence.py [--llm] [--no-meaning]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 75 cheap model calls. |
 | `python embed_corpus.py` | Rebuilds `corpus_embeddings.npz` (about 4 million tokens, under a dollar; resumable). Needed after the corpus changes. |
 | `python validate_corpus.py` | Checks `corpus.json` against the Tanzil files character for character. |

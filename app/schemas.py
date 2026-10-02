@@ -27,6 +27,8 @@ class Source(BaseModel):
     matched_text: str
     other_matches_count: int = 0  # further corpus entries that match equally well (repeated verses, shared phrases)
     grades: list[Grade] = Field(default_factory=list)  # hadith only, when the dataset has them
+    level: Optional[int] = None  # 1 Quran, 2 Sahih al-Bukhari / Sahih Muslim, 3 other hadith (see services/strength.py)
+    strength: Optional[str] = None  # quran | sahihayn | sahih | hasan | daif | disputed | ungraded
 
 
 class Segment(BaseModel):
@@ -76,6 +78,7 @@ class EvidenceItem(BaseModel):
     similarity: Optional[float] = None  # cosine similarity of the meaning search (1.0 = identical meaning)
     exact_wording: bool = True  # False when the LLM's recitation differed slightly from the corpus text
     relevance: Optional[Literal["direct", "related"]] = None  # the LLM judge's verdict, when the LLM step ran
+    stance: Optional[Literal["supports", "contradicts", "related"]] = None  # claim verification: how it bears on the claim
 
 
 class QueryInfo(BaseModel):
@@ -102,3 +105,45 @@ class EvidenceResponse(BaseModel):
     reason: Optional[str] = None
     notice_ar: str
     notice_en: str
+
+
+class ClaimRequest(BaseModel):
+    claim: str = Field(..., min_length=3, max_length=3000)
+    use_llm: bool = True  # routing and judging the evidence need a model; without it only keyword/meaning evidence is returned
+    use_meaning: bool = True
+
+
+class ClaimLLMInfo(BaseModel):
+    used: bool = False
+    error: Optional[str] = None
+    recited: int = 0  # texts the model recalled for the claim
+    recited_found: int = 0  # of those, how many exist in the corpus
+
+
+class ClaimResponse(BaseModel):
+    claim: str
+    claim_type: Literal["quote", "topic", "personal", "not_religious", "unknown"]
+    restated_claim: Optional[str] = None  # what the router understood (model-written: shown so the person can check it)
+    opposite_claim: Optional[str] = None  # searched for counter-evidence
+    outcome: Literal[
+        "quote_checked",  # the claim is a quote: see quote_check
+        "supported",  # direct evidence for the claim, at least one strong source, none against
+        "supported_weakly",  # evidence for the claim, but only from weak or ungraded hadith
+        "contradicted",  # direct evidence against the claim, none for it
+        "mixed",  # evidence on both sides: a scholar is needed
+        "no_clear_evidence",
+        "refer_to_scholar",  # a personal question or case: a scholar must answer it
+        "out_of_scope",
+        "evidence_only",  # no model was available to judge: texts found, no stance
+    ]
+    summary_en: str
+    summary_ar: str
+    quote_check: Optional[VerifyResponse] = None
+    supporting: list[EvidenceItem] = Field(default_factory=list)
+    contradicting: list[EvidenceItem] = Field(default_factory=list)
+    related: list[EvidenceItem] = Field(default_factory=list)
+    refer_to_scholar: bool = False
+    reason: Optional[str] = None
+    notice_ar: str
+    notice_en: str
+    llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)

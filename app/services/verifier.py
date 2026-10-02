@@ -17,6 +17,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app.schemas import Grade, Segment, Source
+from app.services.strength import level_of, strength_of
 
 VARIANT_THRESHOLD = 0.60
 CANDIDATE_LIMIT = 20
@@ -363,6 +364,8 @@ def _source(entry: Entry, other_matches: int = 0) -> Source:
         matched_text=entry.text,
         other_matches_count=other_matches,
         grades=[Grade(name=n, grade=g) for n, g in entry.grades],
+        level=level_of(entry.classification, entry.book),
+        strength=strength_of(entry.classification, entry.book, entry.grades),
     )
 
 
