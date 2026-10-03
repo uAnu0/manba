@@ -116,6 +116,17 @@ changes the verdict, cites a missing text, quotes words not in the cited text, i
 then a plain template explanation (`ai_written: false`) is returned instead. Writer bake-off: DeepSeek V4 Flash passed 8/10 after raising max tokens but
 needs more care; Gemini 2.5 Flash Lite passed 9/10. All text inputs are limited to 500 words (HTTP 422 beyond that).
 
+## Close to a known text (no chat model)
+
+A reworded hadith ("فإنما تنصرون وترزقون بضعفائكم") matches nothing word for word and reads like advice, so it used to pass silently.
+Now every sentence (and each clause of it) that no quote covers is compared with the corpus by meaning (one cached embedding; the
+corpus vectors are stored) and by shared words (`app/services/similar.py`). The closest text is shown as a pointer, never as
+"verified", with the words of the sentence that the text does not contain. It is shown only if the text shares at least half
+of the sentence's distinctive words (more for long sentences), the meaning is close, and the sentence is not a stock formula
+(shahada, salawat: very common words). Thresholds were calibrated on real sermon sentences: genuine rewordings 55-100%,
+fabricated reward claims at most 47%. `/api/check` returns `kind: "similar"` items; `/api/claim` returns `similar`. Cost: about
+a tenth of a cent per sermon.
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.

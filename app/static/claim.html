@@ -119,6 +119,12 @@ document.addEventListener("click", async ev => {
     out.innerHTML = explainHtml(data); b.remove();
   } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; b.disabled = false; }
 });
+function similarHtml(sm) {
+  const e = sm.evidence, s = e.source;
+  const where = [s.book, s.number].filter(Boolean).join(" · ");
+  const miss = (sm.missing_words || []).length ? `<div class="small" dir="rtl">كلمات في الجملة ليست في هذا النص: <b>${sm.missing_words.map(esc).join("، ")}</b></div>` : "";
+  return `<div class="item related"><div class="meta"><span class="chip warn">Close to a known text, not the same wording</span><span class="src">${esc(where)}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="small">The sentence shares ${Math.round(sm.shared_share * 100)}% of its distinctive words with this text. Read both: this is a pointer, not a verification.</div><div class="ar">${esc(e.full_text.length > 600 ? s.matched_text : e.full_text)}</div>${miss}</div>`;
+}
 function claimHtml(d) {
   let h = `<div class="outcome ${d.outcome}"><h3>${TITLES[d.outcome]}</h3><p>${esc(d.summary_en)}</p><p dir="rtl">${esc(d.summary_ar)}</p></div>`;
   if (d.refer_to_scholar && d.reason) h += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(d.reason)}</div>`;
@@ -126,6 +132,7 @@ function claimHtml(d) {
   if (d.quote_check) h += `<h2>The quoted text</h2>` + d.quote_check.segments.map(segment).join("");
   h += section("Evidence that supports the claim", d.supporting, "supports") + section("Texts that support only part of the claim", d.partial || [], "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
   h += `<div class="notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
+  if (d.similar) h += similarHtml(d.similar);
   if (d.outcome !== "out_of_scope") h += explainBox({ claim: d.claim, result: d });
   h += `<details><summary>How this was decided</summary><div class="small">Claim type: <b>${esc(d.claim_type)}</b>. ${d.restated_claim ? `Search aid written by the model (it can be wrong, it is not used as the claim): ${esc(d.restated_claim)}.` : ""} ${d.llm && d.llm.recited ? `The model recalled ${d.llm.recited} texts, ${d.llm.recited_found} of them found in the corpus.` : ""} Sources are ranked by level: 1 Quran, 2 Sahih al-Bukhari and Muslim, 3 other hadith with the gradings scholars gave them.</div></details>`;
   return h;
@@ -139,6 +146,7 @@ function renderCheck(d) {
   if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
   if (!d.llm || !d.llm.used) h += `<div class="banner">No model was used, so only quoted texts were checked.</div>`;
   for (const it of d.items) {
+    if (it.kind === "similar") { h += `<h2>Close to a known text</h2><div class="ar" style="margin:6px 0">${esc(it.text)}</div>` + similarHtml(it.similar); continue; }
     if (it.kind === "quote") { h += `<h2>Quoted text</h2>` + segment(it.quote) + explainBox({ claim: it.text, segment: it.quote }); continue; }
     const r = it.result;
     h += `<div class="item"><div class="meta"><span class="chip ${CHIP[r.outcome] || ""}">${esc(TITLES[r.outcome] || r.outcome)}</span><span class="chip">claim</span></div><div class="ar">${esc(it.text)}</div><details><summary>Details</summary>${claimHtml(r)}</details></div>`;
