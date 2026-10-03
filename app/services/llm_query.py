@@ -258,8 +258,9 @@ STANCE_PROMPT = (
 @async_cache()
 async def _judge_claim_chunk(
     claim: str, excerpts: list[str], api_key: str | None = None
-) -> tuple[bool, dict[int, str]]:
-    """(is the claim on topic, stance of each text position). The model grades only the texts it is shown."""
+) -> tuple[bool, dict[int, str], dict[int, str]]:
+    """(is the claim on topic, stance of each text position, the model's note on what each text says).
+    The model grades only the texts it is shown."""
     lines = "\n".join(f"{k}. {text[:300]}" for k, text in enumerate(excerpts))
     messages = [
         {"role": "system", "content": STANCE_PROMPT},
@@ -273,26 +274,26 @@ async def _judge_claim_chunk(
     try:
         data = json.loads(content)
         on_topic = bool(data["on_topic"])
-        stances = {
-            v["number"]: v["stance"]
-            for v in data["verdicts"]
-            if isinstance(v["number"], int) and 0 <= v["number"] < len(excerpts)
-        }
+        valid = [v for v in data["verdicts"] if isinstance(v["number"], int) and 0 <= v["number"] < len(excerpts)]
+        stances = {v["number"]: v["stance"] for v in valid}
+        says = {v["number"]: str(v.get("text_says", "")).strip() for v in valid}
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
-    return on_topic, stances
+    return on_topic, stances, says
 
 
 async def judge_claim(
     claim: str, excerpts: list[str], api_key: str | None = None
-) -> tuple[bool, dict[int, str]]:
-    """Grade every text against the claim (supports / contradicts / related / unrelated), in parallel chunks."""
+) -> tuple[bool, dict[int, str], dict[int, str]]:
+    """Grade every text against the claim (supports / contradicts / related / unrelated), in parallel chunks.
+    Returns (on topic, stance per position, the model's one-line note per position)."""
     chunks = [excerpts[k : k + CLAIM_JUDGE_CHUNK] for k in range(0, len(excerpts), CLAIM_JUDGE_CHUNK)] or [[]]
     results = await asyncio.gather(
         *(_twice(lambda chunk=chunk: _judge_claim_chunk(claim, chunk, api_key=api_key)) for chunk in chunks)
     )
-    stances = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, part) in enumerate(results) for n, v in part.items()}
-    return any(on_topic for on_topic, _ in results), stances
+    stances = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, part, _) in enumerate(results) for n, v in part.items()}
+    says = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, _, part) in enumerate(results) for n, v in part.items()}
+    return any(r[0] for r in results), stances, says
 
 
 # ---- finding the claims in a longer text --------------------------------------------------------------------------

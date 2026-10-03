@@ -1,6 +1,17 @@
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+MAX_INPUT_WORDS = 500
+
+
+def _limit_words(value: str) -> str:
+    """Every text a person can submit is limited, so nobody can send a whole book."""
+    words = len(value.split())
+    if words > MAX_INPUT_WORDS:
+        raise ValueError(f"Input is limited to {MAX_INPUT_WORDS} words; this text has {words}.")
+    return value
 
 
 class HealthResponse(BaseModel):
@@ -11,6 +22,8 @@ class HealthResponse(BaseModel):
 class VerifyRequest(BaseModel):
     text: str = Field(..., min_length=1)
     use_llm: bool = False  # also run the LLM claim extractor (needs OPENROUTER_API_KEY)
+
+    _words = field_validator("text")(_limit_words)
 
 
 class Grade(BaseModel):
@@ -66,6 +79,8 @@ class EvidenceRequest(BaseModel):
     use_llm: bool = False  # also let an LLM recite the evidence it knows (each text is checked against the corpus)
     use_meaning: bool = True  # meaning-based search with embeddings (needs an OpenRouter key and corpus_embeddings.npz)
 
+    _words = field_validator("question")(_limit_words)
+
 
 class EvidenceItem(BaseModel):
     classification: Literal["quran", "hadith"]
@@ -79,6 +94,7 @@ class EvidenceItem(BaseModel):
     exact_wording: bool = True  # False when the LLM's recitation differed slightly from the corpus text
     relevance: Optional[Literal["direct", "related"]] = None  # the LLM judge's verdict, when the LLM step ran
     stance: Optional[Literal["supports", "contradicts", "related"]] = None  # claim verification: how it bears on the claim
+    says: Optional[str] = None  # the judge model's one-line note on what the text says (model-written, used by the explanation)
 
 
 class QueryInfo(BaseModel):
@@ -111,6 +127,8 @@ class ClaimRequest(BaseModel):
     claim: str = Field(..., min_length=3, max_length=3000)
     use_llm: bool = True  # routing and judging the evidence need a model; without it only keyword/meaning evidence is returned
     use_meaning: bool = True
+
+    _words = field_validator("claim")(_limit_words)
 
 
 class ClaimLLMInfo(BaseModel):
@@ -154,6 +172,8 @@ class TextCheckRequest(BaseModel):
     use_llm: bool = True  # finding and judging claims needs a model; without it only the quotes are checked
     use_meaning: bool = True
 
+    _words = field_validator("text")(_limit_words)
+
 
 class TextClaimItem(BaseModel):
     kind: Literal["quote", "claim"]
@@ -174,3 +194,37 @@ class TextCheckResponse(BaseModel):
     truncated: bool = False  # the text had more sentences than the limit
     summary: dict[str, int] = Field(default_factory=dict)  # count per outcome / quote status
     llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
+
+
+class ExplainRequest(BaseModel):
+    claim: str = Field(..., min_length=3, max_length=3000)
+    result: Optional[ClaimResponse] = None  # a claim-check result as returned by /api/claim (or an item of /api/check)
+    segment: Optional[Segment] = None  # or one quoted-text result from /api/verify or /api/check
+
+    _words = field_validator("claim")(_limit_words)
+
+
+class ExplainText(BaseModel):
+    n: int
+    kind: str  # quran | hadith | quote
+    label: str  # the source in Arabic, or the quoted text
+    stance_ar: str = ""
+    strength_ar: str = ""
+    grades_ar: str = ""
+
+
+class ExplainPoint(BaseModel):
+    text: str  # Arabic
+    cites: list[int]  # numbers into `texts`
+
+
+class ExplainResponse(BaseModel):
+    claim: str
+    outcome: str  # the verdict the explanation is about (never changed by the writer)
+    summary_ar: str = ""
+    points: list[ExplainPoint]
+    caution: Optional[str] = None
+    texts: list[ExplainText]
+    ai_written: bool  # False: built by code from the same facts (the writer failed or failed the checks)
+    model: Optional[str] = None
+    note: Optional[str] = None  # why the AI-written explanation was not used

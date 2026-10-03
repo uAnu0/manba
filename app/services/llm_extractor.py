@@ -58,17 +58,25 @@ def _get_client(api_key: str | None = None) -> AsyncOpenAI:
     return AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
 
 
-async def chat_json(messages: list[dict], schema: dict, api_key: str | None = None) -> str:
-    """The JSON text of a structured chat completion, trying each configured model until one answers."""
+async def chat_json(
+    messages: list[dict],
+    schema: dict,
+    api_key: str | None = None,
+    models: list[str] | None = None,
+    temperature: float = 0,
+    max_tokens: int | None = None,
+) -> str:
+    """The JSON text of a structured chat completion, trying each model (default: the configured ones) until one answers."""
     client = _get_client(api_key)
     error: Exception | None = None
-    for model in llm_models():
+    for model in models or llm_models():
         try:
             response = await client.chat.completions.create(
                 model=model,
                 messages=messages,
                 response_format={"type": "json_schema", "json_schema": schema},
-                temperature=0,
+                temperature=temperature,
+                **({"max_tokens": max_tokens} if max_tokens else {}),
             )
             content = response.choices[0].message.content
             if content:

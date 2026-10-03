@@ -92,12 +92,19 @@ def key_stems(claim: str, key_terms: list[str]) -> set[str]:
     if stems:
         return stems
     idf = index().idf
-    return {w for w in terms(claim) if idf.get(w, 0.0) >= RARE_STEM_IDF}
+    return {w for w in terms(claim) if idf.get(w, float("inf")) >= RARE_STEM_IDF}
 
 
-def mentions(entry, anchors: set[str]) -> bool:
-    """Does the text itself contain one of the claim's subject words? With no anchors there is nothing to check."""
-    return not anchors or bool(anchors & set(terms(search_text(entry))))
+def unseen_stems(anchors: set[str]) -> set[str]:
+    """Subject words that appear nowhere in the corpus (e.g. a modern food): a text cannot settle a claim about them."""
+    idf = index().idf
+    return {w for w in anchors if w not in idf}
+
+
+def mentions(entry, anchors: set[str], required: frozenset[str] | set[str] = frozenset()) -> bool:
+    """Does the text itself contain one of the claim's subject words (and every required one)? With no anchors there is nothing to check."""
+    words = set(terms(search_text(entry)))
+    return (not anchors or bool(anchors & words)) and required <= words
 
 
 def _response(claim: str, claim_type: str, outcome: str, llm: ClaimLLMInfo, **fields) -> ClaimResponse:
@@ -181,6 +188,7 @@ async def verify_claim(
         llm.error = g.info.error
     flagged, why = referral(claim, 1)  # sensitive topics get a "ask a scholar" banner next to the evidence
     anchors = key_stems(claim, key_terms)
+    required = unseen_stems(anchors)
 
     if llm.used:
         subject = claim  # stance is judged against the person's own words, never against the model's restatement
@@ -195,17 +203,18 @@ async def verify_claim(
             llm.error = (llm.error + "; " if llm.error else "") + "judge: " + _redact(f"{type(exc).__name__}: {exc}")
             results = None
         if results is not None:
-            if not any(on_topic for on_topic, _ in results):
+            if not any(r[0] for r in results):
                 return _response(claim, claim_type, "out_of_scope", llm, **routed)
             sides: dict[str, list[EvidenceItem]] = {"supports": [], "contradicts": [], "related": []}
-            for c, (_, stances) in zip(pool, results):
+            for c, (_, stances, says) in zip(pool, results):
                 for k, (i, score, sources) in enumerate(g.pool[c]):
                     stance = stances.get(k)
-                    if stance in ("supports", "contradicts") and not mentions(g.entries[i], anchors):
+                    if stance in ("supports", "contradicts") and not mentions(g.entries[i], anchors, required):
                         stance = "related"  # a text that never names the claim's subject cannot settle the claim
                     if stance in sides:
                         item = g.item(c, i, score, sources)
                         item.stance = stance
+                        item.says = says.get(k) or None
                         sides[stance].append(item)
             supporting = _order(sides["supports"])[:MAX_SIDE]
             contradicting = _order(sides["contradicts"])[:MAX_SIDE]
