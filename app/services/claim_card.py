@@ -11,7 +11,7 @@ from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
 from app.services.evidence import excerpt, index, search_text, stem, terms
 from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
 from app.services.llm_query import classify_claim, judge_claim
-from app.services.pipeline import _has_claim_cue, _redact, verify_text, verify_text_llm
+from app.services.pipeline import SAID_VERBS, SOURCE_WORDS, _redact, verify_text, verify_text_llm
 from app.services.quote_finder import find_regions, tokenize
 from app.services.strength import STRONG
 
@@ -100,16 +100,37 @@ def key_stems(claim: str, key_terms: list[str]) -> set[str]:
     return {w for w in terms(claim) if idf.get(w, float("inf")) >= RARE_STEM_IDF}
 
 
-def unseen_stems(anchors: set[str]) -> set[str]:
-    """Subject words that appear nowhere in the corpus (e.g. a modern food): a text cannot settle a claim about them."""
+def unseen_stems(key_terms: list[str], anchors: set[str]) -> set[str]:
+    """A single-word subject that appears nowhere in the corpus (e.g. a modern food, "الطماطم"): no text can settle a
+    claim about it. Words inside a longer key term ("حسن المعاملة") are not required: the Quran words differently."""
     idf = index().idf
-    return {w for w in anchors if w not in idf}
+    single = {w for t in key_terms if len(terms(t)) == 1 for w in terms(t)} if key_terms else set(anchors)
+    return {w for w in single if w not in idf}
 
 
 def mentions(entry, anchors: set[str], required: frozenset[str] | set[str] = frozenset()) -> bool:
     """Does the text itself contain one of the claim's subject words (and every required one)? With no anchors there is nothing to check."""
     words = set(terms(search_text(entry)))
     return (not anchors or bool(anchors & words)) and required <= words
+
+
+def _near(a: str, b: str) -> bool:
+    """Same word, or the same root start (يتيم / يتامى): enough to tell that a text is about the same thing."""
+    return a == b or (len(a) >= 3 and len(b) >= 3 and a[:3] == b[:3])
+
+
+def settles(entry, anchors: set[str], required: frozenset[str] | set[str] = frozenset()) -> bool:
+    """The bar for a text to CONTRADICT a claim, higher than for supporting it (a wrong "contradicts" tells the reader
+    the claim is false): the text must be about the claim's most distinctive subject word, and name at least half
+    of the subject words. A verse on reckoning in general does not contradict a claim about the orphan's reckoning."""
+    if not mentions(entry, anchors, required):
+        return False
+    if not anchors:
+        return True
+    words = set(terms(search_text(entry)))
+    idf = index().idf
+    rarest = max(anchors, key=lambda w: idf.get(w, float("inf")))
+    return any(_near(rarest, w) for w in words) and sum(1 for a in anchors if a in words) * 2 >= len(anchors)
 
 
 def _response(claim: str, claim_type: str, outcome: str, llm: ClaimLLMInfo, **fields) -> ClaimResponse:
@@ -132,10 +153,20 @@ def _order(items: list[EvidenceItem]) -> list[EvidenceItem]:
     return sorted(items, key=lambda i: (i.source.level or 9, -i.score))
 
 
+_SOURCE_VERBS = frozenset("روى رواه روي اخرجه الايه ايه الايات القران قرانا".split())
+
+
+def _has_attribution(claim: str) -> bool:
+    """Words that really attribute the text to a source ("قال النبي", "رواه", "في الآية"). Not "الحديث" alone: it
+    also means "talking" ("كثرة الحديث في أمور الدنيا")."""
+    norms = {w.norm for w in tokenize(claim)}
+    return bool(norms & _SOURCE_VERBS) or bool(norms & SAID_VERBS and norms & SOURCE_WORDS)
+
+
 def _unmarked_statement(claim: str, local) -> bool:
     """A text the router called a quote that nothing marks as one: no brackets or attribution ("قال تعالى", "رواه"), no
     resemblance to any verse or hadith. It is the speaker's own statement, and is checked against the evidence."""
-    if any(s.status != "baseless" for s in local.segments) or _has_claim_cue(claim):
+    if any(s.status != "baseless" for s in local.segments) or _has_attribution(claim):
         return False
     return not find_regions(claim, tokenize(claim))
 
@@ -216,7 +247,7 @@ async def verify_claim(
         llm.error = g.info.error
     flagged, why = referral(claim, 1)  # sensitive topics get a "ask a scholar" banner next to the evidence
     anchors = key_stems(claim, key_terms)
-    required = unseen_stems(anchors)
+    required = unseen_stems(key_terms, anchors)
 
     if llm.used:
         subject = claim  # stance is judged against the person's own words, never against the model's restatement
@@ -237,8 +268,10 @@ async def verify_claim(
             for c, (_, stances, says, covers) in zip(pool, results):
                 for k, (i, score, sources) in enumerate(g.pool[c]):
                     stance = stances.get(k)
-                    if stance in ("supports", "contradicts", "partial") and not mentions(g.entries[i], anchors, required):
-                        stance = "related"  # a text that never names the claim's subject cannot settle the claim
+                    if stance in ("supports", "partial") and not mentions(g.entries[i], set(), required):
+                        stance = "related"  # a text that never names a subject the corpus has no other word for cannot settle the claim
+                    if stance == "contradicts" and not settles(g.entries[i], anchors, required):
+                        stance = "related"
                     if stance in sides:
                         item = g.item(c, i, score, sources)
                         item.stance = stance
