@@ -94,6 +94,7 @@ class EvidenceItem(BaseModel):
     exact_wording: bool = True  # False when the LLM's recitation differed slightly from the corpus text
     relevance: Optional[Literal["direct", "related"]] = None  # the LLM judge's verdict, when the LLM step ran
     stance: Optional[Literal["supports", "contradicts", "related", "partial"]] = None  # claim verification: how it bears on the claim
+    covers_all: Optional[bool] = None  # the judge's view: this text addresses the whole claim (False: only part of it, weighed at half)
     covers: list[str] = Field(default_factory=list)  # stance "partial": the parts of the claim this text itself addresses (model-written)
     says: Optional[str] = None  # the judge model's one-line note on what the text says (model-written, used by the explanation)
 
@@ -196,6 +197,7 @@ class TextClaimItem(BaseModel):
     end: int
     quote: Optional[Segment] = None  # kind == "quote": what the verifier found
     result: Optional[ClaimResponse] = None  # kind == "claim": the claim check
+    fragment: bool = False  # kind == "quote": an unmarked run of five words or fewer that happens to occur in a text: a matched phrase, not a quotation
     similar: Optional[SimilarText] = None  # kind == "similar": a sentence close to a known text, nothing else found in it
 
 

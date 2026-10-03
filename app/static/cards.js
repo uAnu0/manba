@@ -16,7 +16,7 @@ const Cards = (() => {
   const GROUPS = { claims: "Claims", quotes: "Quran & hadith quotes", similar: "Close matches", fragments: "Short phrases" };
   const ORDER = ["q_verified", "supported", "supported_in_part", "supported_weakly", "mixed", "contradicted", "no_clear_evidence", "q_variant", "q_partial", "q_baseless",
     "similar", "refer_to_scholar", "evidence_only", "out_of_scope", "q_fragment", "quote_checked"];
-  const FRAGMENT_WORDS = 4;  // a verified run this short is a stock phrase, not a quotation: kept apart so it does not inflate "verified"
+  const FRAGMENT_WORDS = 5;  // a verified run this short is a stock phrase, not a quotation: kept apart so it does not inflate "verified"
 
   // ---------- small pieces of markup ----------
   const strengthChip = s => { const m = STRENGTH[s.strength]; return m ? `<span class="chip ${m[1]}">Level ${s.level} · ${m[0]}</span>` : ""; };
@@ -50,13 +50,14 @@ const Cards = (() => {
 
   // ---------- entries: one per card ----------
   function entriesOf(data) {
-    if (data.items) return data.items.map(it => ({ kind: it.kind, text: it.text, start: it.start, result: it.result, quote: it.quote, similar: it.similar }));
+    if (data.items) return data.items.map(it => ({ kind: it.kind, text: it.text, start: it.start, result: it.result, quote: it.quote, similar: it.similar, fragment: it.fragment }));
     return [{ kind: "claim", text: data.claim, start: 0, result: data }];
   }
 
-  const quoteStatus = (status, text) => {
+  const quoteStatus = (status, text, fragment) => {
     if (status === "verified") {
-      if ((text || "").trim().split(/\s+/).length <= FRAGMENT_WORDS) return { key: "q_fragment", label: "Matched phrase", cls: "", attention: false, group: "fragments" };
+      // the server flags unmarked short runs (fragment); older responses fall back to counting the words
+      if (fragment === undefined ? (text || "").trim().split(/\s+/).length <= FRAGMENT_WORDS : fragment) return { key: "q_fragment", label: "Matched phrase", cls: "", attention: false, group: "fragments" };
       return { key: "q_verified", label: "Verified quote", cls: "ok", attention: false, group: "quotes" };
     }
     if (status === "semantic_variant") return { key: "q_variant", label: "Wording differs", cls: "warn", attention: true, group: "quotes" };
@@ -65,7 +66,7 @@ const Cards = (() => {
 
   function statusOf(e) {
     if (e.kind === "similar") return { key: "similar", label: "Close to a known text", cls: "warn", attention: true, group: "similar" };
-    if (e.kind === "quote") return quoteStatus(e.quote.status, e.text);
+    if (e.kind === "quote") return quoteStatus(e.quote.status, e.text, e.fragment);
     const r = e.result;
     if (r.outcome === "quote_checked") {
       // The card stands for the WHOLE sentence: a verified fragment inside it does not make the sentence a verified quote.

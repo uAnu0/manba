@@ -20,6 +20,8 @@ MAX_CLAIMS = 8  # claims checked per request (each is about four model calls)
 PARALLEL = 5  # claims checked at the same time
 MAX_PIECES = 60  # stretches compared by meaning per request (one cached embedding each)
 MIN_CLAIM_WORDS = 3
+FRAGMENT_WORDS = 5  # an unmarked verbatim run this short is common speech that happens to occur in a text, not a quotation
+MIN_UNIT_WORDS = 4  # what is left of a sentence around a quote is checked as a claim only if it is at least this long
 
 
 def _locate(sentence: str, claim: str) -> tuple[int, int] | None:
@@ -53,6 +55,28 @@ def _pieces(text: str, spans: list[tuple[int, int]], covered: list[bool]) -> lis
             if m:
                 start = m.end()
     return pieces[:MAX_PIECES]
+
+
+def _units(text: str, spans: list[tuple[int, int]], quote_spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """The stretches handed to the claim finder: a sentence no quote touches whole, and from a sentence that holds a quote the
+    parts around it ("واحذروا الغيبة وأكل لحوم الناس بالباطل؛ فإن" before «المسلم من سلم المسلمون من لسانه ويده»), so the
+    statement beside a quote is checked too and the quoted words are not checked twice."""
+    units: list[tuple[int, int]] = []
+    for a, b in spans:
+        cuts = sorted((max(a, s), min(b, e)) for s, e in quote_spans if s < b and e > a)
+        if not cuts:
+            units.append((a, b))
+            continue
+        pos = a
+        for s, e in cuts + [(b, b)]:
+            if s > pos:
+                piece = text[pos:s]
+                lead = len(piece) - len(piece.lstrip(" \t\r\n،؛:.!؟"))
+                piece = piece.strip(" \t\r\n،؛:.!؟")
+                if len(tokenize(piece)) >= MIN_UNIT_WORDS:
+                    units.append((pos + lead, pos + lead + len(piece)))
+            pos = max(pos, e)
+    return units
 
 
 _NEGATIONS = frozenset({"لا", "لم", "لن", "ليس", "ليست", "غير", "ما", "بدون", "no", "not", "never"})
@@ -102,7 +126,10 @@ async def check_text(
         if (item.segment.status in ("verified", "semantic_variant") and item.segment.classification in ("quran", "hadith"))
         or item.kind == "region"
     ]
-    quote_spans = [(q.start, q.end) for q in quotes]
+    def is_fragment(q) -> bool:  # an unmarked short verbatim run: a label on the text, it neither cuts claims nor replaces them
+        return q.kind == "run" and q.segment.status == "verified" and len(tokenize(text[q.start : q.end])) <= FRAGMENT_WORDS
+
+    quote_spans = [(q.start, q.end) for q in quotes if not is_fragment(q)]
 
     # 2. Sentences, and which of them the quotes already cover.
     spans = sentence_spans(text)
@@ -111,28 +138,30 @@ async def check_text(
     sentences = [text[a:b] for a, b in spans]
     covered = [sum(_overlap(span, q) for q in quote_spans) >= 0.5 * (span[1] - span[0]) for span in spans]
 
-    # 3. The claims in the other sentences (one model call for the whole text).
+    # 3. The claims in what the quotes leave of each sentence (one model call for the whole text).
+    units = _units(text, spans, quote_spans)
+    unit_texts = [text[a:b] for a, b in units]
     claims: list[tuple[int, int, str]] = []  # (start, end, text)
     if use_llm:
         try:
-            for k, claim_text, subject in await find_claims(sentences, covered, api_key=api_key):
-                a, _ = spans[k]
-                span = _locate(sentences[k], claim_text)
+            for k, claim_text, subject in await find_claims(unit_texts, [False] * len(units), api_key=api_key):
+                a, _ = units[k]
+                span = _locate(unit_texts[k], claim_text)
                 claim = claim_text
                 if span is None:
-                    accepted = _accept_rewrite(sentences[k], claim_text, subject)
+                    accepted = _accept_rewrite(unit_texts[k], claim_text, subject)
                     if accepted:
                         claim, span = accepted
-                start, end = (a + span[0], a + span[1]) if span else spans[k]  # no usable copy: the whole sentence
+                start, end = (a + span[0], a + span[1]) if span else units[k]  # no usable copy: the whole stretch
                 if span is None:
                     claim = text[start:end].strip()
-                elif claim == claim_text and _locate(sentences[k], claim_text) is not None:
+                elif claim == claim_text and _locate(unit_texts[k], claim_text) is not None:
                     claim = text[start:end].strip()
                 # A piece that does not name its subject ("ويأمر بالصدقة") gets it from the same sentence, when the
                 # words the model gave really occur there before the piece.
-                subject_span = _locate(sentences[k], subject) if subject else None
+                subject_span = _locate(unit_texts[k], subject) if subject else None
                 if span and subject_span and subject_span[1] <= span[0] and not claim.startswith(subject):
-                    claim = f"{sentences[k][subject_span[0] : subject_span[1]]} {claim}"
+                    claim = f"{unit_texts[k][subject_span[0] : subject_span[1]]} {claim}"
                 if len(tokenize(claim)) < MIN_CLAIM_WORDS or any(_overlap((start, end), q) > 0.5 * (end - start) for q in quote_spans):
                     continue
                 if all(c[2] != claim for c in claims):
@@ -162,7 +191,10 @@ async def check_text(
     )
 
     items = [
-        TextClaimItem(kind="quote", text=text[q.start : q.end].strip(), start=q.start, end=q.end, quote=q.segment)
+        TextClaimItem(
+            kind="quote", text=text[q.start : q.end].strip(), start=q.start, end=q.end, quote=q.segment,
+            fragment=is_fragment(q),
+        )
         for q in quotes
     ]
     for (start, end, claim), result in zip(claims, results):
@@ -189,7 +221,10 @@ async def check_text(
             items.append(TextClaimItem(kind="similar", text=text[a:b].strip(), start=a, end=b, similar=similar))
     items.sort(key=lambda i: i.start)
 
-    summary = Counter(i.quote.status if i.kind == "quote" else "similar_text" if i.kind == "similar" else i.result.outcome for i in items)
+    summary = Counter(
+        ("matched_phrase" if i.fragment else i.quote.status) if i.kind == "quote" else "similar_text" if i.kind == "similar" else i.result.outcome
+        for i in items
+    )
     busy = [(i.start, i.end) for i in items]
     commentary = sum(1 for span in spans if not any(_overlap(span, b) > 0 for b in busy))
     return TextCheckResponse(
