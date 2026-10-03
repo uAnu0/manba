@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manba claim check</title>
 <style>
+.explain{margin:10px 0}.explain-btn{cursor:pointer}
   :root {
     --bg: #f6f7f9; --card: #fff; --text: #1b1f27; --muted: #667085; --line: #e3e6ec;
     --ok: #137a4b; --ok-bg: #e4f6ec; --warn: #9a6200; --warn-bg: #fff3d6; --bad: #b42318; --bad-bg: #fde8e6; --gray-bg: #eceff4; --blue: #3b5bdb; --blue-bg: #e7ecff;
@@ -48,6 +49,7 @@
   <p class="sub">Paste a claim about Islam, a quoted verse or hadith, a question, or a whole paragraph with several claims. You get where the evidence stands for each, never a true/false verdict. <a href="/">Quote verifier</a> · <a href="/evidence">Evidence finder</a></p>
 
   <textarea id="q" dir="auto" style="min-height:120px" placeholder="مثال: الإسلام يحرم الربا   ·   Example: Islam allows alcohol   ·   قال النبي صلى الله عليه وسلم: النظافة من الإيمان"></textarea>
+  <div class="small" id="wc">0 / 500 words</div>
   <div class="row">
     <button id="go" class="primary">Check claim</button>
     <label class="small"><input type="checkbox" id="llm" checked> Use the AI router and judge (needed for a verdict)</label>
@@ -89,6 +91,33 @@ function segment(sg) {
   const s = sg.source;
   return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${(sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}</div>`;
 }
+const STORE = [];  // results kept so the Explain button can send them back; nothing is explained until it is clicked
+function explainBox(payload) {
+  STORE.push(payload);
+  return `<div class="explain"><button class="explain-btn" data-i="${STORE.length - 1}">Explain in Arabic · اشرح</button><div class="small">Written by an AI from the texts above only. Starts only when you click.</div><div class="explain-out"></div></div>`;
+}
+function explainHtml(e) {
+  let h = `<div class="item" dir="rtl"><div class="meta"><span class="chip ${e.ai_written ? "blue" : ""}">${e.ai_written ? "كتب هذا الشرح نموذج ذكاء اصطناعي اعتمادًا على النصوص المعروضة فقط" : "شرح مبسّط مولَّد آليًا من النتيجة"}</span></div>`;
+  if (e.summary_ar) h += `<p><b>${esc(e.summary_ar)}</b></p>`;
+  h += e.points.map(p => `<p>${esc(p.text)} <span class="small">[${p.cites.join("، ")}]</span></p>`).join("");
+  if (e.caution) h += `<p class="small">${esc(e.caution)}</p>`;
+  h += (e.texts || []).map(t => `<div class="small">[${t.n}] ${esc(t.label)}${t.stance_ar ? " — " + esc(t.stance_ar) : ""}${t.strength_ar ? " — " + esc(t.strength_ar) : ""}</div>`).join("");
+  if (!e.ai_written && e.note) h += `<div class="small" dir="ltr">(${esc(e.note)})</div>`;
+  return h + "</div>";
+}
+document.addEventListener("click", async ev => {
+  const b = ev.target.closest(".explain-btn"); if (!b) return;
+  const out = b.parentElement.querySelector(".explain-out");
+  b.disabled = true; out.innerHTML = `<div class="small">Writing the explanation…</div>`;
+  const headers = { "Content-Type": "application/json" };
+  if ($("token").value) headers["X-Access-Token"] = $("token").value;
+  if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
+  try {
+    const res = await fetch("/api/explain", { method: "POST", headers, body: JSON.stringify(STORE[+b.dataset.i]) });
+    const data = await res.json(); if (!res.ok) throw new Error(res.status === 401 ? "The server needs an access code: enter it in Settings." : JSON.stringify(data));
+    out.innerHTML = explainHtml(data); b.remove();
+  } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; b.disabled = false; }
+});
 function claimHtml(d) {
   let h = `<div class="outcome ${d.outcome}"><h3>${TITLES[d.outcome]}</h3><p>${esc(d.summary_en)}</p><p dir="rtl">${esc(d.summary_ar)}</p></div>`;
   if (d.refer_to_scholar && d.reason) h += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(d.reason)}</div>`;
@@ -96,6 +125,7 @@ function claimHtml(d) {
   if (d.quote_check) h += `<h2>The quoted text</h2>` + d.quote_check.segments.map(segment).join("");
   h += section("Evidence that supports the claim", d.supporting, "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
   h += `<div class="notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
+  if (d.outcome !== "out_of_scope") h += explainBox({ claim: d.claim, result: d });
   h += `<details><summary>How this was decided</summary><div class="small">Claim type: <b>${esc(d.claim_type)}</b>. ${d.restated_claim ? `Search aid written by the model (it can be wrong, it is not used as the claim): ${esc(d.restated_claim)}.` : ""} ${d.llm && d.llm.recited ? `The model recalled ${d.llm.recited} texts, ${d.llm.recited_found} of them found in the corpus.` : ""} Sources are ranked by level: 1 Quran, 2 Sahih al-Bukhari and Muslim, 3 other hadith with the gradings scholars gave them.</div></details>`;
   return h;
 }
@@ -108,14 +138,18 @@ function renderCheck(d) {
   if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
   if (!d.llm || !d.llm.used) h += `<div class="banner">No model was used, so only quoted texts were checked.</div>`;
   for (const it of d.items) {
-    if (it.kind === "quote") { h += `<h2>Quoted text</h2>` + segment(it.quote); continue; }
+    if (it.kind === "quote") { h += `<h2>Quoted text</h2>` + segment(it.quote) + explainBox({ claim: it.text, segment: it.quote }); continue; }
     const r = it.result;
     h += `<div class="item"><div class="meta"><span class="chip ${CHIP[r.outcome] || ""}">${esc(TITLES[r.outcome] || r.outcome)}</span><span class="chip">claim</span></div><div class="ar">${esc(it.text)}</div><details><summary>Details</summary>${claimHtml(r)}</details></div>`;
   }
   $("out").innerHTML = h;
 }
+const wordCount = () => ($("q").value.trim().match(/\S+/g) || []).length;
+$("q").addEventListener("input", () => { const n = wordCount(); $("wc").textContent = n + " / 500 words"; $("wc").style.color = n > 500 ? "#b00020" : ""; $("go").disabled = n > 500; });
 async function run() {
   const claim = $("q").value.trim(); if (!claim) return;
+  if (wordCount() > 500) { $("out").innerHTML = `<div class="err">Input is limited to 500 words.</div>`; return; }
+  STORE.length = 0;
   $("go").disabled = true; $("out").innerHTML = `<div class="small">Checking… (a single claim takes about 10 seconds, a paragraph with several claims up to a minute)</div>`;
   const headers = { "Content-Type": "application/json" };
   if ($("token").value) headers["X-Access-Token"] = $("token").value;
@@ -126,7 +160,7 @@ async function run() {
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
     const data = await res.json(); if (!res.ok) throw new Error(JSON.stringify(data));
     if (data.items) renderCheck(data); else render(data);
-  } catch (e) { $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`; } finally { $("go").disabled = false; }
+  } catch (e) { $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`; } finally { $("go").disabled = wordCount() > 500; }
 }
 for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
   try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
