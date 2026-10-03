@@ -16,7 +16,7 @@ from pathlib import Path
 from app.services.claim_card import verify_claim
 
 GOLDEN = Path(__file__).resolve().parent / "golden" / "claims_golden.json"
-SUPPORT = {"supported", "supported_weakly"}
+SUPPORT = {"supported", "supported_weakly", "supported_in_part"}
 
 
 async def main(verbose: bool, concurrency: int) -> int:

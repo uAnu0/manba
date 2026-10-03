@@ -74,7 +74,7 @@ evidence stands: never "true" or "false". Test page: `/claim`.
    supports / contradicts / related / unrelated against the person's own words. A text may only count as support or contradiction if it names the claim's subject
    (key terms from the router, else the claim's rare words): this is what stops an invented claim such as "Islam forbids tomatoes" from being "supported" by verses about food in general.
 4. **Outcome** from the two sides, weighted by source strength (Quran and Sahih al-Bukhari/Muslim 3, sahih 2, hasan 1.5, disputed 1, weak or ungraded 0.5): `supported`,
-   `supported_weakly` (only weak or ungraded hadith), `contradicted`, `mixed` (comparable weight on both sides), `no_clear_evidence`. A lone text on the other side does not make a clear case "mixed"; it is shown with a note.
+   `supported_weakly` (only weak or ungraded hadith), `supported_in_part` (texts cover some parts of a multi-part claim, each text shows which; nothing covers all of it), `contradicted`, `mixed` (comparable weight on both sides), `no_clear_evidence`. A lone text on the other side does not make a clear case "mixed"; it is shown with a note.
    Sensitive topics add a "ask a scholar" banner.
 
 Every source carries its level (1 Quran, 2 Sahih al-Bukhari / Sahih Muslim, 3 other hadith) and strength (`quran`, `sahihayn`, `sahih`, `hasan`, `daif`, `disputed`, `ungraded`) with the gradings scholars gave.

@@ -22,7 +22,7 @@ async def explain_result(
         raise HTTPException(status_code=422, detail="send exactly one of result or segment")
     result = payload.result
     if result is not None:
-        for side in ("supporting", "contradicting", "related"):
+        for side in ("supporting", "contradicting", "partial", "related"):
             items = getattr(result, side)[:MAX_ITEMS]
             setattr(
                 result,

@@ -24,11 +24,12 @@ from app.services.llm_extractor import chat_json
 from app.services.verifier import normalize
 
 DEFAULT_WRITER = "google/gemini-2.5-flash-lite"  # best of the bake-off; set EXPLAIN_MODEL to try another
-MAX_TEXTS = {"supports": 4, "contradicts": 3, "related": 2}
+MAX_TEXTS = {"supports": 4, "partial": 3, "contradicts": 3, "related": 2}
 EXCERPT_CHARS = 300
 
 STANCE_AR = {
     "supports": "يؤيد الادعاء",
+    "partial": "يؤيد جزءًا من الادعاء فقط",
     "contradicts": "يخالف الادعاء",
     "related": "ذو صلة بالموضوع دون أن يحسم الادعاء",
 }
@@ -143,9 +144,10 @@ def build_facts(claim: str, result: ClaimResponse | None, segment: Segment | Non
             texts.append(fact)
         return Facts(claim, "quote_checked", result.summary_ar, texts, quote=True)
     if result is not None:
-        for items, stance in ((result.supporting, "supports"), (result.contradicting, "contradicts"), (result.related, "related")):
+        for items, stance in ((result.supporting, "supports"), (result.partial, "partial"), (result.contradicting, "contradicts"), (result.related, "related")):
             for item in items[: MAX_TEXTS[stance]]:
-                texts.append(_fact(len(texts) + 1, item.source, item.full_text, stance, item.says, item.classification))
+                says = item.says if stance != "partial" or not item.covers else f"{item.says or ''} (part of the claim it addresses: {'; '.join(item.covers)})"
+                texts.append(_fact(len(texts) + 1, item.source, item.full_text, stance, says, item.classification))
         return Facts(claim, result.outcome, result.summary_ar, texts)
     assert segment is not None  # a lone quoted-text result
     quoted = segment.segment_text

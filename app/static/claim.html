@@ -73,7 +73,7 @@ const SAMPLES = ["الإسلام يحرم الربا", "الإسلام يبيح 
 for (const q of SAMPLES) { const b = document.createElement("button"); b.textContent = q; b.onclick = () => { $("q").value = q; run(); }; $("samples").appendChild(b); }
 
 const TITLES = {
-  supported: "Evidence supports this claim", supported_weakly: "Supported only by weak evidence", contradicted: "Evidence contradicts this claim",
+  supported: "Evidence supports this claim", supported_weakly: "Supported only by weak evidence", supported_in_part: "Supported in part", contradicted: "Evidence contradicts this claim",
   mixed: "Evidence on both sides", no_clear_evidence: "No clear evidence found", refer_to_scholar: "Ask a scholar", out_of_scope: "Not a religious claim",
   quote_checked: "Quoted text checked", evidence_only: "Related texts (no verdict)" };
 const STRENGTH = { quran: ["Quran", "ok"], sahihayn: ["Sahih al-Bukhari / Muslim", "ok"], sahih: ["graded Sahih", "ok"], hasan: ["graded Hasan", "warn"], daif: ["graded weak", "bad"], disputed: ["grading disputed", "warn"], ungraded: ["no grading here", "warn"] };
@@ -81,9 +81,10 @@ function strengthChip(s) { const m = STRENGTH[s.strength]; return m ? `<span cla
 function gradeChips(s) { return (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join(""); }
 function item(it, cls) {
   const s = it.source;
+  const covers = (it.covers || []).length ? `<div class="small">Supports this part of the claim: <b>${it.covers.map(esc).join(" · ")}</b></div>` : "";
   const where = [s.book, s.chapter && it.classification === "quran" ? s.chapter : "", s.number].filter(Boolean).join(" · ");
   const full = it.full_text && it.full_text !== s.matched_text ? `<details><summary>Full text${it.classification === "hadith" ? " with chain of narrators" : ""}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
-  return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(where)}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${full}</div>`;
+  return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(where)}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${covers}${full}</div>`;
 }
 function section(title, items, cls) { return items.length ? `<h2>${title} (${items.length})</h2>` + items.map(i => item(i, cls)).join("") : ""; }
 function segment(sg) {
@@ -123,7 +124,7 @@ function claimHtml(d) {
   if (d.refer_to_scholar && d.reason) h += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(d.reason)}</div>`;
   if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
   if (d.quote_check) h += `<h2>The quoted text</h2>` + d.quote_check.segments.map(segment).join("");
-  h += section("Evidence that supports the claim", d.supporting, "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
+  h += section("Evidence that supports the claim", d.supporting, "supports") + section("Texts that support only part of the claim", d.partial || [], "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
   h += `<div class="notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
   if (d.outcome !== "out_of_scope") h += explainBox({ claim: d.claim, result: d });
   h += `<details><summary>How this was decided</summary><div class="small">Claim type: <b>${esc(d.claim_type)}</b>. ${d.restated_claim ? `Search aid written by the model (it can be wrong, it is not used as the claim): ${esc(d.restated_claim)}.` : ""} ${d.llm && d.llm.recited ? `The model recalled ${d.llm.recited} texts, ${d.llm.recited_found} of them found in the corpus.` : ""} Sources are ranked by level: 1 Quran, 2 Sahih al-Bukhari and Muslim, 3 other hadith with the gradings scholars gave them.</div></details>`;
@@ -131,7 +132,7 @@ function claimHtml(d) {
 }
 function render(d) { $("out").innerHTML = claimHtml(d); }
 
-const CHIP = { supported: "ok", supported_weakly: "warn", contradicted: "bad", mixed: "warn", no_clear_evidence: "", refer_to_scholar: "warn", out_of_scope: "", quote_checked: "blue", evidence_only: "" };
+const CHIP = { supported: "ok", supported_weakly: "warn", supported_in_part: "warn", contradicted: "bad", mixed: "warn", no_clear_evidence: "", refer_to_scholar: "warn", out_of_scope: "", quote_checked: "blue", evidence_only: "" };
 function renderCheck(d) {
   const parts = Object.entries(d.summary || {}).map(([k, v]) => `${v} ${TITLES[k] ? TITLES[k].toLowerCase() : k.replace("_", " ")}`);
   let h = `<div class="outcome quote_checked"><h3>Paragraph checked</h3><p>${d.items.length} item(s) found in ${d.sentences} sentence(s); ${d.commentary_sentences} sentence(s) were commentary.${parts.length ? " " + esc(parts.join(" · ")) + "." : ""}</p>${d.skipped_claims ? `<p>${d.skipped_claims} more claim(s) were not checked (limit per request).</p>` : ""}${d.truncated ? "<p>The text was longer than the limit; only the first part was read.</p>" : ""}</div>`;

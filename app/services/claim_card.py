@@ -29,6 +29,10 @@ SUMMARIES = {
         "The sources we searched contain direct evidence that supports this claim, and none against it.",
         "في المصادر التي بحثنا فيها أدلة مباشرة تؤيد هذا الادعاء، ولم نجد ما يعارضه.",
     ),
+    "supported_in_part": (
+        "Some parts of this claim are supported by the texts below, but we found nothing that covers all of it. Each text shows the part it supports.",
+        "تؤيد النصوص الآتية بعض ما في هذا الادعاء، لكننا لم نجد ما يغطيه كله؛ وبجانب كل نص الجزء الذي يؤيده.",
+    ),
     "supported_weakly": (
         "The evidence we found for this claim comes only from hadith that are weak or have no grading here: treat it with caution.",
         "الأدلة التي وجدناها لهذا الادعاء من أحاديث ضعيفة أو غير مُدرجة الحكم عندنا؛ فليُتعامل معها بحذر.",
@@ -229,29 +233,34 @@ async def verify_claim(
         if results is not None:
             if not any(r[0] for r in results):
                 return _response(claim, claim_type, "out_of_scope", llm, **routed)
-            sides: dict[str, list[EvidenceItem]] = {"supports": [], "contradicts": [], "related": []}
-            for c, (_, stances, says) in zip(pool, results):
+            sides: dict[str, list[EvidenceItem]] = {"supports": [], "contradicts": [], "partial": [], "related": []}
+            for c, (_, stances, says, covers) in zip(pool, results):
                 for k, (i, score, sources) in enumerate(g.pool[c]):
                     stance = stances.get(k)
-                    if stance in ("supports", "contradicts") and not mentions(g.entries[i], anchors, required):
+                    if stance in ("supports", "contradicts", "partial") and not mentions(g.entries[i], anchors, required):
                         stance = "related"  # a text that never names the claim's subject cannot settle the claim
                     if stance in sides:
                         item = g.item(c, i, score, sources)
                         item.stance = stance
                         item.says = says.get(k) or None
+                        if stance == "partial":
+                            item.covers = covers.get(k, [])
                         sides[stance].append(item)
             supporting = _order(sides["supports"])[:MAX_SIDE]
             contradicting = _order(sides["contradicts"])[:MAX_SIDE]
+            partial = _order(sides["partial"])[:MAX_SIDE]
             related = _order(sides["related"])[:MAX_RELATED]
             outcome = outcome_of(supporting, contradicting)
+            if outcome == "no_clear_evidence" and partial and not contradicting:
+                outcome = "supported_in_part"
             refer = flagged or outcome in ("mixed", "no_clear_evidence")
             reason = why if flagged else ("Ask a scholar to weigh the evidence." if outcome == "mixed" else None)
-            other = contradicting if outcome in ("supported", "supported_weakly") else supporting if outcome == "contradicted" else []
+            other = contradicting if outcome in ("supported", "supported_weakly", "supported_in_part") else supporting if outcome == "contradicted" else []
             if other:
                 note = f"{len(other)} text(s) below were judged to point the other way; please read them."
                 reason = f"{reason} {note}" if reason else note
             return _response(
-                claim, claim_type, outcome, llm, supporting=supporting, contradicting=contradicting, related=related,
+                claim, claim_type, outcome, llm, supporting=supporting, contradicting=contradicting, partial=partial, related=related,
                 refer_to_scholar=refer, reason=reason, **routed,
             )
 
