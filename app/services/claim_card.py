@@ -11,6 +11,7 @@ from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
 from app.services.evidence import excerpt, index, search_text, stem, terms
 from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
 from app.services.llm_query import classify_claim, judge_claim
+from app.services.similar import nearest_text
 from app.services.pipeline import SAID_VERBS, SOURCE_WORDS, _redact, verify_text, verify_text_llm
 from app.services.quote_finder import find_regions, tokenize
 from app.services.strength import STRONG
@@ -172,6 +173,19 @@ def _unmarked_statement(claim: str, local) -> bool:
 
 
 async def verify_claim(
+    claim: str, use_llm: bool = True, api_key: str | None = None, use_meaning: bool = True, with_similar: bool = True
+) -> ClaimResponse:
+    """Check one claim. With `with_similar` it also points to the known text the wording is close to (one cached embedding)."""
+    if not (with_similar and use_meaning):
+        return await _verify_claim(claim, use_llm, api_key, use_meaning)
+    result, similar = await asyncio.gather(_verify_claim(claim, use_llm, api_key, use_meaning), nearest_text(claim, api_key))
+    quote_found = result.quote_check is not None and any(s.status == "verified" for s in result.quote_check.segments)
+    if similar is not None and not quote_found and result.outcome not in ("out_of_scope", "refer_to_scholar"):
+        result.similar = similar
+    return result
+
+
+async def _verify_claim(
     claim: str, use_llm: bool = True, api_key: str | None = None, use_meaning: bool = True
 ) -> ClaimResponse:
     llm = ClaimLLMInfo()

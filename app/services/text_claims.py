@@ -5,6 +5,7 @@ which only says which of them make a religious claim and copies the claim text; 
 its sentence before it is used. Every claim is then run through the claim verifier, several at a time.
 """
 import asyncio
+import re
 from collections import Counter
 
 from app.schemas import ClaimLLMInfo, TextCheckResponse, TextClaimItem
@@ -12,10 +13,12 @@ from app.services.claim_card import verify_claim
 from app.services.llm_query import find_claims
 from app.services.pipeline import _redact, sentence_spans, verify_local
 from app.services.quote_finder import tokenize
+from app.services.similar import nearest_text
 
 MAX_SENTENCES = 80
 MAX_CLAIMS = 8  # claims checked per request (each is about four model calls)
 PARALLEL = 5  # claims checked at the same time
+MAX_PIECES = 60  # stretches compared by meaning per request (one cached embedding each)
 MIN_CLAIM_WORDS = 3
 
 
@@ -29,6 +32,27 @@ def _locate(sentence: str, claim: str) -> tuple[int, int] | None:
         if norms[i : i + len(target)] == target:
             return words[i].start, words[i + len(target) - 1].end
     return None
+
+
+_CLAUSE = re.compile("[،؛:]")
+
+
+def _pieces(text: str, spans: list[tuple[int, int]], covered: list[bool]) -> list[tuple[int, int]]:
+    """The stretches compared with the corpus by meaning: every sentence no quote covers, and each of its clauses (a long
+    sentence dilutes the match: "أحسنوا إلى ضعفائكم، وتعاهدوا مساكينكم؛ فإنما تنصرون وترزقون بضعفائكم")."""
+    pieces: list[tuple[int, int]] = []
+    for (a, b), done in zip(spans, covered):
+        if done:
+            continue
+        pieces.append((a, b))
+        start = a
+        for m in list(_CLAUSE.finditer(text, a, b)) + [None]:
+            end = m.start() if m else b
+            if (start, end) != (a, b) and len(tokenize(text[start:end])) >= 3:
+                pieces.append((start, end))
+            if m:
+                start = m.end()
+    return pieces[:MAX_PIECES]
 
 
 _NEGATIONS = frozenset({"لا", "لم", "لن", "ليس", "ليست", "غير", "ما", "بدون", "no", "not", "never"})
@@ -124,9 +148,18 @@ async def check_text(
 
     async def check(claim: str):
         async with sem:
-            return await verify_claim(claim, True, api_key, use_meaning)
+            return await verify_claim(claim, True, api_key, use_meaning, with_similar=False)
 
-    results = await asyncio.gather(*(check(c[2]) for c in claims), return_exceptions=True)
+    async def nearest(sentence: str):
+        async with sem:
+            return await nearest_text(sentence, api_key)
+
+    # Sentences no quote covers are also compared with the corpus by meaning (one cached embedding each, no chat model).
+    pieces = _pieces(text, spans, covered) if use_meaning else []
+    results, nears = await asyncio.gather(
+        asyncio.gather(*(check(c[2]) for c in claims), return_exceptions=True),
+        asyncio.gather(*(nearest(text[a:b]) for a, b in pieces)),
+    )
 
     items = [
         TextClaimItem(kind="quote", text=text[q.start : q.end].strip(), start=q.start, end=q.end, quote=q.segment)
@@ -137,9 +170,26 @@ async def check_text(
             llm.error = (llm.error + "; " if llm.error else "") + _redact(f"{type(result).__name__}: {result}")
             continue
         items.append(TextClaimItem(kind="claim", text=claim, start=start, end=end, result=result))
+    taken: list[tuple[int, int]] = []  # a part of the text already pointed out (the best match per stretch wins)
+    ranked = sorted(((p, s) for p, s in zip(pieces, nears) if s is not None), key=lambda ps: (-ps[1].shared_share, -ps[1].similarity))
+    for (a, b), similar in ranked:
+        if any(_overlap((a, b), t) > 0 for t in taken):
+            continue
+        src = (similar.evidence.source.book, similar.evidence.source.number)
+        if any(
+            i.kind == "quote" and i.quote.source and (i.quote.source.book, i.quote.source.number) == src and _overlap((i.start, i.end), (a, b)) > 0
+            for i in items
+        ):
+            continue  # that very text is already shown as a verified quote here
+        taken.append((a, b))
+        owner = next((i for i in items if i.kind == "claim" and _overlap((i.start, i.end), (a, b)) > 0), None)
+        if owner is not None:
+            owner.result.similar = similar
+        else:
+            items.append(TextClaimItem(kind="similar", text=text[a:b].strip(), start=a, end=b, similar=similar))
     items.sort(key=lambda i: i.start)
 
-    summary = Counter(i.quote.status if i.kind == "quote" else i.result.outcome for i in items)
+    summary = Counter(i.quote.status if i.kind == "quote" else "similar_text" if i.kind == "similar" else i.result.outcome for i in items)
     busy = [(i.start, i.end) for i in items]
     commentary = sum(1 for span in spans if not any(_overlap(span, b) > 0 for b in busy))
     return TextCheckResponse(

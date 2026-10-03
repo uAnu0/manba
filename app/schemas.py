@@ -139,6 +139,16 @@ class ClaimLLMInfo(BaseModel):
     recited_found: int = 0  # of those, how many exist in the corpus
 
 
+class SimilarText(BaseModel):
+    """The verse or hadith closest to a sentence that matched nothing word for word: a pointer, never a verification."""
+
+    evidence: EvidenceItem
+    similarity: float  # cosine of the meaning search
+    shared_share: float  # share of the sentence's distinctive words that this text also contains
+    shared_words: int
+    missing_words: list[str] = Field(default_factory=list)  # words of the sentence that are NOT in that text
+
+
 class ClaimResponse(BaseModel):
     claim: str
     claim_type: Literal["quote", "topic", "personal", "not_religious", "unknown"]
@@ -167,6 +177,7 @@ class ClaimResponse(BaseModel):
     reason: Optional[str] = None
     notice_ar: str
     notice_en: str
+    similar: Optional[SimilarText] = None  # a known text this wording is close to (see services/similar.py)
     llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
 
 
@@ -179,12 +190,13 @@ class TextCheckRequest(BaseModel):
 
 
 class TextClaimItem(BaseModel):
-    kind: Literal["quote", "claim"]
+    kind: Literal["quote", "claim", "similar"]
     text: str  # as written in the input
     start: int
     end: int
     quote: Optional[Segment] = None  # kind == "quote": what the verifier found
     result: Optional[ClaimResponse] = None  # kind == "claim": the claim check
+    similar: Optional[SimilarText] = None  # kind == "similar": a sentence close to a known text, nothing else found in it
 
 
 class TextCheckResponse(BaseModel):
