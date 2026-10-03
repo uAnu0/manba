@@ -1,50 +1,152 @@
 {
-  "description": "Paragraphs with several claims for the paragraph check. `claims`: a checked claim whose text contains `contains` must exist, with an outcome in `outcome`. `quotes`: a quoted text containing `contains` must exist with a status in `status`. `commentary`: no checked item may contain these words. Written by the developer: a smoke test.",
-  "paragraphs": [
+ "description": "Paragraphs with several claims for the paragraph check. `claims`: a checked claim whose text contains `contains` must exist, with an outcome in `outcome`. `quotes`: a quoted text containing `contains` must exist with a status in `status`. `commentary`: no checked item may contain these words. Written by the developer: a smoke test.",
+ "paragraphs": [
+  {
+   "id": "P1",
+   "text": "الحمد لله رب العالمين، والصلاة والسلام على رسوله الأمين. أما بعد، فإن الإسلام يحرم الربا ويأمر بالصدقة. قال تعالى: وأحل الله البيع وحرم الربا. ويقول بعض الناس إن الإسلام يبيح شرب الخمر في المناسبات. وقال النبي صلى الله عليه وسلم: النظافة من الإيمان. وقد ذكر لي صديقي أنه سافر إلى مكة العام الماضي. والإسلام يأمر ببر الوالدين، ويحث على الصبر عند البلاء. فاتقوا الله وأصلحوا ذات بينكم.",
+   "claims": [
     {
-      "id": "P1",
-      "text": "الحمد لله رب العالمين، والصلاة والسلام على رسوله الأمين. أما بعد، فإن الإسلام يحرم الربا ويأمر بالصدقة. قال تعالى: وأحل الله البيع وحرم الربا. ويقول بعض الناس إن الإسلام يبيح شرب الخمر في المناسبات. وقال النبي صلى الله عليه وسلم: النظافة من الإيمان. وقد ذكر لي صديقي أنه سافر إلى مكة العام الماضي. والإسلام يأمر ببر الوالدين، ويحث على الصبر عند البلاء. فاتقوا الله وأصلحوا ذات بينكم.",
-      "claims": [
-        {"contains": "يحرم الربا", "outcome": ["supported"]},
-        {"contains": "يأمر بالصدقة", "outcome": ["supported", "supported_weakly"]},
-        {"contains": "يبيح شرب الخمر", "outcome": ["contradicted"]},
-        {"contains": "ببر الوالدين", "outcome": ["supported"]},
-        {"contains": "يحث على الصبر", "outcome": ["supported", "supported_weakly"]}
-      ],
-      "quotes": [
-        {"contains": "وأحل الله البيع", "status": ["verified"]},
-        {"contains": "النظافة من الإيمان", "status": ["baseless"]}
-      ],
-      "commentary": ["سافر إلى مكة", "صديقي"]
+     "contains": "يحرم الربا",
+     "outcome": [
+      "supported"
+     ]
     },
     {
-      "id": "P2",
-      "text": "قال النبي صلى الله عليه وسلم: إنما الأعمال بالنيات. ومن المعلوم أن الإسلام يحرم الغيبة والنميمة. ويظن بعض الناس أن الإسلام يبيح الرشوة إذا كانت صغيرة. ذهبت أمس إلى السوق واشتريت خضارا. والإسلام يأمر بالوفاء بالعهد.",
-      "claims": [
-        {"contains": "يحرم الغيبة", "outcome": ["supported", "supported_weakly"]},
-        {"contains": "يبيح الرشوة", "outcome": ["contradicted", "no_clear_evidence", "mixed"]},
-        {"contains": "الوفاء بالعهد", "outcome": ["supported", "supported_weakly"]}
-      ],
-      "quotes": [{"contains": "إنما الأعمال بالنيات", "status": ["verified"]}],
-      "commentary": ["اشتريت خضارا"]
+     "contains": "يأمر بالصدقة",
+     "outcome": [
+      "supported",
+      "supported_weakly"
+     ]
     },
     {
-      "id": "P3",
-      "text": "Islam commands honouring parents. Yesterday I went shopping with my brother. Some people say that Islam allows drinking alcohol. We should all try to be kind to one another.",
-      "claims": [
-        {"contains": "honouring parents", "outcome": ["supported"]},
-        {"contains": "allows drinking alcohol", "outcome": ["contradicted"]}
-      ],
-      "quotes": [],
-      "commentary": ["went shopping"]
+     "contains": "يبيح شرب الخمر",
+     "outcome": [
+      "contradicted"
+     ]
     },
     {
-      "id": "P4",
-      "text": "أشكركم على حضوركم اليوم. نسأل الله أن يتقبل منا ومنكم. اللهم اجعلنا من الصالحين. أعتذر عن التأخر في بدء الجلسة.",
-      "claims": [],
-      "quotes": [],
-      "commentary": ["أشكركم", "أعتذر"],
-      "max_claims": 0
+     "contains": "ببر الوالدين",
+     "outcome": [
+      "supported"
+     ]
+    },
+    {
+     "contains": "يحث على الصبر",
+     "outcome": [
+      "supported",
+      "supported_weakly"
+     ]
     }
-  ]
+   ],
+   "quotes": [
+    {
+     "contains": "وأحل الله البيع",
+     "status": [
+      "verified"
+     ]
+    },
+    {
+     "contains": "النظافة من الإيمان",
+     "status": [
+      "baseless"
+     ]
+    }
+   ],
+   "commentary": [
+    "سافر إلى مكة",
+    "صديقي"
+   ]
+  },
+  {
+   "id": "P2",
+   "text": "قال النبي صلى الله عليه وسلم: إنما الأعمال بالنيات. ومن المعلوم أن الإسلام يحرم الغيبة والنميمة. ويظن بعض الناس أن الإسلام يبيح الرشوة إذا كانت صغيرة. ذهبت أمس إلى السوق واشتريت خضارا. والإسلام يأمر بالوفاء بالعهد.",
+   "claims": [
+    {
+     "contains": "يحرم الغيبة",
+     "outcome": [
+      "supported",
+      "supported_weakly"
+     ]
+    },
+    {
+     "contains": "يبيح الرشوة",
+     "outcome": [
+      "contradicted",
+      "no_clear_evidence",
+      "mixed"
+     ]
+    },
+    {
+     "contains": "الوفاء بالعهد",
+     "outcome": [
+      "supported",
+      "supported_weakly"
+     ]
+    }
+   ],
+   "quotes": [
+    {
+     "contains": "إنما الأعمال بالنيات",
+     "status": [
+      "verified"
+     ]
+    }
+   ],
+   "commentary": [
+    "اشتريت خضارا"
+   ]
+  },
+  {
+   "id": "P3",
+   "text": "Islam commands honouring parents. Yesterday I went shopping with my brother. Some people say that Islam allows drinking alcohol. We should all try to be kind to one another.",
+   "claims": [
+    {
+     "contains": "honouring parents",
+     "outcome": [
+      "supported"
+     ]
+    },
+    {
+     "contains": "allows drinking alcohol",
+     "outcome": [
+      "contradicted"
+     ]
+    }
+   ],
+   "quotes": [],
+   "commentary": [
+    "went shopping"
+   ]
+  },
+  {
+   "id": "P4",
+   "text": "أشكركم على حضوركم اليوم. نسأل الله أن يتقبل منا ومنكم. اللهم اجعلنا من الصالحين. أعتذر عن التأخر في بدء الجلسة.",
+   "claims": [],
+   "quotes": [],
+   "commentary": [
+    "أشكركم",
+    "أعتذر"
+   ],
+   "max_claims": 0
+  },
+  {
+   "id": "P5",
+   "text": "دين رجعي وغريب، حتى النوم واليقظة مسوين منها أساطير وخرافات تضحك! شوفوا كتبكم وش تقول: قال رسول الله ﷺ: «إذا استيقظ أحدكم من منامه فليستنثر ثلاثا، فإن الشيطان يبيت على خيشومه». يعني إله الكون سايب كل مشاكل العالم وقاعد يفكر بالشيطان اللي نايم في خشومكم؟ تخلف ما بعده تخلف.",
+   "claims": [],
+   "quotes": [
+    {
+     "contains": "إذا استيقظ أحدكم",
+     "status": [
+      "verified",
+      "semantic_variant"
+     ]
+    }
+   ],
+   "commentary": [
+    "قال رسول الله ﷺ"
+   ],
+   "max_claims": 0,
+   "note": "a hostile tweet quoting a real hadith (Muslim 238, wording differs slightly): the attribution phrase must not become a claim"
+  }
+ ]
 }

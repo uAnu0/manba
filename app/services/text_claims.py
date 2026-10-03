@@ -12,7 +12,7 @@ from app.schemas import ClaimLLMInfo, TextCheckResponse, TextClaimItem
 from app.services.claim_card import verify_claim
 from app.services.llm_query import find_claims
 from app.services.pipeline import _redact, sentence_spans, verify_local
-from app.services.quote_finder import tokenize
+from app.services.quote_finder import CONTEXT, FILLER, HONORIFIC, PROPHET, SAID, SPEAKER, SPEAKER_NAMES, tokenize
 from app.services.similar import nearest_text
 
 MAX_SENTENCES = 80
@@ -55,6 +55,15 @@ def _pieces(text: str, spans: list[tuple[int, int]], covered: list[bool]) -> lis
             if m:
                 start = m.end()
     return pieces[:MAX_PIECES]
+
+
+_ATTRIBUTION = frozenset(SAID | SPEAKER | SPEAKER_NAMES | PROPHET | FILLER | CONTEXT | set(HONORIFIC) | {"ﷺ", "ﷻ", "عليه", "السلام", "رضي", "عنه", "عنها"})
+
+
+def _attribution_only(claim: str) -> bool:
+    """"قال رسول الله ﷺ": the words that introduce a quotation are not a claim. (After a quote is cut out of a sentence, what is
+    left before it can be just this phrase, and the claim router would take it for a quote that is not found.)"""
+    return sum(1 for w in tokenize(claim) if w.norm not in _ATTRIBUTION) < 2
 
 
 def _units(text: str, spans: list[tuple[int, int]], quote_spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -162,7 +171,7 @@ async def check_text(
                 subject_span = _locate(unit_texts[k], subject) if subject else None
                 if span and subject_span and subject_span[1] <= span[0] and not claim.startswith(subject):
                     claim = f"{unit_texts[k][subject_span[0] : subject_span[1]]} {claim}"
-                if len(tokenize(claim)) < MIN_CLAIM_WORDS or any(_overlap((start, end), q) > 0.5 * (end - start) for q in quote_spans):
+                if _attribution_only(claim) or len(tokenize(claim)) < MIN_CLAIM_WORDS or any(_overlap((start, end), q) > 0.5 * (end - start) for q in quote_spans):
                     continue
                 if all(c[2] != claim for c in claims):
                     claims.append((start, end, claim))
