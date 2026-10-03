@@ -11,7 +11,8 @@ from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
 from app.services.evidence import excerpt, index, search_text, stem, terms
 from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
 from app.services.llm_query import classify_claim, judge_claim
-from app.services.pipeline import _redact, verify_text, verify_text_llm
+from app.services.pipeline import _has_claim_cue, _redact, verify_text, verify_text_llm
+from app.services.quote_finder import find_regions, tokenize
 from app.services.strength import STRONG
 
 MAX_SIDE = 6  # texts shown per side (supporting, contradicting)
@@ -127,6 +128,14 @@ def _order(items: list[EvidenceItem]) -> list[EvidenceItem]:
     return sorted(items, key=lambda i: (i.source.level or 9, -i.score))
 
 
+def _unmarked_statement(claim: str, local) -> bool:
+    """A text the router called a quote that nothing marks as one: no brackets or attribution ("قال تعالى", "رواه"), no
+    resemblance to any verse or hadith. It is the speaker's own statement, and is checked against the evidence."""
+    if any(s.status != "baseless" for s in local.segments) or _has_claim_cue(claim):
+        return False
+    return not find_regions(claim, tokenize(claim))
+
+
 async def verify_claim(
     claim: str, use_llm: bool = True, api_key: str | None = None, use_meaning: bool = True
 ) -> ClaimResponse:
@@ -150,12 +159,15 @@ async def verify_claim(
     claim_type = intent["claim_type"] if intent else ("quote" if quote_hit else "unknown")
     if quote_hit and claim_type in ("topic", "unknown"):
         claim_type = "quote"
+    if claim_type == "quote" and not quote_hit and _unmarked_statement(claim, local):
+        claim_type = "topic"  # formal, vowelled wording is not a quotation: check it as a claim instead
     key_terms = (intent or {}).get("key_terms_ar") or []
     restated = (intent or {}).get("claim_ar") or None
     opposite = (intent or {}).get("opposite_ar") or None
     routed = {"restated_claim": restated, "opposite_claim": opposite}
 
-    if base is not None and claim_type not in ("topic", "unknown"):
+    not_found = claim_type == "quote" and not quote_hit and all(sg.status == "baseless" for sg in local.segments)
+    if base is not None and claim_type not in ("topic", "unknown") and not not_found:
         base.cancel()  # a quote, a personal question or an off-topic text needs no evidence search
     if claim_type == "quote":
         quote = local
@@ -164,7 +176,19 @@ async def verify_claim(
                 quote = await verify_text_llm(claim, api_key)
             except Exception:  # the local result stands
                 pass
-        return _response(claim, claim_type, "quote_checked", llm, quote_check=quote, **routed)
+        related: list[EvidenceItem] = []
+        if base is not None and not_found:  # an attributed text that is not in the corpus: show the closest texts, unjudged, beside the warning
+            try:
+                g = await base
+                top = sorted((c, i, score, src) for c in g.pool for i, score, src in g.pool[c])
+                top = sorted(((score, c, i, src) for c, i, score, src in top), reverse=True)[:MAX_RELATED]
+                for score, c, i, src in top:
+                    item = g.item(c, i, score, src)
+                    item.stance = "related"
+                    related.append(item)
+            except Exception:
+                pass
+        return _response(claim, claim_type, "quote_checked", llm, quote_check=quote, related=related, **routed)
     if claim_type == "not_religious":
         return _response(claim, claim_type, "out_of_scope", llm, **routed)
     if claim_type == "personal":
