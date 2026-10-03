@@ -11,13 +11,24 @@ import json
 import os
 
 from app.services.cache import async_cache
-from app.services.llm_extractor import ExtractionError, chat_json
+from app.services.llm_extractor import ExtractionError, chat_json, llm_models
 
 # Judging is output-bound (a verdict per text), so texts can be judged in small chunks in parallel: the wait is that of
 # one small call. Measured on the golden sets: for the claim judge (stance of each text) chunks of 10 changed nothing
 # (claims 28/30, no reversals), for the evidence card's relevance judge they cost about 5 points of recall
 # (64% against 69% of the expected texts), so that one still judges all the candidates in one call.
 JUDGE_CHUNK = int(os.getenv("JUDGE_CHUNK", "30"))  # evidence card: relevance of each text
+# The model that decides whether a text supports a claim. It is the step where a lenient model does the most harm
+# (it called a general verse on dawn prayer "direct support" for a claim with extra conditions), so it has its own
+# setting; benchmarked 30/30 on the overreach cases against 23/30 for gpt-4o-mini. JUDGE_MODEL may list fallbacks.
+DEFAULT_JUDGE_MODEL = "anthropic/claude-haiku-4.5"
+
+
+def judge_models() -> list[str]:
+    configured = [m.strip() for m in (os.getenv("JUDGE_MODEL") or "").split(",") if m.strip()]
+    return (configured or [DEFAULT_JUDGE_MODEL]) + [m for m in llm_models() if m not in configured]
+
+
 CLAIM_JUDGE_CHUNK = int(os.getenv("CLAIM_JUDGE_CHUNK", "10"))  # claim check: stance of each text
 
 SYSTEM_PROMPT = (
@@ -82,6 +93,7 @@ JUDGE_SCHEMA = {
         "type": "object",
         "properties": {
             "on_topic": {"type": "boolean"},
+            "claim_parts": {"type": "array", "items": {"type": "string"}},
             "verdicts": {
                 "type": "array",
                 "items": {
@@ -95,7 +107,7 @@ JUDGE_SCHEMA = {
                 },
             },
         },
-        "required": ["on_topic", "verdicts"],
+        "required": ["on_topic", "claim_parts", "verdicts"],
         "additionalProperties": False,
     },
 }
@@ -225,9 +237,10 @@ STANCE_SCHEMA = {
                     "properties": {
                         "number": {"type": "integer"},
                         "text_says": {"type": "string"},
+                        "covers_all": {"type": "boolean"},
                         "stance": {"type": "string", "enum": ["supports", "contradicts", "related", "unrelated"]},
                     },
-                    "required": ["number", "text_says", "stance"],
+                    "required": ["number", "text_says", "covers_all", "stance"],
                     "additionalProperties": False,
                 },
             },
@@ -240,7 +253,9 @@ STANCE_PROMPT = (
     "You judge evidence for a claim in a tool that checks religious claims against the Quran and hadith. Below is a "
     "claim and numbered Quran verses or hadith texts retrieved from a library. Do NOT decide whether the claim is true "
     "and do not write any evidence. First on_topic: true only if the claim is about Islam, Islamic law, belief, worship "
-    "or ethics; false for anything else, in which case return no verdicts. Otherwise give a verdict for every text: "
+    "or ethics; false for anything else, in which case return no verdicts. Otherwise first list claim_parts: the separate "
+    "things the claim asserts (its subject, the act or ruling, and every added condition such as a time, a place, a "
+    "reason or a result), each in a few words. Then give a verdict for every text: "
     "'supports' = the text says, or clearly implies, what the claim says; "
     "'contradicts' = the text says, or clearly implies, the opposite of the claim; "
     "'related' = same subject but it does not settle the claim; "
@@ -251,7 +266,11 @@ STANCE_PROMPT = (
     "For example, for the claim 'Islam commands disobeying parents', a text that commands honouring parents "
     "'contradicts'; for 'Islam forbids interest', a text that curses the one who takes interest 'supports'. "
     "A text that merely shares a word with the claim is 'unrelated', and a text about a different ruling or a "
-    "different situation is at most 'related'."
+    "different situation is at most 'related'. "
+    "Also set covers_all: true only if the text itself addresses EVERY part in claim_parts, including each added "
+    "condition. A text that supports only some parts (for example it recommends the act in general but says nothing "
+    "about the time, the reason or the result the claim adds) has covers_all false, and its stance is then 'related', "
+    "never 'supports'. The claim is judged as the person worded it: do not widen it to match the text."
 )
 
 
@@ -266,16 +285,18 @@ async def _judge_claim_chunk(
         {"role": "system", "content": STANCE_PROMPT},
         {"role": "user", "content": f"Claim: {claim}\n\n{lines}"},
     ]
-    content = await chat_json(messages, STANCE_SCHEMA, api_key)
+    models = judge_models()
+    content = await chat_json(messages, STANCE_SCHEMA, api_key, models=models, temperature=0.0, max_tokens=2500)
     try:
         json.loads(content)
     except ValueError:  # truncated or malformed JSON: ask once more
-        content = await chat_json(messages, STANCE_SCHEMA, api_key)
+        content = await chat_json(messages, STANCE_SCHEMA, api_key, models=models, temperature=0.0, max_tokens=2500)
     try:
         data = json.loads(content)
         on_topic = bool(data["on_topic"])
         valid = [v for v in data["verdicts"] if isinstance(v["number"], int) and 0 <= v["number"] < len(excerpts)]
-        stances = {v["number"]: v["stance"] for v in valid}
+        # A text counts as support only if the model says it covers every part of the claim: the code enforces this.
+        stances = {v["number"]: ("related" if v["stance"] == "supports" and v.get("covers_all") is not True else v["stance"]) for v in valid}
         says = {v["number"]: str(v.get("text_says", "")).strip() for v in valid}
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
