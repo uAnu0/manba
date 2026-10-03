@@ -302,10 +302,9 @@ async def _judge_claim_chunk(
         on_topic = bool(data["on_topic"])
         valid = [v for v in data["verdicts"] if isinstance(v["number"], int) and 0 <= v["number"] < len(excerpts)]
         # A text counts as support only if the model says it covers every part of the claim: the code enforces this.
-        parts = {str(p).strip() for p in data.get("claim_parts", []) if str(p).strip()}
-
-        def covered(v) -> list[str]:  # only parts the model really listed: a copy that matches nothing is dropped
-            return [str(p).strip() for p in (v.get("covered_parts") or []) if str(p).strip() in parts]
+        def covered(v) -> list[str]:  # the model's own short notes on the parts a text addresses (shown as such, never evidence)
+            notes = [str(p).strip()[:140] for p in (v.get("covered_parts") or []) if isinstance(p, str) and str(p).strip()]
+            return list(dict.fromkeys(notes))[:4]
 
         def stance_of(v) -> str:
             if v["stance"] == "supports" and v.get("covers_all") is not True:
