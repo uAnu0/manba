@@ -271,10 +271,13 @@ STANCE_PROMPT = (
     "When the claim says Islam allows, permits or commands an act, a text that forbids or condemns that same act "
     "(for example a verse forbidding killing a soul wrongfully, for 'Islam allows killing innocent people', or a verse "
     "forbidding taking wealth unlawfully by bribing judges, for 'Islam allows bribery') 'contradicts' it, even when the "
-    "prohibition is stated in general terms; the covers_all requirement applies only to 'supports'. "
+    "prohibition is stated in general terms. But a text that gives a different answer to the same kind of question "
+    "('who is the best believer', 'which deed is most beloved') does not contradict the claim: it is 'related'. "
     "Also set covers_all: true only if the text itself addresses EVERY part in claim_parts, including each added "
     "condition. A text that supports only some parts (for example it recommends the act in general but says nothing "
-    "about the time, the reason or the result the claim adds) has covers_all false and is never 'supports'. For every "
+    "about the time, the reason or the result the claim adds) has covers_all false and is never 'supports'. For a "
+    "'contradicts' verdict covers_all is true only if the text itself addresses the claim's main assertion (a general "
+    "principle such as 'every soul is recompensed' does not address a specific claim about orphans). For every "
     "text also list covered_parts: the entries of claim_parts, copied exactly, that the text itself addresses in the "
     "claim's direction (an empty list if none). The claim is judged as the person worded it: do not widen it to match the text."
 )
@@ -309,6 +312,8 @@ async def _judge_claim_chunk(
         def stance_of(v) -> str:
             if v["stance"] == "supports" and v.get("covers_all") is not True:
                 return "partial" if covered(v) else "related"
+            if v["stance"] == "contradicts" and v.get("covers_all") is not True:
+                return "contradicts_part"  # the code decides below whether the text is about the claim's subject at all
             return v["stance"]
 
         stances = {v["number"]: stance_of(v) for v in valid}
