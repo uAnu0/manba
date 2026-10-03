@@ -20,8 +20,8 @@ from app.services.llm_extractor import ExtractionError, chat_json, llm_models
 JUDGE_CHUNK = int(os.getenv("JUDGE_CHUNK", "30"))  # evidence card: relevance of each text
 # The model that decides whether a text supports a claim. It is the step where a lenient model does the most harm
 # (it called a general verse on dawn prayer "direct support" for a claim with extra conditions), so it has its own
-# setting; benchmarked 30/30 on the overreach cases against 23/30 for gpt-4o-mini. JUDGE_MODEL may list fallbacks.
-DEFAULT_JUDGE_MODEL = "anthropic/claude-haiku-4.5"
+# setting; benchmarked 28/30 on the overreach cases against 23/30 for gpt-4o-mini (claude-haiku-4.5 scored 30/30 but costs several times more). JUDGE_MODEL may list fallbacks.
+DEFAULT_JUDGE_MODEL = "google/gemini-2.5-flash"
 
 
 def judge_models() -> list[str]:
