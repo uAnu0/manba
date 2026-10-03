@@ -154,6 +154,16 @@ explanation writer `gemini-flash-lite-latest`. The judge benchmark (10 overreach
 requests per minute per Flash-Lite model and 5 per Flash model, so the client spaces calls and retries after a 429; a golden run
 takes about 20 minutes. Production stays on OpenRouter unless `LLM_PROVIDER` is set on the host.
 
+## Tafsir under Quran verses
+
+A Quran verse shown in a card has a **Tafsir** button; the commentary is fetched only when it is clicked (`GET /api/tafsir/2:191` or
+`/api/tafsir/33:41-42`) and is never part of a result: it takes no part in the search, the judge or any outcome, and no model writes
+or summarises it. Shown as the author wrote it: **Al-Tafsir al-Muyassar** and **Tafsir al-Saadi** (`app/services/tafsir.py`,
+`data/tafsir/*.json.gz`). Built by `ingest_tafsir.py` from `data/tafsir_raw/` (not committed; files from
+github.com/abdalrhmanreda/islamic-data-assets, MIT compilation). Only markup is removed; a commentary that covers several verses is
+stored once ("covers 4:60-62"). Both cover all 6,236 verses except Saadi 26:1 (empty in the source). **Rights in the underlying
+texts are not verified: check them before a public release.** Hadith have no tafsir (their commentary, sharh, would be a separate source).
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.

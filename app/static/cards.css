@@ -35,3 +35,12 @@
   .filters .spacer { display: none; }
   .tab { padding: 8px 9px; font-size: 13px; }
 }
+
+/* tafsir under a Quran verse */
+.tafsir-box { margin-top: 8px; } .tafsir-btn, .more-btn { cursor: pointer; font-size: 13px; padding: 4px 12px; }
+.tafsir-out { margin-top: 8px; } .tafsir-out[hidden] { display: none; }
+.tafsir { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin: 8px 0; background: var(--bg); }
+.tafsir summary { cursor: pointer; font-size: 14px; color: var(--text); }
+.tafsir-text { font: 18px/1.9 "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif; margin-top: 6px; }
+.tafsir-text p { margin: 0 0 8px; }
+.tafsir-text.clamp { max-height: 9.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
