@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.routers import claim, evidence, verify
+from app.routers import check, claim, evidence, verify
 from app.schemas import HealthResponse
 from app.services import verifier
 
@@ -26,6 +26,7 @@ app = FastAPI(
 app.include_router(verify.router)
 app.include_router(evidence.router)
 app.include_router(claim.router)
+app.include_router(check.router)
 
 
 @app.get("/health", response_model=HealthResponse)

@@ -9,7 +9,7 @@ import asyncio
 
 from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
 from app.services.evidence import excerpt, index, search_text, stem, terms
-from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, gather, referral
+from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
 from app.services.llm_query import classify_claim, judge_claim
 from app.services.pipeline import _redact, verify_text, verify_text_llm
 from app.services.strength import STRONG
@@ -129,7 +129,10 @@ async def verify_claim(
     local = verify_text(claim)
     quote_hit = any(s.status == "verified" and s.classification in ("quran", "hadith") for s in local.segments)
 
-    # 2. Route the claim.
+    # 2. Route the claim. While the router answers, the evidence for the claim's own words is already being gathered
+    # (it is the first query whatever the route, and a topic claim is the common case); it is dropped for the other routes.
+    pool = {"quran": JUDGE_POOL, "hadith": JUDGE_POOL}
+    base = asyncio.create_task(gather([claim], True, api_key, use_meaning, pool)) if use_llm and not quote_hit else None
     intent = None
     if use_llm:
         try:
@@ -145,6 +148,8 @@ async def verify_claim(
     opposite = (intent or {}).get("opposite_ar") or None
     routed = {"restated_claim": restated, "opposite_claim": opposite}
 
+    if base is not None and claim_type not in ("topic", "unknown"):
+        base.cancel()  # a quote, a personal question or an off-topic text needs no evidence search
     if claim_type == "quote":
         quote = local
         if llm.used and len(claim.split()) > LONG_QUOTE_WORDS:
@@ -164,9 +169,13 @@ async def verify_claim(
     # 3. Topic claim (or unknown, without a model): gather evidence for the claim and for its opposite.
     # The model's restatement and "opposite" are only search aids and it sometimes turns a false claim into its
     # opposite, so the person's own words are always searched too (and always the first query).
-    queries = list(dict.fromkeys(q for q in (claim, restated, opposite) if q))
-    pool = {"quran": JUDGE_POOL, "hadith": JUDGE_POOL}
-    g = await gather(queries, llm.used, api_key, use_meaning, pool)
+    extra = [q for q in dict.fromkeys(q for q in (restated, opposite) if q) if q != claim]
+    if base is not None:
+        g = await base
+        if extra:
+            g = await extend(g, extra, api_key, use_meaning, pool)
+    else:
+        g = await gather([claim] + extra, llm.used, api_key, use_meaning, pool)
     llm.recited, llm.recited_found = g.info.suggested, g.info.found_in_corpus
     if g.info.error and not llm.error:
         llm.error = g.info.error

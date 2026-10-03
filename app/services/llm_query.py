@@ -6,9 +6,19 @@ asked to *recite* them in Arabic. Its recitations are never shown: each is looke
 corpus text (with its real source and gradings) reaches the user. Whatever cannot be found there is discarded and
 reported as rejected. The model neither answers the question nor produces a ruling.
 """
+import asyncio
 import json
+import os
 
+from app.services.cache import async_cache
 from app.services.llm_extractor import ExtractionError, chat_json
+
+# Judging is output-bound (a verdict per text), so texts can be judged in small chunks in parallel: the wait is that of
+# one small call. Measured on the golden sets: for the claim judge (stance of each text) chunks of 10 changed nothing
+# (claims 28/30, no reversals), for the evidence card's relevance judge they cost about 5 points of recall
+# (64% against 69% of the expected texts), so that one still judges all the candidates in one call.
+JUDGE_CHUNK = int(os.getenv("JUDGE_CHUNK", "30"))  # evidence card: relevance of each text
+CLAIM_JUDGE_CHUNK = int(os.getenv("CLAIM_JUDGE_CHUNK", "10"))  # claim check: stance of each text
 
 SYSTEM_PROMPT = (
     "You are a retrieval helper for a Quran and hadith search tool. The user asks a question about Islam in any "
@@ -35,19 +45,34 @@ SUGGESTIONS_SCHEMA = {
 }
 
 
-async def suggest_evidence(question: str, api_key: str | None = None) -> list[str]:
-    """The model's recitations (verses first, then hadith). Unverified: callers must check them against the corpus."""
+_ONLY = {
+    "verses": " For this request list ONLY Quran verses (leave hadiths empty).",
+    "hadiths": " For this request list ONLY hadith (leave verses empty).",
+}
+
+
+async def _recite(question: str, only: str, api_key: str | None) -> list[str]:
     content = await chat_json(
-        [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": question}], SUGGESTIONS_SCHEMA, api_key
+        [{"role": "system", "content": SYSTEM_PROMPT + _ONLY[only]}, {"role": "user", "content": question}],
+        SUGGESTIONS_SCHEMA,
+        api_key,
     )
     try:
-        data = json.loads(content)
-        texts = list(data["verses"]) + list(data["hadiths"])
+        texts = list(json.loads(content)[only])
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
     if not all(isinstance(t, str) for t in texts):
         raise ExtractionError(f"Model returned an unexpected shape: {content!r}")
-    return [t.strip() for t in texts if t.strip()][:16]
+    return [t.strip() for t in texts if t.strip()]
+
+
+@async_cache()
+async def suggest_evidence(question: str, api_key: str | None = None) -> list[str]:
+    """The model's recitations (verses first, then hadith). Unverified: callers must check them against the corpus.
+
+    Verses and hadith are requested in two parallel calls, so the wait is that of the shorter list."""
+    verses, hadiths = await asyncio.gather(_recite(question, "verses", api_key), _recite(question, "hadiths", api_key))
+    return (verses + hadiths)[:16]
 
 
 JUDGE_SCHEMA = {
@@ -87,7 +112,8 @@ JUDGE_PROMPT = (
 )
 
 
-async def judge(question: str, excerpts: list[str], api_key: str | None = None) -> tuple[bool, dict[int, str]]:
+@async_cache()
+async def _judge_chunk(question: str, excerpts: list[str], api_key: str | None = None) -> tuple[bool, dict[int, str]]:
     """(is the question on topic, verdict per text position). The model only grades texts it is shown: it writes no
     evidence, and verdicts for positions outside the list are ignored."""
     lines = "\n".join(f"{k}. {text[:300]}" for k, text in enumerate(excerpts))
@@ -107,6 +133,24 @@ async def judge(question: str, excerpts: list[str], api_key: str | None = None) 
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
     return on_topic, verdicts
+
+
+async def _twice(call):
+    """Run a model call; if it fails (a rate limit, a truncated answer) try once more before giving up."""
+    try:
+        return await call()
+    except Exception:
+        return await call()
+
+
+async def judge(question: str, excerpts: list[str], api_key: str | None = None) -> tuple[bool, dict[int, str]]:
+    """Grade every text (direct / related / unrelated), in parallel chunks of JUDGE_CHUNK."""
+    chunks = [excerpts[k : k + JUDGE_CHUNK] for k in range(0, len(excerpts), JUDGE_CHUNK)] or [[]]
+    results = await asyncio.gather(
+        *(_twice(lambda chunk=chunk: _judge_chunk(question, chunk, api_key=api_key)) for chunk in chunks)
+    )
+    verdicts = {k * JUDGE_CHUNK + n: v for k, (_, part) in enumerate(results) for n, v in part.items()}
+    return any(on_topic for on_topic, _ in results), verdicts
 
 
 # ---- claim verification -------------------------------------------------------------------------------------------
@@ -150,6 +194,7 @@ INTENT_PROMPT = (
 )
 
 
+@async_cache()
 async def classify_claim(claim: str, api_key: str | None = None) -> dict:
     content = await chat_json(
         [{"role": "system", "content": INTENT_PROMPT}, {"role": "user", "content": claim}], INTENT_SCHEMA, api_key
@@ -210,7 +255,8 @@ STANCE_PROMPT = (
 )
 
 
-async def judge_claim(
+@async_cache()
+async def _judge_claim_chunk(
     claim: str, excerpts: list[str], api_key: str | None = None
 ) -> tuple[bool, dict[int, str]]:
     """(is the claim on topic, stance of each text position). The model grades only the texts it is shown."""
@@ -235,3 +281,77 @@ async def judge_claim(
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
     return on_topic, stances
+
+
+async def judge_claim(
+    claim: str, excerpts: list[str], api_key: str | None = None
+) -> tuple[bool, dict[int, str]]:
+    """Grade every text against the claim (supports / contradicts / related / unrelated), in parallel chunks."""
+    chunks = [excerpts[k : k + CLAIM_JUDGE_CHUNK] for k in range(0, len(excerpts), CLAIM_JUDGE_CHUNK)] or [[]]
+    results = await asyncio.gather(
+        *(_twice(lambda chunk=chunk: _judge_claim_chunk(claim, chunk, api_key=api_key)) for chunk in chunks)
+    )
+    stances = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, part) in enumerate(results) for n, v in part.items()}
+    return any(on_topic for on_topic, _ in results), stances
+
+
+# ---- finding the claims in a longer text --------------------------------------------------------------------------
+
+TRIAGE_SCHEMA = {
+    "name": "claims_in_text",
+    "strict": True,
+    "schema": {
+        "type": "object",
+        "properties": {
+            "claims": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "sentence": {"type": "integer"},
+                        "text": {"type": "string"},
+                        "subject": {"type": "string"},
+                    },
+                    "required": ["sentence", "text", "subject"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["claims"],
+        "additionalProperties": False,
+    },
+}
+TRIAGE_PROMPT = (
+    "You read a sermon or social-media text split into numbered sentences. Find the sentences that make a checkable "
+    "RELIGIOUS CLAIM: a statement about what Islam, the Quran, the hadith or the Prophet says, allows, forbids, "
+    "commands, recommends or teaches, or a statement that something is or is not a verse or a hadith. Skip commentary, "
+    "greetings, prayers, personal stories, general advice, questions, and every sentence marked [QUOTE] (quotes are "
+    "checked elsewhere). For each claim return the sentence number and the claim text copied EXACTLY from that "
+    "sentence. When a sentence holds several claims, return ONE ITEM PER CLAIM, each copied exactly, even if the piece is "
+    "not a full sentence. If a piece does not name what it is about (for example 'ويأمر بالصدقة'), put in subject the "
+    "words from the same sentence that name it (for example 'الإسلام'), copied exactly; otherwise subject is an empty "
+    "string. Do not rewrite, translate or complete anything. If there are no claims return an empty list."
+)
+
+
+@async_cache()
+async def find_claims(
+    sentences: list[str], quote_flags: list[bool], api_key: str | None = None
+) -> list[tuple[int, str, str]]:
+    """(sentence number, claim text, subject) for the claims in numbered sentences. The caller must check that each claim text
+    really occurs in its sentence: the model is told to copy, and nothing it writes is trusted."""
+    lines = "\n".join(
+        f"{k}. {'[QUOTE] ' if quote else ''}{text[:400]}" for k, (text, quote) in enumerate(zip(sentences, quote_flags))
+    )
+    content = await chat_json(
+        [{"role": "system", "content": TRIAGE_PROMPT}, {"role": "user", "content": lines}], TRIAGE_SCHEMA, api_key
+    )
+    try:
+        data = json.loads(content)
+        return [
+            (c["sentence"], str(c["text"]).strip(), str(c["subject"]).strip())
+            for c in data["claims"]
+            if isinstance(c["sentence"], int) and 0 <= c["sentence"] < len(sentences) and str(c["text"]).strip()
+        ]
+    except (TypeError, ValueError, KeyError) as exc:
+        raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
