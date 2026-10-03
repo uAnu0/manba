@@ -35,8 +35,8 @@ def strength_of(classification: str, book: str, grades: tuple[tuple[str, str], .
             categories.add("hasan")
         elif any(w in g for w in _WEAK_WORDS):
             categories.add("daif")
-    if "sahih" in categories and "daif" in categories:
-        return "disputed"
+    if "daif" in categories and categories & {"sahih", "hasan"}:
+        return "disputed"  # scholars disagree: never shown as a plain sahih or hasan
     for label in ("sahih", "hasan", "daif"):
         if label in categories:
             return label
