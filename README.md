@@ -135,6 +135,15 @@ A strip of status counts and the filters (All, Claims, Quran & hadith quotes, Cl
 keep a long sermon manageable. Verified runs of four words or fewer are counted apart as "Matched phrase", so they do not
 inflate "verified". The code is `app/static/cards.js` and `cards.css` (served under `/static`); the API did not change.
 
+## Free testing with Google's API
+
+Set `GEMINI_API_KEY` and `LLM_PROVIDER=google` in `.env` to run every model step and the embeddings on Google's free Gemini tier
+(no OpenRouter credit). Defaults on Google: router, recall and triage `gemini-3.5-flash-lite`, claim judge `gemini-3.1-flash-lite`,
+explanation writer `gemini-flash-lite-latest`. The judge benchmark (10 overreach and control cases, 3 runs each) gave 30/30 for
+`gemini-3.1-flash-lite` and 29/30 for `gemini-3.5-flash-lite` (Haiku 4.5: 30/30, gpt-4o-mini: 23/30). The free tier allows about 15
+requests per minute per Flash-Lite model and 5 per Flash model, so the client spaces calls and retries after a 429; a golden run
+takes about 20 minutes. Production stays on OpenRouter unless `LLM_PROVIDER` is set on the host.
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.
