@@ -70,7 +70,8 @@ MINORITY_SHARE = 0.25  # a side holding less than this share of the other side's
 
 
 def weight(items: list[EvidenceItem]) -> float:
-    return sum(WEIGHT.get(i.source.strength or "", 1.0) for i in items)
+    """A text that addresses only part of the claim (a hadith naming a different "most perfect believer") counts half."""
+    return sum(WEIGHT.get(i.source.strength or "", 1.0) * (0.5 if i.covers_all is False else 1.0) for i in items)
 
 
 def outcome_of(supporting: list[EvidenceItem], contradicting: list[EvidenceItem]) -> str:
@@ -120,18 +121,20 @@ def _near(a: str, b: str) -> bool:
     return a == b or (len(a) >= 3 and len(b) >= 3 and a[:3] == b[:3])
 
 
-def settles(entry, anchors: set[str], required: frozenset[str] | set[str] = frozenset()) -> bool:
-    """The bar for a text to CONTRADICT a claim, higher than for supporting it (a wrong "contradicts" tells the reader
-    the claim is false): the text must be about the claim's most distinctive subject word, and name at least half
-    of the subject words. A verse on reckoning in general does not contradict a claim about the orphan's reckoning."""
-    if not mentions(entry, anchors, required):
-        return False
-    if not anchors:
-        return True
+def settles(entry, anchors: set[str], required: frozenset[str] | set[str] = frozenset(), own: set[str] | None = None) -> bool:
+    """The bar for a text that only partly addresses a claim to CONTRADICT it (a wrong "contradicts" tells the reader the
+    claim is false): it must contain the claim's most distinctive subject word, taken from the claim's own words when
+    it has any (the router's extra words such as "فوائد" for "الربا" are not required). A verse on reckoning in general
+    does not contradict a claim about the orphan's reckoning. A text the judge says addresses the whole claim skips this."""
     words = set(terms(search_text(entry)))
+    if not required <= words:
+        return False
+    pool = own or anchors
+    if not pool:
+        return True
     idf = index().idf
-    rarest = max(anchors, key=lambda w: idf.get(w, float("inf")))
-    return any(_near(rarest, w) for w in words) and sum(1 for a in anchors if a in words) * 2 >= len(anchors)
+    rarest = max(pool, key=lambda w: idf.get(w, float("inf")))
+    return any(_near(rarest, w) for w in words)
 
 
 def _response(claim: str, claim_type: str, outcome: str, llm: ClaimLLMInfo, **fields) -> ClaimResponse:
@@ -278,18 +281,24 @@ async def _verify_claim(
         if results is not None:
             if not any(r[0] for r in results):
                 return _response(claim, claim_type, "out_of_scope", llm, **routed)
+            own = anchors & set(terms(claim))  # the subject words the person actually wrote
             sides: dict[str, list[EvidenceItem]] = {"supports": [], "contradicts": [], "partial": [], "related": []}
             for c, (_, stances, says, covers) in zip(pool, results):
                 for k, (i, score, sources) in enumerate(g.pool[c]):
                     stance = stances.get(k)
                     if stance in ("supports", "partial") and not mentions(g.entries[i], set(), required):
                         stance = "related"  # a text that never names a subject the corpus has no other word for cannot settle the claim
-                    if stance == "contradicts" and not settles(g.entries[i], anchors, required):
-                        stance = "related"
+                    whole = True
+                    if stance == "contradicts_part":
+                        whole = False
+                        stance = "contradicts" if settles(g.entries[i], anchors, required, own) else "related"
+                    elif stance == "contradicts" and not required <= set(terms(search_text(g.entries[i]))):
+                        stance = "related"  # a text that never names a subject the corpus has no other word for
                     if stance in sides:
                         item = g.item(c, i, score, sources)
                         item.stance = stance
                         item.says = says.get(k) or None
+                        item.covers_all = whole if stance == "contradicts" else None
                         if stance == "partial":
                             item.covers = covers.get(k, [])
                         sides[stance].append(item)
