@@ -57,7 +57,7 @@ SENSITIVE_TOPICS = {
         divorce marriage inheritance custody
     """,
     "financial contracts and transactions": """
-        ربا فوائد بنك قرض سهم أسهم تأمين رهن مضاربة عملات
+        ربا فوائد الفوائد بنك بنوك بنكي بنكية قرض قروض سهم أسهم تأمين رهن مضاربة عملات
         interest loan mortgage insurance
     """,
     "medical questions": """
@@ -71,8 +71,36 @@ SENSITIVE_TOPICS = {
 }
 PERSONAL_MARKERS = "زوجتي زوجي أمي أبي والدي ابني بنتي أنا عندي لدي حالتي"
 
-_SENSITIVE = {topic: {stem(w) for w in terms(words)} for topic, words in SENSITIVE_TOPICS.items()}
-_PERSONAL = {stem(w) for w in terms(PERSONAL_MARKERS)}
+COMMON_IDF = 4.0  # a listed word whose stem is this common in the corpus ("عمل", "عند") is matched only as the exact word
+
+
+@lru_cache(maxsize=1)
+def _markers() -> tuple[dict[str, tuple[set[str], set[str]]], tuple[set[str], set[str]]]:
+    """Per topic: (stems, exact words). A word like "عملية" (surgery) stems to "عمل", which is also in "عمله" (his deeds);
+    such common stems are not used, the listed word must appear as written."""
+    idf = index().idf
+
+    def split(words: str) -> tuple[set[str], set[str]]:
+        stems, exact = set(), set()
+        for w in words.split():
+            n = normalize(w)
+            if not n:
+                continue
+            st = stem(n)
+            if re.search("[؀-ۿ]", n) and idf.get(st, float("inf")) < COMMON_IDF:
+                exact.add(n)
+            else:
+                stems.add(st)
+        return stems, exact
+
+    return {t: split(w) for t, w in SENSITIVE_TOPICS.items()}, split(PERSONAL_MARKERS)
+
+
+def _matches(question: str, markers: tuple[set[str], set[str]]) -> bool:
+    stems, exact = markers
+    words = normalize(question).split()
+    forms = set(words) | {w[2:] for w in words if w.startswith("ال") and len(w) > 4}
+    return bool(set(terms(question)) & stems) or bool(forms & exact)
 
 
 @lru_cache(maxsize=1)
@@ -85,11 +113,11 @@ def lookup_index(classification: str, book: str, number: str, text: str) -> int 
 
 
 def referral(question: str, found: int) -> tuple[bool, str | None]:
-    words = set(terms(question))
-    for topic, topic_words in _SENSITIVE.items():
-        if words & topic_words:
+    topics, personal = _markers()
+    for topic, markers in topics.items():
+        if _matches(question, markers):
             return True, f"This question touches {topic}: rulings depend on details, so ask a scholar."
-    if words & _PERSONAL:
+    if _matches(question, personal):
         return True, "The question describes a personal situation: ask a scholar who can hear the details."
     if found == 0:
         return True, "No clear evidence was found in the corpus for this question: ask a scholar."
