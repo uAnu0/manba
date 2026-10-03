@@ -11,7 +11,7 @@ import json
 import os
 
 from app.services.cache import async_cache
-from app.services.llm_extractor import ExtractionError, chat_json, llm_models
+from app.services.llm_extractor import ExtractionError, chat_json, llm_models, role_default
 
 # Judging is output-bound (a verdict per text), so texts can be judged in small chunks in parallel: the wait is that of
 # one small call. Measured on the golden sets: for the claim judge (stance of each text) chunks of 10 changed nothing
@@ -26,7 +26,7 @@ DEFAULT_JUDGE_MODEL = "google/gemini-2.5-flash"
 
 def judge_models() -> list[str]:
     configured = [m.strip() for m in (os.getenv("JUDGE_MODEL") or "").split(",") if m.strip()]
-    return (configured or [DEFAULT_JUDGE_MODEL]) + [m for m in llm_models() if m not in configured]
+    return (configured or [role_default("JUDGE", DEFAULT_JUDGE_MODEL, "gemini-3.1-flash-lite")]) + [m for m in llm_models() if m not in configured]
 
 
 CLAIM_JUDGE_CHUNK = int(os.getenv("CLAIM_JUDGE_CHUNK", "10"))  # claim check: stance of each text

@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from app.services.cache import async_cache
-from app.services.llm_extractor import _get_client
+from app.services.llm_extractor import _get_client, provider_for
 from app.services.verifier import Entry, load_corpus
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -80,8 +80,9 @@ def dense_index() -> DenseIndex | None:
 
 @async_cache(maxsize=2048)
 async def embed_query(question: str, api_key: str | None = None) -> np.ndarray:
-    response = await _get_client(api_key).embeddings.create(
-        model=MODEL, input=[QUERY_PREFIX + question], **REQUEST_EXTRA
+    provider = provider_for("EMBED")  # "google": Google's own API (free tier), the same model and the same first 768 numbers
+    response = await _get_client(api_key, provider).embeddings.create(
+        model="gemini-embedding-001" if provider == "google" else MODEL, input=[QUERY_PREFIX + question], **REQUEST_EXTRA
     )
     return unit(np.array(response.data[0].embedding, dtype=np.float32)[:DIMS])
 
