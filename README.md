@@ -127,6 +127,14 @@ of the sentence's distinctive words (more for long sentences), the meaning is cl
 fabricated reward claims at most 47%. `/api/check` returns `kind: "similar"` items; `/api/claim` returns `similar`. Cost: about
 a tenth of a cent per sermon.
 
+## Result cards (test console)
+
+`/claim` shows each quote, claim and close match as one compact card (status badge, the sentence, the strongest source). A card
+opens like a tab: Evidence, Partial & related, Quote check, Close text, and Explain (the Arabic explanation, only on click).
+A strip of status counts and the filters (All, Claims, Quran & hadith quotes, Close matches, Short phrases, Needs attention)
+keep a long sermon manageable. Verified runs of four words or fewer are counted apart as "Matched phrase", so they do not
+inflate "verified". The code is `app/static/cards.js` and `cards.css` (served under `/static`); the API did not change.
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manba claim check</title>
+<link rel="stylesheet" href="/static/cards.css">
 <style>
 .explain{margin:10px 0}.explain-btn{cursor:pointer}
   :root {
@@ -65,111 +66,28 @@
 
   <div id="out"></div>
 </main>
+<script src="/static/cards.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const SAMPLES = ["الإسلام يحرم الربا", "الإسلام يبيح شرب الخمر", "Islam commands honouring parents", "الإسلام يأمر بعقوق الوالدين",
   "قال تعالى: وأحل الله البيع وحرم الربا", "قال النبي صلى الله عليه وسلم: النظافة من الإيمان", "هل يجوز لي أن أطلق زوجتي وهي حائض", "كيف أطبخ الأرز"];
 for (const q of SAMPLES) { const b = document.createElement("button"); b.textContent = q; b.onclick = () => { $("q").value = q; run(); }; $("samples").appendChild(b); }
 
-const TITLES = {
-  supported: "Evidence supports this claim", supported_weakly: "Supported only by weak evidence", supported_in_part: "Supported in part", contradicted: "Evidence contradicts this claim",
-  mixed: "Evidence on both sides", no_clear_evidence: "No clear evidence found", refer_to_scholar: "Ask a scholar", out_of_scope: "Not a religious claim",
-  quote_checked: "Quoted text checked", evidence_only: "Related texts (no verdict)" };
-const STRENGTH = { quran: ["Quran", "ok"], sahihayn: ["Sahih al-Bukhari / Muslim", "ok"], sahih: ["graded Sahih", "ok"], hasan: ["graded Hasan", "warn"], daif: ["graded weak", "bad"], disputed: ["grading disputed", "warn"], ungraded: ["no grading here", "warn"] };
-function strengthChip(s) { const m = STRENGTH[s.strength]; return m ? `<span class="chip ${m[1]}">Level ${s.level} · ${m[0]}</span>` : ""; }
-function gradeChips(s) { return (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join(""); }
-function item(it, cls) {
-  const s = it.source;
-  const covers = (it.covers || []).length ? `<div class="small">Supports this part of the claim: <b>${it.covers.map(esc).join(" · ")}</b></div>` : "";
-  const where = [s.book, s.chapter && it.classification === "quran" ? s.chapter : "", s.number].filter(Boolean).join(" · ");
-  const full = it.full_text && it.full_text !== s.matched_text ? `<details><summary>Full text${it.classification === "hadith" ? " with chain of narrators" : ""}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
-  return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(where)}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${covers}${full}</div>`;
-}
-function section(title, items, cls) { return items.length ? `<h2>${title} (${items.length})</h2>` + items.map(i => item(i, cls)).join("") : ""; }
-function segment(sg) {
-  const st = { verified: ["Verified", "ok"], semantic_variant: ["Wording differs", "warn"], baseless: ["Not found in the sources", "bad"] }[sg.status];
-  const s = sg.source;
-  return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${(sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}</div>`;
-}
-const STORE = [];  // results kept so the Explain button can send them back; nothing is explained until it is clicked
-function explainBox(payload) {
-  STORE.push(payload);
-  return `<div class="explain"><button class="explain-btn" data-i="${STORE.length - 1}">Explain in Arabic · اشرح</button><div class="small">Written by an AI from the texts above only. Starts only when you click.</div><div class="explain-out"></div></div>`;
-}
-function explainHtml(e) {
-  let h = `<div class="item" dir="rtl"><div class="meta"><span class="chip ${e.ai_written ? "blue" : ""}">${e.ai_written ? "كتب هذا الشرح نموذج ذكاء اصطناعي اعتمادًا على النصوص المعروضة فقط" : "شرح مبسّط مولَّد آليًا من النتيجة"}</span></div>`;
-  if (e.summary_ar) h += `<p><b>${esc(e.summary_ar)}</b></p>`;
-  h += e.points.map(p => `<p>${esc(p.text)} <span class="small">[${p.cites.join("، ")}]</span></p>`).join("");
-  if (e.caution) h += `<p class="small">${esc(e.caution)}</p>`;
-  h += (e.texts || []).map(t => `<div class="small">[${t.n}] ${esc(t.label)}${t.stance_ar ? " — " + esc(t.stance_ar) : ""}${t.strength_ar ? " — " + esc(t.strength_ar) : ""}</div>`).join("");
-  if (!e.ai_written && e.note) h += `<div class="small" dir="ltr">(${esc(e.note)})</div>`;
-  return h + "</div>";
-}
-document.addEventListener("click", async ev => {
-  const b = ev.target.closest(".explain-btn"); if (!b) return;
-  const out = b.parentElement.querySelector(".explain-out");
-  b.disabled = true; out.innerHTML = `<div class="small">Writing the explanation…</div>`;
-  const headers = { "Content-Type": "application/json" };
-  if ($("token").value) headers["X-Access-Token"] = $("token").value;
-  if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
-  try {
-    const res = await fetch("/api/explain", { method: "POST", headers, body: JSON.stringify(STORE[+b.dataset.i]) });
-    const data = await res.json(); if (!res.ok) throw new Error(res.status === 401 ? "The server needs an access code: enter it in Settings." : JSON.stringify(data));
-    out.innerHTML = explainHtml(data); b.remove();
-  } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; b.disabled = false; }
-});
-function similarHtml(sm) {
-  const e = sm.evidence, s = e.source;
-  const where = [s.book, s.number].filter(Boolean).join(" · ");
-  const miss = (sm.missing_words || []).length ? `<div class="small" dir="rtl">كلمات في الجملة ليست في هذا النص: <b>${sm.missing_words.map(esc).join("، ")}</b></div>` : "";
-  return `<div class="item related"><div class="meta"><span class="chip warn">Close to a known text, not the same wording</span><span class="src">${esc(where)}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="small">The sentence shares ${Math.round(sm.shared_share * 100)}% of its distinctive words with this text. Read both: this is a pointer, not a verification.</div><div class="ar">${esc(e.full_text.length > 600 ? s.matched_text : e.full_text)}</div>${miss}</div>`;
-}
-function claimHtml(d) {
-  let h = `<div class="outcome ${d.outcome}"><h3>${TITLES[d.outcome]}</h3><p>${esc(d.summary_en)}</p><p dir="rtl">${esc(d.summary_ar)}</p></div>`;
-  if (d.refer_to_scholar && d.reason) h += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(d.reason)}</div>`;
-  if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
-  if (d.quote_check) h += `<h2>The quoted text</h2>` + d.quote_check.segments.map(segment).join("");
-  h += section("Evidence that supports the claim", d.supporting, "supports") + section("Texts that support only part of the claim", d.partial || [], "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
-  h += `<div class="notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
-  if (d.similar) h += similarHtml(d.similar);
-  if (d.outcome !== "out_of_scope") h += explainBox({ claim: d.claim, result: d });
-  h += `<details><summary>How this was decided</summary><div class="small">Claim type: <b>${esc(d.claim_type)}</b>. ${d.restated_claim ? `Search aid written by the model (it can be wrong, it is not used as the claim): ${esc(d.restated_claim)}.` : ""} ${d.llm && d.llm.recited ? `The model recalled ${d.llm.recited} texts, ${d.llm.recited_found} of them found in the corpus.` : ""} Sources are ranked by level: 1 Quran, 2 Sahih al-Bukhari and Muslim, 3 other hadith with the gradings scholars gave them.</div></details>`;
-  return h;
-}
-function render(d) { $("out").innerHTML = claimHtml(d); }
-
-const CHIP = { supported: "ok", supported_weakly: "warn", supported_in_part: "warn", contradicted: "bad", mixed: "warn", no_clear_evidence: "", refer_to_scholar: "warn", out_of_scope: "", quote_checked: "blue", evidence_only: "" };
-function renderCheck(d) {
-  const parts = Object.entries(d.summary || {}).map(([k, v]) => `${v} ${TITLES[k] ? TITLES[k].toLowerCase() : k.replace("_", " ")}`);
-  let h = `<div class="outcome quote_checked"><h3>Paragraph checked</h3><p>${d.items.length} item(s) found in ${d.sentences} sentence(s); ${d.commentary_sentences} sentence(s) were commentary.${parts.length ? " " + esc(parts.join(" · ")) + "." : ""}</p>${d.skipped_claims ? `<p>${d.skipped_claims} more claim(s) were not checked (limit per request).</p>` : ""}${d.truncated ? "<p>The text was longer than the limit; only the first part was read.</p>" : ""}</div>`;
-  if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
-  if (!d.llm || !d.llm.used) h += `<div class="banner">No model was used, so only quoted texts were checked.</div>`;
-  for (const it of d.items) {
-    if (it.kind === "similar") { h += `<h2>Close to a known text</h2><div class="ar" style="margin:6px 0">${esc(it.text)}</div>` + similarHtml(it.similar); continue; }
-    if (it.kind === "quote") { h += `<h2>Quoted text</h2>` + segment(it.quote) + explainBox({ claim: it.text, segment: it.quote }); continue; }
-    const r = it.result;
-    h += `<div class="item"><div class="meta"><span class="chip ${CHIP[r.outcome] || ""}">${esc(TITLES[r.outcome] || r.outcome)}</span><span class="chip">claim</span></div><div class="ar">${esc(it.text)}</div><details><summary>Details</summary>${claimHtml(r)}</details></div>`;
-  }
-  $("out").innerHTML = h;
-}
+const authHeaders = () => { const h = {}; if ($("token").value) h["X-Access-Token"] = $("token").value; if ($("orkey").value) h["X-OpenRouter-Key"] = $("orkey").value; return h; };
 const wordCount = () => ($("q").value.trim().match(/\S+/g) || []).length;
 $("q").addEventListener("input", () => { const n = wordCount(); $("wc").textContent = n + " / 500 words"; $("wc").style.color = n > 500 ? "#b00020" : ""; $("go").disabled = n > 500; });
 async function run() {
   const claim = $("q").value.trim(); if (!claim) return;
   if (wordCount() > 500) { $("out").innerHTML = `<div class="err">Input is limited to 500 words.</div>`; return; }
-  STORE.length = 0;
   $("go").disabled = true; $("out").innerHTML = `<div class="small">Checking… (a single claim takes about 10 seconds, a paragraph with several claims up to a minute)</div>`;
-  const headers = { "Content-Type": "application/json" };
-  if ($("token").value) headers["X-Access-Token"] = $("token").value;
-  if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
+  const headers = Object.assign({ "Content-Type": "application/json" }, authHeaders());
   try {
     const multi = claim.split(/[.؟!\n]/).filter(x => x.trim().split(/\s+/).length >= 3).length >= 2 || claim.split(/\s+/).length > 40;
     const res = await fetch(multi ? "/api/check" : "/api/claim", { method: "POST", headers, body: JSON.stringify(multi ? { text: claim, use_llm: $("llm").checked } : { claim, use_llm: $("llm").checked }) });
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
     const data = await res.json(); if (!res.ok) throw new Error(JSON.stringify(data));
-    if (data.items) renderCheck(data); else render(data);
-  } catch (e) { $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`; } finally { $("go").disabled = wordCount() > 500; }
+    Cards.render($("out"), data, { headers: authHeaders });
+  } catch (e) { $("out").innerHTML = `<div class="err">${Cards.esc(e.message)}</div>`; } finally { $("go").disabled = wordCount() > 500; }
 }
 for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
   try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
