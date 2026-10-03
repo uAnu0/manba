@@ -10,6 +10,8 @@ import json
 import time
 from collections import OrderedDict
 
+from app.services.llm_extractor import provider_for
+
 
 def async_cache(maxsize: int = 512, ttl: float = 6 * 3600):
     def decorator(fn):
@@ -21,7 +23,8 @@ def async_cache(maxsize: int = 512, ttl: float = 6 * 3600):
             bound = signature.bind(*args, **kwargs)
             bound.apply_defaults()
             key = json.dumps(
-                sorted((name, value) for name, value in bound.arguments.items() if name != "api_key"),
+                [provider_for("")]  # the same question answered by another provider is a different answer
+                + sorted((name, value) for name, value in bound.arguments.items() if name != "api_key"),
                 ensure_ascii=False,
                 default=repr,
             )

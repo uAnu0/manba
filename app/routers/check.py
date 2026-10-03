@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header
 
 from app.schemas import TextCheckRequest, TextCheckResponse
-from app.security import require_access
+from app.security import apply_llm_choice, require_access
 from app.services.text_claims import check_text
 
-router = APIRouter(prefix="/api", tags=["check"], dependencies=[Depends(require_access)])
+router = APIRouter(prefix="/api", tags=["check"], dependencies=[Depends(require_access), Depends(apply_llm_choice)])
 
 
 @router.post("/check", response_model=TextCheckResponse)

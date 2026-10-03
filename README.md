@@ -135,6 +135,16 @@ A strip of status counts and the filters (All, Claims, Quran & hadith quotes, Cl
 keep a long sermon manageable. Verified runs of four words or fewer are counted apart as "Matched phrase", so they do not
 inflate "verified". The code is `app/static/cards.js` and `cards.css` (served under `/static`); the API did not change.
 
+## Choosing the provider in the page
+
+Each test page has Settings with **AI provider** (Server default, OpenRouter, Google) and a key field for each provider. A
+teammate picks the provider and pastes their own key; the choice and the keys stay in their browser (localStorage) and travel
+with each request as `X-LLM-Provider`, `X-OpenRouter-Key` and `X-Gemini-Key`. They apply to that request only: never stored,
+never logged, and error messages are scrubbed of key-like text. A chosen provider uses that provider's default models (the
+server's `LLM_MODEL` / `JUDGE_MODEL` / `EXPLAIN_MODEL` names belong to one provider, so they are ignored then). Without a choice
+the server's `LLM_PROVIDER` (default OpenRouter) and its own keys are used. `/api/config` tells the page which providers the
+server holds a key for. The cache keeps answers of different providers apart.
+
 ## Free testing with Google's API
 
 Set `GEMINI_API_KEY` and `LLM_PROVIDER=google` in `.env` to run every model step and the embeddings on Google's free Gemini tier

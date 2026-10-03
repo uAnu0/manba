@@ -1,5 +1,6 @@
 """Extract verifiable religious claims from raw text using an LLM via OpenRouter."""
 import asyncio
+import contextvars
 import json
 import os
 import re
@@ -20,8 +21,35 @@ GOOGLE_DEFAULT_MODEL = "gemini-3.5-flash-lite"
 # LLM_PROVIDER (and JUDGE_PROVIDER, EXPLAIN_PROVIDER, EMBED_PROVIDER for one step) picks the default provider.
 
 
+# What the person chose in the web page's Settings for THIS request (provider and their own keys). It lives only in the request's
+# context: never stored, never logged, never shared with another request.
+_request: contextvars.ContextVar[dict | None] = contextvars.ContextVar("llm_request", default=None)
+PROVIDERS = ("openrouter", "google")
+
+
+def set_request_llm(provider: str | None, openrouter_key: str | None, gemini_key: str | None) -> None:
+    provider = (provider or "").strip().lower()
+    _request.set({
+        "provider": provider if provider in PROVIDERS else None,
+        "openrouter_key": (openrouter_key or "").strip() or None,
+        "gemini_key": (gemini_key or "").strip() or None,
+    })
+
+
+def chosen_provider() -> str | None:
+    """The provider the person picked for this request, or None to use the server's default."""
+    return (_request.get() or {}).get("provider")
+
+
 def provider_for(role: str = "") -> str:
-    return (os.getenv(f"{role}_PROVIDER") if role else None) or os.getenv("LLM_PROVIDER") or "openrouter"
+    return chosen_provider() or (os.getenv(f"{role}_PROVIDER") if role else None) or os.getenv("LLM_PROVIDER") or "openrouter"
+
+
+def env_models(variable: str) -> list[str]:
+    """Models set by the server's environment. Their names belong to one provider, so a provider chosen in the page ignores them."""
+    if chosen_provider():
+        return []
+    return [m.strip() for m in (os.getenv(variable) or "").split(",") if m.strip()]
 
 
 def role_default(role: str, openrouter_model: str, google_model: str) -> str:
@@ -39,8 +67,7 @@ def split_model(model: str) -> tuple[str, str]:
 def llm_models() -> list[str]:
     """Chat models to try in order. LLM_MODEL may list several, separated by commas (e.g. free models that are
     often rate-limited): the next one is tried when a model fails."""
-    configured = [m.strip() for m in (os.getenv("LLM_MODEL") or "").split(",") if m.strip()]
-    return configured or [role_default("LLM", DEFAULT_MODEL, GOOGLE_DEFAULT_MODEL)]
+    return env_models("LLM_MODEL") or [role_default("LLM", DEFAULT_MODEL, GOOGLE_DEFAULT_MODEL)]
 
 SYSTEM_PROMPT = (
     "You extract verifiable religious content from raw text such as a sermon or a social media post. "
@@ -97,17 +124,25 @@ def server_has_key() -> bool:
     return bool((os.getenv("OPENROUTER_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip())
 
 
+def server_keys() -> dict[str, bool]:
+    """Which providers the server itself holds a key for (booleans only, never a secret)."""
+    return {
+        "openrouter": bool((os.getenv("OPENROUTER_API_KEY") or "").strip()),
+        "google": bool((os.getenv("GEMINI_API_KEY") or "").strip()),
+    }
+
+
 def _get_client(api_key: str | None = None, provider: str = "openrouter") -> AsyncOpenAI:
     """`api_key` is a key supplied with the request (OpenRouter only); otherwise the server's shared key is used."""
     # Values pasted into hosting dashboards or piped from a shell often carry a trailing newline.
     if provider == "google":
-        key = (os.getenv("GEMINI_API_KEY") or "").strip()
+        key = ((_request.get() or {}).get("gemini_key") or os.getenv("GEMINI_API_KEY") or "").strip()
         if not key:
-            raise ExtractionError("no Gemini key: set GEMINI_API_KEY on the server")
+            raise ExtractionError("no Google (Gemini) key: add yours in Settings, or set GEMINI_API_KEY on the server")
         return AsyncOpenAI(base_url=GOOGLE_BASE_URL, api_key=key)
-    api_key = (api_key or os.getenv("OPENROUTER_API_KEY") or "").strip()
+    api_key = (api_key or (_request.get() or {}).get("openrouter_key") or os.getenv("OPENROUTER_API_KEY") or "").strip()
     if not api_key:
-        raise ExtractionError("no OpenRouter key: set OPENROUTER_API_KEY on the server or send your own key")
+        raise ExtractionError("no OpenRouter key: add yours in Settings, or set OPENROUTER_API_KEY on the server")
     return AsyncOpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key)
 
 

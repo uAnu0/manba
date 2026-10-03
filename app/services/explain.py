@@ -20,7 +20,7 @@ from app.schemas import (
     ExplainText,
     Segment,
 )
-from app.services.llm_extractor import chat_json, role_default
+from app.services.llm_extractor import chat_json, env_models, role_default
 from app.services.verifier import normalize
 
 DEFAULT_WRITER = "google/gemini-2.5-flash-lite"  # best of the bake-off; set EXPLAIN_MODEL to try another
@@ -90,7 +90,7 @@ class Facts:
 
 
 def writer_models() -> list[str]:
-    configured = [m.strip() for m in (os.getenv("EXPLAIN_MODEL") or "").split(",") if m.strip()]
+    configured = env_models("EXPLAIN_MODEL")
     return configured or [role_default("EXPLAIN", DEFAULT_WRITER, "gemini-flash-lite-latest")]
 
 

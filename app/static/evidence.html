@@ -52,7 +52,13 @@
   <details id="settings" style="margin:14px 0"><summary>Settings <span class="small" id="cfgnote"></span></summary>
     <div style="display:grid; gap:8px; margin-top:8px">
       <label class="small">Access code (only if the server asks)<input id="token" type="password" autocomplete="off"></label>
-      <label class="small">Your OpenRouter key (only if the server has no shared key)<input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..."></label>
+      <label class="small">Your OpenRouter key (used when the provider is OpenRouter)<input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..."></label>
+      <label class="small">AI provider (which service answers the model questions)
+        <select id="provider">
+          <option value="">Server default</option><option value="openrouter">OpenRouter</option><option value="google">Google (Gemini)</option>
+        </select></label>
+      <label class="small">Your Google (Gemini) key, used when the provider is Google (a free key: aistudio.google.com/apikey)<input id="gkey" type="password" autocomplete="off" placeholder="AIza... or AQ...."></label>
+      <div class="small">Keys stay in this browser (localStorage) and are sent with each request over HTTPS; the server never stores them. Google's free tier allows only a few requests per minute, so a long text is slow.</div>
     </div>
   </details>
 
@@ -94,6 +100,8 @@ async function run() {
   const headers = { "Content-Type": "application/json" };
   if ($("token").value) headers["X-Access-Token"] = $("token").value;
   if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
+    if ($("provider").value) headers["X-LLM-Provider"] = $("provider").value;
+    if ($("gkey").value) headers["X-Gemini-Key"] = $("gkey").value;
   try {
     const res = await fetch("/api/evidence", { method: "POST", headers, body: JSON.stringify({ question, use_llm: $("llm").checked, use_meaning: $("meaning").checked }) });
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
@@ -101,7 +109,7 @@ async function run() {
     render(data);
   } catch (e) { $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`; } finally { $("go").disabled = false; }
 }
-for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
+for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]]) {
   try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
   $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value); } catch (e) {} });
 }

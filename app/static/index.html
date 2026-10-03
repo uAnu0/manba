@@ -64,7 +64,12 @@
         <input id="token" type="password" autocomplete="off" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text)"></label>
       <label class="sub" style="margin:0">Your OpenRouter key for LLM extraction (only if the server has no shared key)<br>
         <input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..." style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text)"></label>
-      <div class="sub" style="margin:0">Both are kept only in this browser (localStorage) and sent to this server over HTTPS as request headers. The server never stores them.</div>
+      <label class="small">AI provider (which service answers the model questions)
+        <select id="provider" style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text)">
+          <option value="">Server default</option><option value="openrouter">OpenRouter</option><option value="google">Google (Gemini)</option>
+        </select></label>
+      <label class="small">Your Google (Gemini) key, used when the provider is Google (a free key: aistudio.google.com/apikey)<input id="gkey" type="password" autocomplete="off" placeholder="AIza... or AQ...." style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text)"></label>
+      <div class="small">Keys stay in this browser (localStorage) and are sent with each request over HTTPS; the server never stores them. Google's free tier allows only a few requests per minute, so a long text is slow.</div>
     </div>
   </details>
   <div class="samples" id="samples"></div>
@@ -146,6 +151,8 @@ async function run() {
     const headers = { "Content-Type": "application/json" };
     if ($("token").value) headers["X-Access-Token"] = $("token").value;
     if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
+    if ($("provider").value) headers["X-LLM-Provider"] = $("provider").value;
+    if ($("gkey").value) headers["X-Gemini-Key"] = $("gkey").value;
     const res = await fetch("/api/verify", { method: "POST", headers, body: JSON.stringify({ text, use_llm: $("llm").checked }) });
     const data = await res.json();
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
@@ -159,7 +166,7 @@ async function run() {
 }
 
 // Settings live in this browser only.
-for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
+for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]]) {
   try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
   $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value); } catch (e) {} });
 }
