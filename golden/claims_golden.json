@@ -217,8 +217,10 @@
    "outcome": [
     "supported",
     "supported_weakly",
+    "supported_in_part",
     "mixed"
-   ]
+   ],
+   "note": "the claim adds a ranking («after tawhid»): partial support is a fair answer"
   },
   {
    "id": "C33",
