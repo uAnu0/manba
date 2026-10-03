@@ -14,7 +14,7 @@ const Cards = (() => {
   const STRENGTH = { quran: ["Quran", "ok"], sahihayn: ["Sahih al-Bukhari / Muslim", "ok"], sahih: ["graded Sahih", "ok"], hasan: ["graded Hasan", "warn"],
     daif: ["graded weak", "bad"], disputed: ["grading disputed", "warn"], ungraded: ["no grading here", "warn"] };
   const GROUPS = { claims: "Claims", quotes: "Quran & hadith quotes", similar: "Close matches", fragments: "Short phrases" };
-  const ORDER = ["q_verified", "supported", "supported_in_part", "supported_weakly", "mixed", "contradicted", "no_clear_evidence", "q_variant", "q_baseless",
+  const ORDER = ["q_verified", "supported", "supported_in_part", "supported_weakly", "mixed", "contradicted", "no_clear_evidence", "q_variant", "q_partial", "q_baseless",
     "similar", "refer_to_scholar", "evidence_only", "out_of_scope", "q_fragment", "quote_checked"];
   const FRAGMENT_WORDS = 4;  // a verified run this short is a stock phrase, not a quotation: kept apart so it does not inflate "verified"
 
@@ -68,9 +68,16 @@ const Cards = (() => {
     if (e.kind === "quote") return quoteStatus(e.quote.status, e.text);
     const r = e.result;
     if (r.outcome === "quote_checked") {
+      // The card stands for the WHOLE sentence: a verified fragment inside it does not make the sentence a verified quote.
       const sg = (r.quote_check && r.quote_check.segments) || [];
-      const best = sg.find(x => x.status === "verified") || sg.find(x => x.status === "semantic_variant") || sg[0];
-      return best ? quoteStatus(best.status, best.segment_text) : { key: "quote_checked", label: "Quoted text checked", cls: "blue", attention: false, group: "quotes" };
+      if (!sg.length) return { key: "quote_checked", label: "Quoted text checked", cls: "blue", attention: false, group: "quotes" };
+      const words = t => (t || "").trim().split(/\s+/).filter(Boolean).length;
+      const total = Math.max(1, words(e.text));
+      const verified = sg.filter(x => x.status === "verified").reduce((n, x) => n + words(x.segment_text), 0);
+      if (verified / total >= 0.6) return quoteStatus("verified", e.text);
+      if (verified) return { key: "q_partial", label: "Only a part matches", cls: "warn", attention: true, group: "quotes" };
+      const variant = sg.find(x => x.status === "semantic_variant");
+      return quoteStatus(variant ? "semantic_variant" : "baseless", e.text);
     }
     return { key: r.outcome, label: SHORT[r.outcome] || r.outcome, cls: CHIP[r.outcome] || "", attention: !["supported", "out_of_scope"].includes(r.outcome), group: "claims" };
   }
@@ -243,5 +250,5 @@ const Cards = (() => {
     return h + "</div>";
   }
 
-  return { render, esc };
+  return { render, esc, statusOf };
 })();
