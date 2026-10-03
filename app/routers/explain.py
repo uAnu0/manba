@@ -3,11 +3,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from app.schemas import ExplainRequest, ExplainResponse
-from app.security import require_access
+from app.security import apply_llm_choice, require_access
 from app.services.explain import explain
 from app.services.evidence_card import lookup_index
 
-router = APIRouter(prefix="/api", tags=["explain"], dependencies=[Depends(require_access)])
+router = APIRouter(prefix="/api", tags=["explain"], dependencies=[Depends(require_access), Depends(apply_llm_choice)])
 
 MAX_ITEMS = 12
 

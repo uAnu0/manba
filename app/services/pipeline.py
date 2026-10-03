@@ -92,7 +92,7 @@ def _response(text: str, located: list[Located], extraction: ExtractionInfo | No
 
 def _redact(message: str) -> str:
     """Provider error messages can quote part of the API key that was used: never pass those on."""
-    return re.sub(r"sk-[A-Za-z0-9_-]{6,}", "[redacted]", message)
+    return re.sub(r"(sk-[A-Za-z0-9_-]{6,}|AIza[0-9A-Za-z_-]{16,}|AQ\.[0-9A-Za-z_-]{16,})", "[redacted]", message)
 
 
 def verify_text(text: str) -> VerifyResponse:

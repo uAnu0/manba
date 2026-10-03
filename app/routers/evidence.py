@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header
 
 from app.schemas import EvidenceRequest, EvidenceResponse
-from app.security import require_access
+from app.security import apply_llm_choice, require_access
 from app.services.evidence_card import build_card
 
-router = APIRouter(prefix="/api", tags=["evidence"], dependencies=[Depends(require_access)])
+router = APIRouter(prefix="/api", tags=["evidence"], dependencies=[Depends(require_access), Depends(apply_llm_choice)])
 
 
 @router.post("/evidence", response_model=EvidenceResponse)

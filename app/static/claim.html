@@ -60,7 +60,13 @@
   <details id="settings" style="margin:14px 0"><summary>Settings <span class="small" id="cfgnote"></span></summary>
     <div style="display:grid; gap:8px; margin-top:8px">
       <label class="small">Access code (only if the server asks)<input id="token" type="password" autocomplete="off"></label>
-      <label class="small">Your OpenRouter key (only if the server has no shared key)<input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..."></label>
+      <label class="small">Your OpenRouter key (used when the provider is OpenRouter)<input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-..."></label>
+      <label class="small">AI provider (which service answers the model questions)
+        <select id="provider">
+          <option value="">Server default</option><option value="openrouter">OpenRouter</option><option value="google">Google (Gemini)</option>
+        </select></label>
+      <label class="small">Your Google (Gemini) key, used when the provider is Google (a free key: aistudio.google.com/apikey)<input id="gkey" type="password" autocomplete="off" placeholder="AIza... or AQ...."></label>
+      <div class="small">Keys stay in this browser (localStorage) and are sent with each request over HTTPS; the server never stores them. Google's free tier allows only a few requests per minute, so a long text is slow.</div>
     </div>
   </details>
 
@@ -73,7 +79,8 @@ const SAMPLES = ["الإسلام يحرم الربا", "الإسلام يبيح 
   "قال تعالى: وأحل الله البيع وحرم الربا", "قال النبي صلى الله عليه وسلم: النظافة من الإيمان", "هل يجوز لي أن أطلق زوجتي وهي حائض", "كيف أطبخ الأرز"];
 for (const q of SAMPLES) { const b = document.createElement("button"); b.textContent = q; b.onclick = () => { $("q").value = q; run(); }; $("samples").appendChild(b); }
 
-const authHeaders = () => { const h = {}; if ($("token").value) h["X-Access-Token"] = $("token").value; if ($("orkey").value) h["X-OpenRouter-Key"] = $("orkey").value; return h; };
+const authHeaders = () => { const h = {}; if ($("token").value) h["X-Access-Token"] = $("token").value; if ($("orkey").value) h["X-OpenRouter-Key"] = $("orkey").value;
+  if ($("provider").value) h["X-LLM-Provider"] = $("provider").value; if ($("gkey").value) h["X-Gemini-Key"] = $("gkey").value; return h; };
 const wordCount = () => ($("q").value.trim().match(/\S+/g) || []).length;
 $("q").addEventListener("input", () => { const n = wordCount(); $("wc").textContent = n + " / 500 words"; $("wc").style.color = n > 500 ? "#b00020" : ""; $("go").disabled = n > 500; });
 async function run() {
@@ -89,12 +96,14 @@ async function run() {
     Cards.render($("out"), data, { headers: authHeaders });
   } catch (e) { $("out").innerHTML = `<div class="err">${Cards.esc(e.message)}</div>`; } finally { $("go").disabled = wordCount() > 500; }
 }
-for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {
+for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]]) {
   try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
   $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value); } catch (e) {} });
 }
 fetch("/api/config").then(r => r.json()).then(c => {
-  $("cfgnote").textContent = "(" + [c.access_required ? "access code required" : null, c.server_has_llm_key ? "server has a shared LLM key" : "no server LLM key"].filter(Boolean).join(", ") + ")";
+  const k = c.server_keys || {};
+  $("cfgnote").textContent = "(" + [c.access_required ? "access code required" : null, "server default: " + (c.default_provider || "openrouter"),
+    "server keys: " + (Object.keys(k).filter(x => k[x]).join(" + ") || "none, add yours")].filter(Boolean).join(", ") + ")";
   if (c.access_required && !$("token").value) $("settings").open = true;
 }).catch(() => {});
 $("go").onclick = run;

@@ -4,6 +4,17 @@ from typing import Optional
 from fastapi import Header, HTTPException
 
 from app.config import settings
+from app.services.llm_extractor import set_request_llm
+
+
+async def apply_llm_choice(
+    x_llm_provider: Optional[str] = Header(default=None),
+    x_openrouter_key: Optional[str] = Header(default=None),
+    x_gemini_key: Optional[str] = Header(default=None),
+) -> None:
+    """Dependency: the provider and keys the person chose in Settings apply to this request only (async, so the choice is
+    visible to the endpoint's own task)."""
+    set_request_llm(x_llm_provider, x_openrouter_key, x_gemini_key)
 
 
 def require_access(x_access_token: Optional[str] = Header(default=None)) -> None:

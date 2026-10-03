@@ -3,10 +3,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Header
 
 from app.schemas import ClaimRequest, ClaimResponse
-from app.security import require_access
+from app.security import apply_llm_choice, require_access
 from app.services.claim_card import verify_claim
 
-router = APIRouter(prefix="/api", tags=["claim"], dependencies=[Depends(require_access)])
+router = APIRouter(prefix="/api", tags=["claim"], dependencies=[Depends(require_access), Depends(apply_llm_choice)])
 
 
 @router.post("/claim", response_model=ClaimResponse)
