@@ -213,6 +213,27 @@ class TextCheckResponse(BaseModel):
     llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
 
 
+class TafsirEntry(BaseModel):
+    source_id: str
+    name_ar: str
+    name_en: str
+    author_ar: str
+    text: str  # as the author wrote it (only markup removed)
+    covers_from: Optional[str] = None  # the author commented on a group of verses at once: the first and last verse of the group
+    covers_to: Optional[str] = None
+
+
+class TafsirVerse(BaseModel):
+    ref: str  # sura:ayah
+    entries: list[TafsirEntry] = Field(default_factory=list)
+
+
+class TafsirResponse(BaseModel):
+    ref: str
+    verses: list[TafsirVerse]
+    available: list[str] = Field(default_factory=list)  # the tafsirs this server has
+
+
 class ExplainRequest(BaseModel):
     claim: str = Field(..., min_length=3, max_length=3000)
     result: Optional[ClaimResponse] = None  # a claim-check result as returned by /api/claim (or an item of /api/check)

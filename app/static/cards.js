@@ -23,13 +23,27 @@ const Cards = (() => {
   const gradeChips = s => (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join("");
   const whereOf = (s, cls) => [s.book, s.chapter && cls === "quran" ? s.chapter : "", s.number].filter(Boolean).join(" · ");
 
+  // A Quran verse shown in a card gets a Tafsir button; the commentary is fetched only when it is clicked (it is not part of the result).
+  const QURAN = "القرآن الكريم";
+  const quranRef = s => (s && s.book === QURAN && /^\d{1,3}:\d{1,3}(-\d{1,3})?$/.test(s.number || "")) ? s.number : null;
+  const tafsirBox = s => { const ref = quranRef(s); return ref ? `<div class="tafsir-box"><button class="tafsir-btn" data-ref="${esc(ref)}">Tafsir · تفسير</button><div class="tafsir-out"></div></div>` : ""; };
+  function tafsirHtml(d) {
+    const blocks = d.verses.filter(v => v.entries.length).map(v => `<div class="tafsir-verse"><div class="small" dir="ltr">Tafsir of ${esc(v.ref)}</div>` + v.entries.map((e, i) => {
+      const long = e.text.length > 900;
+      const range = e.covers_from ? `<div class="small" dir="rtl">هذا التفسير يشمل الآيات ${esc(e.covers_from)} إلى ${esc(e.covers_to)}</div>` : "";
+      return `<details class="tafsir" ${i === 0 ? "open" : ""}><summary><b>${esc(e.name_ar)}</b> <span class="small">${esc(e.author_ar)}</span></summary>${range}<div class="tafsir-text ${long ? "clamp" : ""}" dir="rtl">${e.text.split("\n").map(p => `<p>${esc(p)}</p>`).join("")}</div>${long ? `<button class="more-btn" type="button">Show more · المزيد</button>` : ""}</details>`;
+    }).join("") + "</div>");
+    if (!blocks.length) return `<div class="small">No tafsir is available for this verse in our sources.</div>`;
+    return blocks.join("") + `<div class="small" style="margin-top:6px">Shown as written by each author; it is not part of the evidence and does not affect the result. · نصّ المفسّر كما كتبه، وهو ليس من الأدلة ولا يؤثّر في النتيجة.</div>`;
+  }
+
   function evidenceItem(it, cls) {
     const s = it.source;
     const covers = (it.covers || []).length ? `<div class="small">Supports this part of the claim: <b>${it.covers.map(esc).join(" · ")}</b></div>` : "";
     const says = it.says ? `<div class="small">The judge's note: ${esc(it.says)}</div>` : "";
     const full = it.full_text && it.full_text !== s.matched_text
       ? `<details><summary>Full text${it.classification === "hadith" ? " with chain of narrators" : ""}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
-    return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(whereOf(s, it.classification))}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${covers}${says}${full}</div>`;
+    return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(whereOf(s, it.classification))}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${covers}${says}${full}${tafsirBox(s)}</div>`;
   }
   const list = (title, items, cls) => items.length ? `<h4>${title} (${items.length})</h4>` + items.map(i => evidenceItem(i, cls)).join("") : "";
 
@@ -37,7 +51,7 @@ const Cards = (() => {
     const st = { verified: ["Verified", "ok"], semantic_variant: ["Wording differs", "warn"], baseless: ["Not found in the sources", "bad"] }[sg.status] || [sg.status, ""];
     const s = sg.source;
     const diffs = (sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : "";
-    return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${diffs}</div>`;
+    return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${diffs}${s ? tafsirBox(s) : ""}</div>`;
   }
 
   function similarHtml(sm) {
@@ -45,7 +59,7 @@ const Cards = (() => {
     const miss = (sm.missing_words || []).length ? `<div class="small" dir="rtl">كلمات في الجملة ليست في هذا النص: <b>${sm.missing_words.map(esc).join("، ")}</b></div>` : "";
     return `<div class="item related"><div class="meta"><span class="chip warn">Close to a known text, not the same wording</span><span class="src">${esc(whereOf(s, e.classification))}</span>${strengthChip(s)}${gradeChips(s)}</div>`
       + `<div class="small">The sentence shares ${Math.round(sm.shared_share * 100)}% of its distinctive words with this text. Read both: this is a pointer, not a verification.</div>`
-      + `<div class="ar">${esc(e.full_text.length > 600 ? s.matched_text : e.full_text)}</div>${miss}</div>`;
+      + `<div class="ar">${esc(e.full_text.length > 600 ? s.matched_text : e.full_text)}</div>${miss}${tafsirBox(s)}</div>`;
   }
 
   // ---------- entries: one per card ----------
@@ -193,6 +207,21 @@ const Cards = (() => {
       if (head) return toggle(head.closest(".card"));
       const tab = ev.target.closest(".tab");
       if (tab) return showTab(tab.closest(".card"), +tab.dataset.card, tab.dataset.tab);
+      const more = ev.target.closest(".more-btn");
+      if (more) { const t = more.parentElement.querySelector(".tafsir-text"); const open = t.classList.toggle("clamp") === false; more.textContent = open ? "Show less · أقل" : "Show more · المزيد"; return; }
+      const tb = ev.target.closest(".tafsir-btn");
+      if (tb) {
+        const out = tb.parentElement.querySelector(".tafsir-out");
+        if (out.innerHTML) { out.hidden = !out.hidden; return; }  // already loaded: the button shows or hides it
+        tb.disabled = true; out.innerHTML = `<div class="small">Loading…</div>`;
+        try {
+          const res = await fetch("/api/tafsir/" + encodeURIComponent(tb.dataset.ref), { headers: opts.headers ? opts.headers() : {} });
+          const d = await res.json();
+          if (!res.ok) throw new Error(res.status === 401 ? "The server needs an access code: enter it in Settings." : JSON.stringify(d));
+          out.innerHTML = tafsirHtml(d);
+        } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+        tb.disabled = false; return;
+      }
       const btn = ev.target.closest(".explain-btn");
       if (!btn) return;
       const out = btn.parentElement.querySelector(".explain-out");

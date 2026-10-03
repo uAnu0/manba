@@ -8,3 +8,4 @@ data/hadith2/*.json
 .vercel
 .env*
 data/embeddings_cache/
+data/tafsir_raw/
