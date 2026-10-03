@@ -238,9 +238,10 @@ STANCE_SCHEMA = {
                         "number": {"type": "integer"},
                         "text_says": {"type": "string"},
                         "covers_all": {"type": "boolean"},
+                        "covered_parts": {"type": "array", "items": {"type": "string"}},
                         "stance": {"type": "string", "enum": ["supports", "contradicts", "related", "unrelated"]},
                     },
-                    "required": ["number", "text_says", "covers_all", "stance"],
+                    "required": ["number", "text_says", "covers_all", "covered_parts", "stance"],
                     "additionalProperties": False,
                 },
             },
@@ -273,17 +274,18 @@ STANCE_PROMPT = (
     "prohibition is stated in general terms; the covers_all requirement applies only to 'supports'. "
     "Also set covers_all: true only if the text itself addresses EVERY part in claim_parts, including each added "
     "condition. A text that supports only some parts (for example it recommends the act in general but says nothing "
-    "about the time, the reason or the result the claim adds) has covers_all false, and its stance is then 'related', "
-    "never 'supports'. The claim is judged as the person worded it: do not widen it to match the text."
+    "about the time, the reason or the result the claim adds) has covers_all false and is never 'supports'. For every "
+    "text also list covered_parts: the entries of claim_parts, copied exactly, that the text itself addresses in the "
+    "claim's direction (an empty list if none). The claim is judged as the person worded it: do not widen it to match the text."
 )
 
 
 @async_cache()
 async def _judge_claim_chunk(
     claim: str, excerpts: list[str], api_key: str | None = None
-) -> tuple[bool, dict[int, str], dict[int, str]]:
-    """(is the claim on topic, stance of each text position, the model's note on what each text says).
-    The model grades only the texts it is shown."""
+) -> tuple[bool, dict[int, str], dict[int, str], dict[int, list[str]]]:
+    """(is the claim on topic, stance of each text position, the model's note on what each text says, the claim parts a
+    partly supporting text addresses). The model grades only the texts it is shown."""
     lines = "\n".join(f"{k}. {text[:300]}" for k, text in enumerate(excerpts))
     messages = [
         {"role": "system", "content": STANCE_PROMPT},
@@ -300,25 +302,37 @@ async def _judge_claim_chunk(
         on_topic = bool(data["on_topic"])
         valid = [v for v in data["verdicts"] if isinstance(v["number"], int) and 0 <= v["number"] < len(excerpts)]
         # A text counts as support only if the model says it covers every part of the claim: the code enforces this.
-        stances = {v["number"]: ("related" if v["stance"] == "supports" and v.get("covers_all") is not True else v["stance"]) for v in valid}
+        parts = {str(p).strip() for p in data.get("claim_parts", []) if str(p).strip()}
+
+        def covered(v) -> list[str]:  # only parts the model really listed: a copy that matches nothing is dropped
+            return [str(p).strip() for p in (v.get("covered_parts") or []) if str(p).strip() in parts]
+
+        def stance_of(v) -> str:
+            if v["stance"] == "supports" and v.get("covers_all") is not True:
+                return "partial" if covered(v) else "related"
+            return v["stance"]
+
+        stances = {v["number"]: stance_of(v) for v in valid}
         says = {v["number"]: str(v.get("text_says", "")).strip() for v in valid}
+        covers = {v["number"]: covered(v) for v in valid if stances[v["number"]] == "partial"}
     except (TypeError, ValueError, KeyError) as exc:
         raise ExtractionError(f"Model returned invalid JSON: {content!r}") from exc
-    return on_topic, stances, says
+    return on_topic, stances, says, covers
 
 
 async def judge_claim(
     claim: str, excerpts: list[str], api_key: str | None = None
-) -> tuple[bool, dict[int, str], dict[int, str]]:
+) -> tuple[bool, dict[int, str], dict[int, str], dict[int, list[str]]]:
     """Grade every text against the claim (supports / contradicts / related / unrelated), in parallel chunks.
     Returns (on topic, stance per position, the model's one-line note per position)."""
     chunks = [excerpts[k : k + CLAIM_JUDGE_CHUNK] for k in range(0, len(excerpts), CLAIM_JUDGE_CHUNK)] or [[]]
     results = await asyncio.gather(
         *(_twice(lambda chunk=chunk: _judge_claim_chunk(claim, chunk, api_key=api_key)) for chunk in chunks)
     )
-    stances = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, part, _) in enumerate(results) for n, v in part.items()}
-    says = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, _, part) in enumerate(results) for n, v in part.items()}
-    return any(r[0] for r in results), stances, says
+    stances = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, part, _, _) in enumerate(results) for n, v in part.items()}
+    says = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, _, part, _) in enumerate(results) for n, v in part.items()}
+    covers = {k * CLAIM_JUDGE_CHUNK + n: v for k, (_, _, _, part) in enumerate(results) for n, v in part.items()}
+    return any(r[0] for r in results), stances, says, covers
 
 
 # ---- finding the claims in a longer text --------------------------------------------------------------------------

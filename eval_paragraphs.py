@@ -14,7 +14,7 @@ from pathlib import Path
 from app.services.text_claims import check_text
 
 GOLDEN = Path(__file__).resolve().parent / "golden" / "paragraphs_golden.json"
-SUPPORT = {"supported", "supported_weakly"}
+SUPPORT = {"supported", "supported_weakly", "supported_in_part"}
 
 
 async def main(verbose: bool) -> int:

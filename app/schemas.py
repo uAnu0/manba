@@ -93,7 +93,8 @@ class EvidenceItem(BaseModel):
     similarity: Optional[float] = None  # cosine similarity of the meaning search (1.0 = identical meaning)
     exact_wording: bool = True  # False when the LLM's recitation differed slightly from the corpus text
     relevance: Optional[Literal["direct", "related"]] = None  # the LLM judge's verdict, when the LLM step ran
-    stance: Optional[Literal["supports", "contradicts", "related"]] = None  # claim verification: how it bears on the claim
+    stance: Optional[Literal["supports", "contradicts", "related", "partial"]] = None  # claim verification: how it bears on the claim
+    covers: list[str] = Field(default_factory=list)  # stance "partial": the parts of the claim this text itself addresses (model-written)
     says: Optional[str] = None  # the judge model's one-line note on what the text says (model-written, used by the explanation)
 
 
@@ -147,6 +148,7 @@ class ClaimResponse(BaseModel):
         "quote_checked",  # the claim is a quote: see quote_check
         "supported",  # direct evidence for the claim, at least one strong source, none against
         "supported_weakly",  # evidence for the claim, but only from weak or ungraded hadith
+        "supported_in_part",  # texts support some parts of the claim; nothing found covers all of it
         "contradicted",  # direct evidence against the claim, none for it
         "mixed",  # evidence on both sides: a scholar is needed
         "no_clear_evidence",
@@ -159,6 +161,7 @@ class ClaimResponse(BaseModel):
     quote_check: Optional[VerifyResponse] = None
     supporting: list[EvidenceItem] = Field(default_factory=list)
     contradicting: list[EvidenceItem] = Field(default_factory=list)
+    partial: list[EvidenceItem] = Field(default_factory=list)  # texts that support only some parts of the claim
     related: list[EvidenceItem] = Field(default_factory=list)
     refer_to_scholar: bool = False
     reason: Optional[str] = None
