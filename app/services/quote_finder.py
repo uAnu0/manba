@@ -2,7 +2,7 @@
 
 Two kinds of quote are found:
 
-* Marked claims (regions). Text inside quote marks or brackets (﴿ ﴾ « » " " ( ) [ ]) and text that follows an
+* Marked claims (regions). Text inside quote marks or brackets (﴿ ﴾ { } « » " " ( ) [ ]) and text that follows an
   attribution such as "قال تعالى" up to the next punctuation mark. The whole region is the claim and goes
   through verify_segment, so an altered or invented quote comes back as a variant or baseless instead of
   being trimmed down to the part that happens to match.
@@ -26,6 +26,7 @@ from app.services.verifier import (
 
 SPAN_MIN_WORDS = 4  # unmarked runs: shorter ones are common speech ("في سبيل الله") and too noisy
 REGION_MIN_WORDS = 3
+CURLY_MIN_WORDS = 5
 ATTRIBUTION_LOOKBACK = 6
 MAX_RUN_WORDS = 400
 
@@ -44,6 +45,7 @@ CONTEXT = {"التنزيل", "القران", "الايه", "الايات", "اي
 _QURAN_BRACKETS = "[﴾﴿]"
 BRACKET_PATTERNS = (
     ("quran", re.compile(_QURAN_BRACKETS + "(.*?)" + _QURAN_BRACKETS, re.S)),
+    ("curly_brace", re.compile(r"\{(.*?)\}", re.S)),  # { ... } is how many sermons and tweets (and Saadi's tafsir) mark a verse
     ("guillemets", re.compile("«(.*?)»", re.S)),
     ("curly", re.compile("“(.*?)”", re.S)),
     ("straight", re.compile('"(.*?)"', re.S)),
@@ -117,7 +119,8 @@ def find_regions(text: str, words: list[Word]) -> list[Region]:
         for m in pattern.finditer(text):
             if overlaps(m.start(), m.end()) or _word_count(m.group(1)) < REGION_MIN_WORDS:
                 continue
-            attributed = kind == "quran" or _attributed_before(words, m.start())
+            # { ... } is a verse marker only when it holds a sentence: a short list such as {أ، ب، ج} is not a quotation
+            attributed = kind == "quran" or (kind == "curly_brace" and _word_count(m.group(1)) >= CURLY_MIN_WORDS) or _attributed_before(words, m.start())
             regions.append(Region(m.start(), m.end(), m.start(1), m.end(1), kind, attributed))
 
     # Unbracketed: "قال تعالى إن مع العسر يسرا" -> the claim is what follows the attribution.

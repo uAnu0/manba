@@ -50,8 +50,10 @@ const Cards = (() => {
   function segmentHtml(sg) {
     const st = { verified: ["Verified", "ok"], semantic_variant: ["Wording differs", "warn"], baseless: ["Not found in the sources", "bad"] }[sg.status] || [sg.status, ""];
     const s = sg.source;
+    const partial = sg.match_type === "partial" && sg.status === "verified" && s && s.matched_text
+      ? `<div class="small">This is only part of the verse. <details style="display:inline"><summary style="display:inline">Show the whole verse</summary><div class="ar">${esc(s.matched_text)}</div></details></div>` : "";
     const diffs = (sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : "";
-    return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${diffs}${s ? tafsirBox(s) : ""}</div>`;
+    return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${sg.match_type === "partial" && sg.status === "verified" ? `<span class="chip warn">Part of the verse</span>` : ""}${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${partial}${diffs}${s ? tafsirBox(s) : ""}</div>`;
   }
 
   function similarHtml(sm) {
