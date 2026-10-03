@@ -43,6 +43,25 @@ LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provid
 Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
 On Vercel give the function enough memory and duration, and expect a slow first request after a cold start.
 
+## Paragraph check (version 0)
+
+`POST /api/check` with `{"text": "..."}` (up to 12,000 characters) finds every quote and every religious claim in a paragraph or sermon and checks each one. The `/claim` page uses it
+automatically when the text has several sentences.
+
+1. **Quotes** are found locally (quote finder + verifier, no model), including bracketed or attributed texts that match nothing (shown as not found).
+2. **Claims**: the remaining sentences go to the model once; it says which make a religious claim and copies the claim text (a sentence with several claims is split; a piece that does not name its
+   subject gets it from the same sentence). Nothing it writes is trusted: a returned claim must occur in its sentence, or be a faithful trim of it (every word from the sentence, in order, no negation dropped);
+   otherwise the whole sentence is the claim. Commentary, greetings, questions and personal stories are skipped.
+3. Each claim goes through the claim check (up to 8 per request, 5 at a time); the response lists the items in reading order with a count per outcome and the number of commentary sentences.
+
+Measured on `golden/paragraphs_golden.json` (4 paragraphs written by the developer): 9 of 10 expected claims found with an acceptable outcome, 3/3 quotes right, no commentary checked as a claim,
+no claim invented in claim-free text, 0 reversals. The miss is the weak spot of the stance judge (a claim about keeping covenants came back `mixed`). Run `python eval_paragraphs.py`.
+
+**Speed.** Model calls that do not depend on each other run at the same time (the router, the evidence search and the recitation; the recitation of verses and of hadith; the stance judging of the
+candidates in chunks of 10), and repeated calls are cached in memory (`services/cache.py`). A single claim went from about 21 s to about 9 s with the same results on the golden claims
+(reversals 0, false support 0); a repeated claim is instant; a paragraph with five claims takes about 14 s. The evidence card's relevance judge is NOT chunked: chunking it lowered the recall
+of the golden evidence questions by about 5 points (69% to 64%), so it still judges all candidates in one call.
+
 ## Claim check (version 0)
 
 The point of the app is checking claims, so this is where everything else comes together. `POST /api/claim` with `{"claim": "..."}` (any language) returns where the
@@ -101,6 +120,7 @@ Each segment has `segment_text`, `classification` (quran | hadith | unverified),
 | Command | What it does |
 |---|---|
 | `python eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
+| `python eval_paragraphs.py [-v]` | Runs the golden paragraphs through the paragraph check: claims found with an acceptable outcome, quotes, commentary wrongly checked, reversals. |
 | `python eval_claims.py [-v]` | Runs the golden claims through the claim verifier: type and outcome accuracy, quote statuses, reversals and false support (the two numbers that must be 0). |
 | `python eval_evidence.py [--llm] [--no-meaning]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 75 cheap model calls. |
 | `python embed_corpus.py` | Rebuilds `corpus_embeddings.npz` (about 4 million tokens, under a dollar; resumable). Needed after the corpus changes. |

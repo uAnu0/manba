@@ -45,9 +45,9 @@
 <body>
 <main>
   <h1>Claim check <span class="small">(test)</span></h1>
-  <p class="sub">Paste a claim about Islam, a quoted verse or hadith, or a question. You get where the evidence stands, never a true/false verdict. <a href="/">Quote verifier</a> · <a href="/evidence">Evidence finder</a></p>
+  <p class="sub">Paste a claim about Islam, a quoted verse or hadith, a question, or a whole paragraph with several claims. You get where the evidence stands for each, never a true/false verdict. <a href="/">Quote verifier</a> · <a href="/evidence">Evidence finder</a></p>
 
-  <textarea id="q" dir="auto" placeholder="مثال: الإسلام يحرم الربا   ·   Example: Islam allows alcohol   ·   قال النبي صلى الله عليه وسلم: النظافة من الإيمان"></textarea>
+  <textarea id="q" dir="auto" style="min-height:120px" placeholder="مثال: الإسلام يحرم الربا   ·   Example: Islam allows alcohol   ·   قال النبي صلى الله عليه وسلم: النظافة من الإيمان"></textarea>
   <div class="row">
     <button id="go" class="primary">Check claim</button>
     <label class="small"><input type="checkbox" id="llm" checked> Use the AI router and judge (needed for a verdict)</label>
@@ -89,7 +89,7 @@ function segment(sg) {
   const s = sg.source;
   return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${(sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}</div>`;
 }
-function render(d) {
+function claimHtml(d) {
   let h = `<div class="outcome ${d.outcome}"><h3>${TITLES[d.outcome]}</h3><p>${esc(d.summary_en)}</p><p dir="rtl">${esc(d.summary_ar)}</p></div>`;
   if (d.refer_to_scholar && d.reason) h += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(d.reason)}</div>`;
   if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
@@ -97,19 +97,35 @@ function render(d) {
   h += section("Evidence that supports the claim", d.supporting, "supports") + section("Evidence that contradicts the claim", d.contradicting, "contradicts") + section(d.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", d.related, "related");
   h += `<div class="notice" dir="auto"><b>${esc(d.notice_en)}</b><span dir="rtl" style="display:block;margin-top:4px">${esc(d.notice_ar)}</span></div>`;
   h += `<details><summary>How this was decided</summary><div class="small">Claim type: <b>${esc(d.claim_type)}</b>. ${d.restated_claim ? `Search aid written by the model (it can be wrong, it is not used as the claim): ${esc(d.restated_claim)}.` : ""} ${d.llm && d.llm.recited ? `The model recalled ${d.llm.recited} texts, ${d.llm.recited_found} of them found in the corpus.` : ""} Sources are ranked by level: 1 Quran, 2 Sahih al-Bukhari and Muslim, 3 other hadith with the gradings scholars gave them.</div></details>`;
+  return h;
+}
+function render(d) { $("out").innerHTML = claimHtml(d); }
+
+const CHIP = { supported: "ok", supported_weakly: "warn", contradicted: "bad", mixed: "warn", no_clear_evidence: "", refer_to_scholar: "warn", out_of_scope: "", quote_checked: "blue", evidence_only: "" };
+function renderCheck(d) {
+  const parts = Object.entries(d.summary || {}).map(([k, v]) => `${v} ${TITLES[k] ? TITLES[k].toLowerCase() : k.replace("_", " ")}`);
+  let h = `<div class="outcome quote_checked"><h3>Paragraph checked</h3><p>${d.items.length} item(s) found in ${d.sentences} sentence(s); ${d.commentary_sentences} sentence(s) were commentary.${parts.length ? " " + esc(parts.join(" · ")) + "." : ""}</p>${d.skipped_claims ? `<p>${d.skipped_claims} more claim(s) were not checked (limit per request).</p>` : ""}${d.truncated ? "<p>The text was longer than the limit; only the first part was read.</p>" : ""}</div>`;
+  if (d.llm && d.llm.error) h += `<div class="err">${esc(d.llm.error)}</div>`;
+  if (!d.llm || !d.llm.used) h += `<div class="banner">No model was used, so only quoted texts were checked.</div>`;
+  for (const it of d.items) {
+    if (it.kind === "quote") { h += `<h2>Quoted text</h2>` + segment(it.quote); continue; }
+    const r = it.result;
+    h += `<div class="item"><div class="meta"><span class="chip ${CHIP[r.outcome] || ""}">${esc(TITLES[r.outcome] || r.outcome)}</span><span class="chip">claim</span></div><div class="ar">${esc(it.text)}</div><details><summary>Details</summary>${claimHtml(r)}</details></div>`;
+  }
   $("out").innerHTML = h;
 }
 async function run() {
   const claim = $("q").value.trim(); if (!claim) return;
-  $("go").disabled = true; $("out").innerHTML = `<div class="small">Checking… (up to 30 seconds)</div>`;
+  $("go").disabled = true; $("out").innerHTML = `<div class="small">Checking… (a single claim takes about 10 seconds, a paragraph with several claims up to a minute)</div>`;
   const headers = { "Content-Type": "application/json" };
   if ($("token").value) headers["X-Access-Token"] = $("token").value;
   if ($("orkey").value) headers["X-OpenRouter-Key"] = $("orkey").value;
   try {
-    const res = await fetch("/api/claim", { method: "POST", headers, body: JSON.stringify({ claim, use_llm: $("llm").checked }) });
+    const multi = claim.split(/[.؟!\n]/).filter(x => x.trim().split(/\s+/).length >= 3).length >= 2 || claim.split(/\s+/).length > 40;
+    const res = await fetch(multi ? "/api/check" : "/api/claim", { method: "POST", headers, body: JSON.stringify(multi ? { text: claim, use_llm: $("llm").checked } : { claim, use_llm: $("llm").checked }) });
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
     const data = await res.json(); if (!res.ok) throw new Error(JSON.stringify(data));
-    render(data);
+    if (data.items) renderCheck(data); else render(data);
   } catch (e) { $("out").innerHTML = `<div class="err">${esc(e.message)}</div>`; } finally { $("go").disabled = false; }
 }
 for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"]]) {

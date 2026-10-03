@@ -177,7 +177,9 @@ class Gathered:
     query_words: set[str]
     words: list[str]
     keyword: dict[str, list[list[tuple[int, float, list[str]]]]]
+    meaning: dict[str, list[list[tuple[int, float]]]]
     similarity: dict[int, float]
+    recited: dict[str, list[int]]
     exact: dict[int, bool]
     windows: list[EvidenceItem]
     info: QueryInfo
@@ -189,17 +191,15 @@ class Gathered:
         item.similarity = round(self.similarity[i], 3) if i in self.similarity else None
         return item
 
+    def refuse(self, pool_size: dict[str, int]) -> None:
+        self.pool = {
+            c: fuse(self.keyword[c], self.meaning[c], self.recited[c], pool_size[c]) for c in self.keyword
+        }
 
-async def gather(
-    queries: list[str],
-    use_llm: bool,
-    api_key: str | None,
-    use_meaning: bool,
-    pool_size: dict[str, int],
-) -> Gathered:
-    """Run the searches for every query and merge them: keyword, meaning, and (use_llm) the model's recitations."""
+
+async def _search(queries: list[str], api_key: str | None, use_meaning: bool) -> tuple[dict, dict, dict, set, set, QueryInfo]:
+    """Keyword and meaning search for every query: (keyword, meaning, similarity, words, query_words, info)."""
     info = QueryInfo(used=False)
-    entries = index().entries
     query_words: set[str] = set()
     words: set[str] = set()
     keyword: dict[str, list] = {"quran": [], "hadith": []}
@@ -226,32 +226,72 @@ async def gather(
             info.meaning_used = True
         except Exception as exc:  # keyword search still runs
             info.meaning_error = _redact(f"{type(exc).__name__}: {exc}")
+    return keyword, meaning, similarity, words, query_words, info
 
+
+async def _recite_all(question: str, api_key: str | None, entries: tuple):
+    """The model's recitations for the question, looked up in the corpus: (recited, exact, windows, info fields)."""
     recited: dict[str, list[int]] = {"quran": [], "hadith": []}
     exact: dict[int, bool] = {}
     windows: list[EvidenceItem] = []
-    if use_llm:
-        try:
-            suggestions = await suggest_evidence(queries[0], api_key)
-            rejected = []
-            for text in suggestions:
-                i, is_exact, window = resolve_suggestion(text)
-                if window is not None:
-                    windows.append(window)
-                elif i is None:
-                    rejected.append(text)
-                elif i not in exact:
-                    exact[i] = is_exact
-                    recited[entries[i].classification].append(i)
-            info.used = True
-            info.suggested = len(suggestions)
-            info.found_in_corpus = len(exact) + len(windows)
-            info.rejected = rejected
-        except Exception as exc:
-            info.error = _redact(f"{type(exc).__name__}: {exc}")
+    fields = {"used": False, "suggested": 0, "found_in_corpus": 0, "rejected": [], "error": None}
+    try:
+        suggestions = await suggest_evidence(question, api_key=api_key)
+        rejected = []
+        for text in suggestions:
+            i, is_exact, window = resolve_suggestion(text)
+            if window is not None:
+                windows.append(window)
+            elif i is None:
+                rejected.append(text)
+            elif i not in exact:
+                exact[i] = is_exact
+                recited[entries[i].classification].append(i)
+        fields.update(used=True, suggested=len(suggestions), found_in_corpus=len(exact) + len(windows), rejected=rejected)
+    except Exception as exc:
+        fields["error"] = _redact(f"{type(exc).__name__}: {exc}")
+    return recited, exact, windows, fields
 
-    pool = {c: fuse(keyword[c], meaning[c], recited[c], pool_size[c]) for c in keyword}
-    return Gathered(entries, query_words, sorted(words), keyword, similarity, exact, windows, info, pool)
+
+async def gather(
+    queries: list[str],
+    use_llm: bool,
+    api_key: str | None,
+    use_meaning: bool,
+    pool_size: dict[str, int],
+) -> Gathered:
+    """Run the searches for every query and merge them: keyword, meaning, and (use_llm) the model's recitations.
+
+    The meaning search and the recitation run at the same time; the recitation is made for the first query."""
+    entries = index().entries
+
+    async def nothing():
+        return {"quran": [], "hadith": []}, {}, [], {"used": False, "suggested": 0, "found_in_corpus": 0, "rejected": [], "error": None}
+
+    (keyword, meaning, similarity, words, query_words, info), (recited, exact, windows, fields) = await asyncio.gather(
+        _search(queries, api_key, use_meaning), _recite_all(queries[0], api_key, entries) if use_llm else nothing()
+    )
+    for name, value in fields.items():
+        setattr(info, name, value)
+    g = Gathered(entries, query_words, sorted(words), keyword, meaning, similarity, recited, exact, windows, info, {})
+    g.refuse(pool_size)
+    return g
+
+
+async def extend(g: Gathered, queries: list[str], api_key: str | None, use_meaning: bool, pool_size: dict[str, int]) -> Gathered:
+    """Add the keyword and meaning rankings of more queries to an existing gather and merge again."""
+    keyword, meaning, similarity, words, query_words, info = await _search(queries, api_key, use_meaning)
+    for c in g.keyword:
+        g.keyword[c] += keyword[c]
+        g.meaning[c] += meaning[c]
+    for i, s in similarity.items():
+        g.similarity[i] = max(s, g.similarity.get(i, 0.0))
+    g.query_words |= query_words
+    g.words = sorted(set(g.words) | words)
+    g.info.meaning_used = g.info.meaning_used or info.meaning_used
+    g.info.meaning_error = g.info.meaning_error or info.meaning_error
+    g.refuse(pool_size)
+    return g
 
 
 async def build_card(

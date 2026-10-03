@@ -147,3 +147,30 @@ class ClaimResponse(BaseModel):
     notice_ar: str
     notice_en: str
     llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
+
+
+class TextCheckRequest(BaseModel):
+    text: str = Field(..., min_length=3, max_length=12000)
+    use_llm: bool = True  # finding and judging claims needs a model; without it only the quotes are checked
+    use_meaning: bool = True
+
+
+class TextClaimItem(BaseModel):
+    kind: Literal["quote", "claim"]
+    text: str  # as written in the input
+    start: int
+    end: int
+    quote: Optional[Segment] = None  # kind == "quote": what the verifier found
+    result: Optional[ClaimResponse] = None  # kind == "claim": the claim check
+
+
+class TextCheckResponse(BaseModel):
+    original_text: str
+    word_count: int
+    items: list[TextClaimItem]
+    sentences: int
+    commentary_sentences: int  # sentences with neither a quote nor a claim
+    skipped_claims: int = 0  # claims beyond the per-request limit (the text is still not checked for them)
+    truncated: bool = False  # the text had more sentences than the limit
+    summary: dict[str, int] = Field(default_factory=dict)  # count per outcome / quote status
+    llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
