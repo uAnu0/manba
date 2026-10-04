@@ -205,7 +205,7 @@
     }
   }
   $("go").onclick = run;
-  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); if (typeof writeLogo === "function") writeLogo(); };
+  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); };
   window.addEventListener("popstate", () => { if (!location.hash.includes("report")) $("newBtn").onclick(); });
 
   // ---------- report ----------
@@ -501,14 +501,18 @@
     try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
     $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value.trim()); } catch (e) {} });
   }
-  // the name is written when the page shows (after the font has loaded, so the letters have their real shape) and again when a new review starts
-  function writeLogo() {
-    const el = $("heroLogo"); if (!el) return;
-    el.classList.remove("go", "pre"); void el.getBoundingClientRect();
-    el.classList.add("go");
-  }
-  const logoFont = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('700 96px "Amiri"', "مَنبَع"), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
-  logoFont.catch(() => {}).then(writeLogo);
+  // Intro: the logo is written over the blurred page (after the font has loaded, so the letters have their real shape), held a moment, then the
+  // cover fades away. A click or a key skips it; with reduced motion it is not shown. (The CSS also hides it after 9 s whatever happens.)
+  (function intro() {
+    const cover = $("intro"), logo = $("introLogo"); if (!cover) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); return; }
+    let done = false, hold = null;
+    const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; cover.classList.add("out"); setTimeout(() => cover.remove(), 700); };
+    document.documentElement.style.overflow = "hidden";
+    cover.addEventListener("click", finish); window.addEventListener("keydown", finish, { once: true });
+    const font = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('700 96px "Amiri"', "مَنبَع"), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
+    font.catch(() => {}).then(() => { if (done) return; logo.classList.add("go"); hold = setTimeout(finish, 2000); });  // writing takes about 1.7 s, then a short hold
+  })();
   fetch("/api/config").then(r => r.json()).then(c => {
     const k = c.server_keys || {};
     const has = Object.keys(k).filter(x => k[x]);
