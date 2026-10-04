@@ -14,7 +14,7 @@ const Cards = (() => {
   const STRENGTH = { quran: ["Quran", "ok"], sahihayn: ["Sahih al-Bukhari / Muslim", "ok"], sahih: ["graded Sahih", "ok"], hasan: ["graded Hasan", "warn"],
     daif: ["graded weak", "bad"], disputed: ["grading disputed", "warn"], ungraded: ["no grading here", "warn"] };
   const GROUPS = { claims: "Claims", quotes: "Quran & hadith quotes", similar: "Close matches", fragments: "Short phrases" };
-  const ORDER = ["q_verified", "supported", "supported_in_part", "supported_weakly", "mixed", "contradicted", "no_clear_evidence", "q_variant", "q_partial", "q_baseless",
+  const ORDER = ["q_verified", "supported", "supported_in_part", "supported_weakly", "mixed", "fiqh_disputed", "fiqh_differs", "contradicted", "no_clear_evidence", "q_variant", "q_partial", "q_baseless",
     "similar", "refer_to_scholar", "evidence_only", "out_of_scope", "q_fragment", "quote_checked"];
   const FRAGMENT_WORDS = 5;  // a verified run this short is a stock phrase, not a quotation: kept apart so it does not inflate "verified"
 
@@ -32,6 +32,27 @@ const Cards = (() => {
     disagreement_acknowledged: ["الخلاف مذكور", "ok"], agreement_reported: ["تنقل الموسوعة الاتفاق", "ok"],
     agreement_differs: ["يخالف ما نُقل الاتفاق عليه", "bad"], partly_disputed: ["اتفاق في جانب وخلاف في جانب", "warn"],
     found_no_marker: ["وُجدت المسألة دون تصريح باتفاق أو خلاف", ""], not_found: ["لم توجد في الموسوعة الفقهية", ""] };
+  // A ruling the encyclopedia reports as disputed is not "supported" because some text can be cited for one view: the card says so.
+  // (The text-evidence outcome itself is unchanged; only what the badge and the headline claim.)
+  const POSITIVE = ["supported", "supported_weakly", "supported_in_part"];
+  const DISPUTED = ["consensus_claim_disputed", "stated_as_certain_disputed", "partly_disputed"];
+  const fiqhFlag = r => {
+    const s = r && r.fiqh && r.fiqh.status;
+    if (!r || !POSITIVE.includes(r.outcome)) return null;
+    if (DISPUTED.includes(s)) return "disputed";
+    return s === "agreement_differs" ? "differs" : null;
+  };
+  function fiqhHead(r, flag) {
+    const disputed = flag === "disputed";
+    const en = disputed
+      ? "Scholars differ on this ruling. The texts in the Evidence tab are cited for one view only; the Kuwaiti Fiqh Encyclopedia reports disagreement among the schools. Read the Fiqh tab first."
+      : "The Kuwaiti Fiqh Encyclopedia reports an agreed ruling that differs from this sentence. Read the Fiqh tab first.";
+    const ar = disputed
+      ? "العلماء مختلفون في هذه المسألة. النصوص في تبويب Evidence تُذكر لأحد الأقوال فقط، والموسوعة الفقهية الكويتية تنقل الخلاف بين المذاهب. اقرأ تبويب الفقه أولًا."
+      : "تنقل الموسوعة الفقهية الكويتية اتفاقًا على حكم يخالف ما في هذه الجملة. اقرأ تبويب الفقه أولًا.";
+    return `<div class="outcome ${disputed ? "fiqh_disputed" : "fiqh_differs"}"><h3>${disputed ? "Disputed ruling · مسألة خلافية" : "Differs from the agreed ruling · يخالف المتفق عليه"}</h3><p>${en}</p><p dir="rtl">${ar}</p>`
+      + `<p class="small">What the text search found for this wording: ${esc(TITLES[r.outcome] || r.outcome)}. That describes the texts, not the ruling.</p></div>`;
+  }
   const AGREE = { agreement: ["اتفاق", "ok"], disagreement: ["خلاف", "warn"], both: ["اتفاق وخلاف", "warn"], none: ["", ""] };
   const fiqhChip = f => { const m = f && FIQH[f.status]; return m ? `<span class="chip ${m[1]}">فقه · ${m[0]}</span>` : ""; };
   function fiqhHtml(f) {
@@ -193,6 +214,9 @@ const Cards = (() => {
       const variant = sg.find(x => x.status === "semantic_variant");
       return quoteStatus(variant ? "semantic_variant" : "baseless", e.text);
     }
+    const flag = fiqhFlag(r);
+    if (flag === "disputed") return { key: "fiqh_disputed", label: "Disputed ruling · خلافية", cls: "warn", attention: true, group: "claims" };
+    if (flag === "differs") return { key: "fiqh_differs", label: "Differs from the agreed ruling", cls: "bad", attention: true, group: "claims" };
     return { key: r.outcome, label: SHORT[r.outcome] || r.outcome, cls: CHIP[r.outcome] || "", attention: !["supported", "out_of_scope"].includes(r.outcome) || !!(r.fiqh && r.fiqh.attention), group: "claims" };
   }
 
@@ -243,7 +267,9 @@ const Cards = (() => {
     let head = "";
     if (e.kind === "claim") {
       const r = e.result;
-      head += `<div class="outcome ${esc(r.outcome)}"><h3>${esc(TITLES[r.outcome] || r.outcome)}</h3><p>${esc(r.summary_en)}</p><p dir="rtl">${esc(r.summary_ar)}</p></div>`;
+      const flag = fiqhFlag(r);
+      head += flag ? fiqhHead(r, flag)
+        : `<div class="outcome ${esc(r.outcome)}"><h3>${esc(TITLES[r.outcome] || r.outcome)}</h3><p>${esc(r.summary_en)}</p><p dir="rtl">${esc(r.summary_ar)}</p></div>`;
       if (r.refer_to_scholar && r.reason) head += `<div class="banner"><b>Please ask a qualified scholar.</b> ${esc(r.reason)}</div>`;
       if (r.llm && r.llm.error) head += `<div class="err">${esc(r.llm.error)}</div>`;
     }
@@ -396,5 +422,5 @@ const Cards = (() => {
     return h + "</div>";
   }
 
-  return { render, esc, statusOf };
+  return { render, esc, statusOf, fiqhFlag };
 })();

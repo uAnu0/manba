@@ -80,6 +80,23 @@ class Fact:
     differences: list[str] = field(default_factory=list)
 
 
+# A ruling the Kuwaiti Fiqh Encyclopedia reports as disputed (or as agreed differently) is never explained as simply "supported".
+POSITIVE_OUTCOMES = ("supported", "supported_weakly", "supported_in_part")
+DISPUTED_STATUSES = ("consensus_claim_disputed", "stated_as_certain_disputed", "partly_disputed")
+DISPUTED_AR = "المسألة خلافية بحسب الموسوعة الفقهية الكويتية؛ والنصوص المعروضة تُذكر لأحد الأقوال ولا تحسم الخلاف، فينبغي الرجوع إلى أهل العلم."
+DIFFERS_AR = "تنقل الموسوعة الفقهية الكويتية اتفاقًا على حكم يخالف ما في الجملة؛ فينبغي الرجوع إلى أهل العلم."
+
+
+def fiqh_note(result) -> str | None:
+    """The fixed Arabic sentence for a positive result on a disputed (or differently agreed) ruling, else None."""
+    status = result.fiqh.status if result is not None and getattr(result, "fiqh", None) else None
+    if result is None or result.outcome not in POSITIVE_OUTCOMES:
+        return None
+    if status in DISPUTED_STATUSES:
+        return DISPUTED_AR
+    return DIFFERS_AR if status == "agreement_differs" else None
+
+
 @dataclass
 class Facts:
     claim: str
@@ -87,6 +104,7 @@ class Facts:
     summary_ar: str
     texts: list[Fact]
     quote: bool = False
+    fiqh_note_ar: str | None = None
 
 
 def writer_models() -> list[str]:
@@ -148,7 +166,8 @@ def build_facts(claim: str, result: ClaimResponse | None, segment: Segment | Non
             for item in items[: MAX_TEXTS[stance]]:
                 says = item.says if stance != "partial" or not item.covers else f"{item.says or ''} (part of the claim it addresses: {'; '.join(item.covers)})"
                 texts.append(_fact(len(texts) + 1, item.source, item.full_text, stance, says, item.classification))
-        return Facts(claim, result.outcome, result.summary_ar, texts)
+        note = fiqh_note(result)
+        return Facts(claim, result.outcome, note or result.summary_ar, texts, fiqh_note_ar=note)
     assert segment is not None  # a lone quoted-text result
     quoted = segment.segment_text
     fact = Fact(
@@ -180,7 +199,9 @@ WRITER_PROMPT = (
     "4) Mention weak or ungraded hadith as such, using only the strength given. If texts point both ways, say so. "
     "If the verdict is no_clear_evidence or mixed, say that a scholar is needed to weigh it. "
     "5) When you quote Arabic words from a text, put them in « » exactly as written in that text. "
-    "6) In caution write one sentence on what this explanation cannot tell the reader, or an empty string."
+    "6) In caution write one sentence on what this explanation cannot tell the reader, or an empty string. "
+    "7) If the facts contain a line starting 'Disputed ruling', never describe the claim as supported, proven or settled: "
+    "say that the texts are cited for one view of a ruling on which scholars differ."
 )
 
 
@@ -210,7 +231,10 @@ def _schema(outcome: str) -> dict:
 
 
 def _facts_message(facts: Facts) -> str:
-    lines = [f'Claim (data): """{facts.claim}"""', f"Verdict: {facts.outcome}", f"Verdict in Arabic: {facts.summary_ar}", "Texts:"]
+    lines = [f'Claim (data): """{facts.claim}"""', f"Verdict: {facts.outcome}", f"Verdict in Arabic: {facts.summary_ar}"]
+    if facts.fiqh_note_ar:
+        lines.append(f"Disputed ruling (fixed fact): {facts.fiqh_note_ar}")
+    lines.append("Texts:")
     for t in facts.texts:
         row = [f"[{t.n}] {t.label}"]
         if t.stance_ar:
@@ -319,6 +343,13 @@ async def explain(
     base = dict(claim=claim, outcome=facts.outcome, summary_ar=facts.summary_ar, texts=_texts_out(facts))
     if not facts.texts:
         return ExplainResponse(points=[], ai_written=False, note="لا توجد نصوص لشرحها.", **base)
+    response = await _explain(facts, base, api_key)
+    if facts.fiqh_note_ar:  # written by code, whatever the writer said: the disagreement is always stated
+        response.caution = facts.fiqh_note_ar
+    return response
+
+
+async def _explain(facts: Facts, base: dict, api_key: str | None) -> ExplainResponse:
     note = None
     for model in writer_models():
         try:

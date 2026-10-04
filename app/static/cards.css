@@ -63,3 +63,7 @@
 .site-notes p { margin: 0; }
 .dorar-link { display: grid; gap: 4px; margin-top: 6px; }
 .dorar-open { justify-self: start; font-weight: 600; padding: 6px 12px; border: 1px solid var(--blue); border-radius: 8px; color: var(--blue); text-decoration: none; }
+
+/* a ruling the encyclopedia reports as disputed (or as agreed differently): never the green "supported" look */
+.outcome.fiqh_disputed { border-color: var(--warn); } .outcome.fiqh_disputed h3 { color: var(--warn); }
+.outcome.fiqh_differs { border-color: var(--bad); } .outcome.fiqh_differs h3 { color: var(--bad); }
