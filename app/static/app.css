@@ -149,3 +149,6 @@ dialog input, dialog select { min-height: 44px; border: 1px solid var(--line2); 
 .ctx{font-size:14px;line-height:1.9;color:var(--muted);border-inline-start:3px solid var(--line, #E2E4EF);padding-inline-start:10px;margin-top:4px}
 .ctx .ctx-t{color:var(--ink)}
 details.related{border:1px dashed var(--line, #D9DCEA);border-radius:12px;padding:10px 12px}
+.summary .headline { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.4; color: var(--ink); }
+@media (max-width: 640px) { .summary .headline { font-size: 22px; } }
+.dorar-sum { font-weight: 600; }

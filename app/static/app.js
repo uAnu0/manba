@@ -191,6 +191,13 @@
   window.addEventListener("popstate", () => { if (!location.hash.includes("report")) $("newBtn").onclick(); });
 
   // ---------- report ----------
+  // The first thing the reviewer reads: what stops publication, in one sentence.
+  function headline(needs, counts) {
+    if (needs) return `${AR_DIGITS(needs)} ${needs === 1 ? "موضع يمنع النشر حتى يُعدَّل" : needs === 2 ? "موضعان يمنعان النشر حتى يُعدَّلا" : "مواضع تمنع النشر حتى تُعدَّل"}`;
+    if (counts.khl) return "لا شيء يمنع النشر، وفيه مسائل خلافية تُنسب إلى قائليها";
+    if (counts.ref) return "لا شيء يمنع النشر، وفيه ما يُحال إلى مختص";
+    return "لا شيء يمنع النشر";
+  }
   function renderReport(data) {
     store.data = data;
     const items = (data.items || []).filter(it => !it.fragment && !(it.kind === "claim" && it.result && it.result.outcome === "out_of_scope"));
@@ -213,8 +220,8 @@
           <button class="btn" id="printBtn">طباعة أو حفظ PDF</button>
         </div>
       </div>
-      ${store.entries.length ? `<div class="seg" aria-hidden="true">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<i class="s-${k}" style="flex: ${counts[k]}"></i>`).join("")}</div>
-      <div class="counts"><b>${needs ? `${AR_DIGITS(needs)} ${needs === 1 ? "موضع يحتاج" : "مواضع تحتاج"} تعديلًا قبل النشر` : "لا شيء يمنع النشر"}</b>
+      ${store.entries.length ? `<p class="headline">${headline(needs, counts)}</p><div class="seg" aria-hidden="true">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<i class="s-${k}" style="flex: ${counts[k]}"></i>`).join("")}</div>
+      <div class="counts">
         ${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<span class="chip k-${k}">${AR_DIGITS(counts[k])} ${K_LABEL[k]}</span>`).join("")}</div>` : ""}
       ${llmOff ? `<div class="notice" role="status">خدمة الذكاء الاصطناعي غير متاحة الآن، فتحققنا من الاقتباسات والأحكام الفقهية الصريحة بالمطابقة المباشرة فقط. قد لا تظهر الادعاءات غير المقتبسة.</div>` : ""}
       ${data.truncated ? `<div class="notice">النص أطول من الحد، فُحص الجزء الأول منه فقط.</div>` : ""}
@@ -247,6 +254,7 @@
     applyFilter();
     window.scrollTo({ top: 0 });
     const first = rv.querySelector(".card"); if (first && RANK[store.entries[0].v.k] <= 1) openCard(store.entries[0], first);
+    dorarSummaries();
   }
 
   function markedText(text) {
@@ -263,7 +271,7 @@
 
   function cardHtml(e) {
     const v = e.v, it = e.it, lvl = it.content_level;
-    const quoteText = it.kind === "claim" ? it.text : it.text;
+    const quoteText = isQuoteish(v) ? shownQuote(it.text) : it.text;
     const isScripture = v.type === "آية" || v.type === "حديث" || v.type === "اقتباس";
     return `<article class="card ${v.k === "bad" ? "k-bad-b" : ""}" id="card-${e.n}" data-k="${v.k}">
       <div class="head">
@@ -345,8 +353,11 @@
     more.hidden = !open; if (btn) { btn.setAttribute("aria-expanded", String(open)); btn.textContent = open ? "إخفاء التفاصيل" : "التفاصيل والمصادر"; }
   }
 
-  // The words inside «…» or "…" when the sentence quotes them, else the sentence itself.
-  function quoteOf(t) { const m = /[«"“]([^»"”]{4,})[»"”]/.exec(t || ""); return (m ? m[1] : t || "").trim(); }
+  // The words inside «…», ﴿…﴾ or "…" when the sentence quotes them, else the sentence itself.
+  function quoteOf(t) { const m = /[«"“﴿]([^»"”﴾]{4,})[»"”﴾]/.exec(t || ""); return (m ? m[1] : t || "").trim(); }
+  // On a card, the quote with its marks ("«اطلبوا العلم ولو في الصين»"), not the sentence around it ("الحمد لله، أما بعد…").
+  function shownQuote(t) { const m = /[«"“﴿][^»"”﴾]{4,}[»"”﴾]/.exec(t || ""); return m ? m[0] : t; }
+  const isQuoteish = v => v.type === "آية" || v.type === "حديث" || v.type === "اقتباس";
   const normAr = t => (t || "").replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[إأآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[^\u0621-\u064A\s]/g, " ");
   // Share of the quoted words found in a narration's text: Dorar's search also returns other hadiths on the same theme.
   function wordingScore(q, text) {
@@ -355,11 +366,35 @@
     return qs.filter(w => ts.has(w) || ts.has(w.replace(/^(و|ف|ب|ل|ال)/, "")) || ts.has("ال" + w)).length / qs.length;
   }
   const CAT = { sahih: ["صحيح أو ثابت", "k-ok"], hasan: ["حسن", "k-ref"], daif: ["ضعيف أو فيه علة", "k-fix"], fabricated: ["موضوع أو لا أصل له", "k-bad"], other: ["حكم آخر", "k-neu"] };
+  const dorarCache = new Map();
+  function fetchDorar(q) {
+    if (!dorarCache.has(q)) dorarCache.set(q, fetch("/api/dorar?q=" + encodeURIComponent(q), { headers: headers(false) })
+      .then(async res => { const d = await res.json(); if (!res.ok || !d.available) throw new Error(d.error || "unavailable"); return d; })
+      .catch(e => { dorarCache.delete(q); throw e; }));
+    return dorarCache.get(q);
+  }
+  // After the report is drawn: the scholars' rulings on the same wording, written into the card itself, so a reviewer sees
+  // "١١ ضعيف، ٤ موضوع" without opening the details. Counts only; the rulings themselves stay in the details.
+  async function dorarSummaries() {
+    const targets = store.entries.filter(e => e.v.dorar).slice(0, 4);
+    await Promise.all(targets.map(async e => {
+      const q = quoteOf((e.v.seg && e.v.seg.segment_text) || e.it.text);
+      try {
+        const d = await fetchDorar(q);
+        const same = d.items.filter(i => wordingScore(q, i.text) >= 0.6);
+        const card = document.getElementById("card-" + e.n);
+        if (!card || !same.length) return;
+        const c = {}; same.forEach(i => { c[i.category] = (c[i.category] || 0) + 1; });
+        const parts = ["sahih", "hasan", "daif", "fabricated", "other"].filter(k => c[k]).map(k => `${AR_DIGITS(c[k])} ${CAT[k][0]}`);
+        const p = document.createElement("p"); p.className = "why dorar-sum";
+        p.textContent = `أحكام المحدثين على هذا اللفظ في الدرر السنية: ${parts.join("، ")}.`;
+        const why = card.querySelector(".why"); (why || card.querySelector(".head")).after(p);
+      } catch (err) { /* the details still offer the Dorar link */ }
+    }));
+  }
   async function loadDorar(el) {
     try {
-      const res = await fetch("/api/dorar?q=" + encodeURIComponent(el.dataset.q), { headers: headers(false) });
-      const d = await res.json();
-      if (!res.ok || !d.available) throw new Error(d.error || "unavailable");
+      const d = await fetchDorar(el.dataset.q);
       if (!d.items.length) { el.innerHTML = `<span class="cap">لم تُرجع الدرر السنية نتائج لهذا اللفظ. <a href="https://dorar.net/hadith/search?q=${encodeURIComponent(d.query)}" target="_blank" rel="noopener">ابحث في الدرر</a></span>`; return; }
       const order = ["sahih", "hasan", "daif", "fabricated", "other"];
       const same = d.items.filter(i => wordingScore(el.dataset.q, i.text) >= 0.6);
