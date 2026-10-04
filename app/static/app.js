@@ -513,6 +513,25 @@
     catch (e) { window.prompt("انسخ النص:", text); }
   }
 
+  // A highlighted passage and its card point at each other: hover or focus one and the other lights up.
+  (() => {
+    const rv = $("reportView"); let now = null;
+    const set = (n, on) => { const c = $("card-" + n); if (c) c.classList.toggle("hl", on); rv.querySelectorAll(`.mk[data-goto="${n}"]`).forEach(m => m.classList.toggle("hl", on)); };
+    const which = el => { const m = el.closest && el.closest(".mk"); if (m) return m.dataset.goto; const c = el.closest && el.closest(".card"); return c ? c.id.replace("card-", "") : null; };
+    const move = ev => { const n = which(ev.target); if (n === now) return; if (now) set(now, false); now = n; if (n) set(n, true); };
+    const clear = () => { if (now) set(now, false); now = null; };
+    // a colour in the summary (bar segment or count chip): every passage and card of that status lights up, the others dim
+    let kind = null;
+    const kindOf = el => { const t = el.closest && el.closest(".summary .seg i, .summary .counts .chip"); const m = t && /\b[sk]-(bad|fix|khl|ref|neu|ok)\b/.exec(t.className); return m ? m[1] : null; };
+    const setKind = (k, on) => {
+      if (on) rv.dataset.focus = k; else delete rv.dataset.focus;
+      rv.querySelectorAll(`.mk.k-${k}`).forEach(m => m.classList.toggle("hl", on));
+      rv.querySelectorAll(`#cards .card[data-k="${k}"]`).forEach(c => c.classList.toggle("hl-soft", on));
+    };
+    rv.addEventListener("mouseover", ev => { const k = kindOf(ev.target); if (k === kind) return; if (kind) setKind(kind, false); kind = k; if (k) setKind(k, true); });
+    rv.addEventListener("mouseleave", () => { if (kind) setKind(kind, false); kind = null; });
+    rv.addEventListener("mouseover", move); rv.addEventListener("focusin", move); rv.addEventListener("mouseleave", clear); rv.addEventListener("focusout", ev => { if (!rv.contains(ev.relatedTarget)) clear(); });
+  })();
   $("reportView").addEventListener("click", ev => {
     const t = ev.target.closest("button, a"); if (!t) return;
     if (t.dataset.goto) { const e = store.entries.find(x => x.n === +t.dataset.goto), card = $("card-" + e.n); if (card.hidden) { store.filter = "all"; applyFilter(); }
@@ -528,9 +547,37 @@
     if (t.id === "editBtn" || t.id === "newBtn") { newReview(); return; }
   });
 
+  // ---------- theme: dark is the default; the button switches to light and back, and the choice is remembered ----------
+  const root = document.documentElement, themeBtn = $("themeBtn");
+  const isLight = () => root.dataset.theme === "light";
+  function labelTheme() { const t = isLight() ? "الوضع الداكن" : "الوضع الفاتح"; themeBtn.setAttribute("aria-label", t); themeBtn.title = t; }
+  themeBtn.onclick = () => {
+    root.classList.add("theme-anim"); const next = isLight() ? "dark" : "light";
+    if (next === "light") root.dataset.theme = "light"; else delete root.dataset.theme;
+    try { localStorage.setItem("manba_theme", next); } catch (e) {}
+    labelTheme(); themeBtn.classList.remove("spin"); void themeBtn.offsetWidth; themeBtn.classList.add("spin");
+    setTimeout(() => root.classList.remove("theme-anim"), 500);
+  };
+  labelTheme();
+  // a printed report is always on white paper, so it is printed in the light theme
+  let themeBeforePrint = null;
+  window.addEventListener("beforeprint", () => { themeBeforePrint = isLight(); root.dataset.theme = "light"; });
+  window.addEventListener("afterprint", () => { if (themeBeforePrint === false) delete root.dataset.theme; themeBeforePrint = null; });
+
   // ---------- dialogs and settings ----------
   $("aboutBtn").onclick = () => $("aboutDlg").showModal();
   // Settings are saved only by the Save button. Closing the window any other way (a click outside it, Esc) throws the edits away, and the fields show what is saved the next time.
+  // Every way of closing a dialog (its button, Esc, a click outside) first plays the closing animation (the window shrinks away), then closes it.
+  function closeDialog(dlg) {
+    if (!dlg.open || dlg.classList.contains("closing")) return;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { dlg.close(); return; }
+    dlg.classList.add("closing");
+    setTimeout(() => { dlg.classList.remove("closing"); if (dlg.open) dlg.close(); }, 230);
+  }
+  document.querySelectorAll("dialog").forEach(d => {
+    d.addEventListener("cancel", ev => { ev.preventDefault(); closeDialog(d); });
+    d.querySelectorAll('form[method="dialog"]').forEach(f => f.addEventListener("submit", ev => { ev.preventDefault(); closeDialog(d); }));
+  });
   const SETTING_FIELDS = [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]];
   const settingsDlg = $("settingsDlg");
   const loadSettings = () => { for (const [id, key] of SETTING_FIELDS) { let v = ""; try { v = localStorage.getItem(key) || ""; } catch (e) {} $(id).value = v; } };
@@ -539,10 +586,13 @@
   $("settingsBtn").onclick = openSettings;
   loadSettings();
   settingsDlg.querySelector("form button").addEventListener("click", saveSettings);
-  const outside = ev => { const r = settingsDlg.getBoundingClientRect(); return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom; };
-  let downOutside = false;   // the press must also start outside, so selecting text inside and letting go outside does not close it
-  settingsDlg.addEventListener("pointerdown", ev => { downOutside = outside(ev); });
-  settingsDlg.addEventListener("click", ev => { if (downOutside && outside(ev)) settingsDlg.close(); downOutside = false; });
+  // A click outside any dialog closes it (with the closing animation). The press must also start outside, so selecting text inside and letting go outside does not close it.
+  document.querySelectorAll("dialog").forEach(d => {
+    const outside = ev => { const r = d.getBoundingClientRect(); return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom; };
+    let downOutside = false;
+    d.addEventListener("pointerdown", ev => { downOutside = outside(ev); });
+    d.addEventListener("click", ev => { if (downOutside && outside(ev)) closeDialog(d); downOutside = false; });
+  });
   settingsDlg.addEventListener("close", loadSettings);   // after Save this shows the saved values; after any other way of closing it drops the edits
   // The parts of the home page pop in one after another (the CSS does the staggering); it is also replayed when a new review starts.
   function popIn() {
