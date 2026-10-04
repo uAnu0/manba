@@ -271,6 +271,34 @@ def _passage_out(p: Passage, score: float, ruling: str | None = None, direction:
     )
 
 
+# A sentence that states a ruling is about the ruling of the act: the encyclopedia's paragraph that gives it ("حكم صلاة
+# الوتر"، "الحكم التكليفي") ranks above paragraphs on the same act's time, manner or making up. Ranking only: nothing here
+# decides agreement or disagreement, which is still read from the paragraph's own words.
+_RULING_HEAD = re.compile("حكم|الحكم التكليفي|مشروعيت|حكمه")
+_RULING_TEXT = _n("واجب|واجبة|وجوب|يجب|فرض|سنة مؤكدة|مسنون|مستحب|يستحب|يجوز|جواز|لا يجوز|حرام|يحرم|تحريم|مكروه|يكره|مباح|ذهب الجمهور|اختلف الفقهاء|اتفق الفقهاء")
+
+
+def _ruling_first(hits: list[tuple[int, float, float]]) -> list[tuple[int, float, float]]:
+    items = passages()
+    if not hits:
+        return hits
+    best_entry = items[hits[0][0]].entry  # reorder within the entry that matched best; never pull in another entry
+    out = []
+    for i, score, share in hits:
+        p = items[i]
+        factor = 1.0
+        if p.entry != best_entry:
+            out.append((i, score, share))
+            continue
+        if _RULING_HEAD.search(normalize(p.heading or "")):
+            factor *= 1.6
+        if _has(normalize(p.text[:400]), _RULING_TEXT):
+            factor *= 1.25
+        out.append((i, score * factor, share))
+    out.sort(key=lambda x: -x[1])
+    return out
+
+
 # ---------- the model step: which passages discuss the same issue ----------
 PICK_PROMPT = (
     "You help an Islamic content review tool. You get a sentence that states a fiqh ruling, and numbered passages from "
@@ -400,7 +428,7 @@ async def fiqh_check(claim: str, use_llm: bool = True, api_key: str | None = Non
     assertion, words = assertion_of(claim)
     if assertion == "none":
         return _result(claim, assertion, words, "not_fiqh", [], "keywords")
-    hits = fiqh_index().search(search_terms(claim, key_terms), POOL) if passages() else []
+    hits = _ruling_first(fiqh_index().search(search_terms(claim, key_terms), POOL * 2))[:POOL] if passages() else []
     error = None
     if use_llm and hits:
         try:
