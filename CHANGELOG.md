@@ -25,6 +25,10 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 - Level badge and fiqh flag on every card; Fiqh tab (outcome, the passage's ruling sentence, schools' positions, full paragraph, citation, notice);
   level counts above the cards; AI-written explanation labelled as generated and not a source text; AI-transparency and privacy notes on the claim page.
 
+**Dorar access (later on day 1)**
+- Dorar's Cloudflare answers 403 to every non-browser request, including from a home connection with a browser user agent, so the in-page lookup is
+  blocked too. When it fails, the Dorar tab now shows "open this search on dorar.net" (a normal page visit, which passes the check) instead of an error.
+
 **Fixes**
 - Local-only paragraph check: a sentence attributing words to the Prophet or to God that matches nothing is now shown as "not found" instead of disappearing.
 
@@ -36,7 +40,8 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 ## Open items for the team
 
 - Run `python eval_fiqh.py --llm` and `python eval_package.py -v` with the team key and record the numbers here.
-- Test the Dorar tab from a normal browser connection (it cannot be tested from a data-centre machine).
+- Ask the organizers (Discord / info@IslamicAIch.org) or Dorar's support for API access for the challenge: the pack lists Dorar's API, but Cloudflare blocks it.
+- Consider HadeethEnc (hadeethenc.com, the organizers' partner): its API answers without a key and gives grade, attribution, reference and explanation for each hadith.
 - Known baseline gap seen today: "وقال: إنما الأعمال بالنيات" (attribution with no named speaker) is not verified, while the bare text is.
 - Before going public: decide how the hadith corpus ships (build at deploy time from the pinned sources, or limit to the Unlicense data).
 - A Sharia mentor to review `golden/fiqh_golden.json` and the wording of the fiqh outcomes.

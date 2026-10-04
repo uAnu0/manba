@@ -61,3 +61,5 @@
 .dorar-item .ar { font-size: 18px; }
 .site-notes { margin-top: 28px; display: grid; gap: 8px; }
 .site-notes p { margin: 0; }
+.dorar-link { display: grid; gap: 4px; margin-top: 6px; }
+.dorar-open { justify-self: start; font-weight: 600; padding: 6px 12px; border: 1px solid var(--blue); border-radius: 8px; color: var(--blue); text-decoration: none; }
