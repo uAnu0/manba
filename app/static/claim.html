@@ -105,6 +105,7 @@ async function run() {
     if (res.status === 401) { $("settings").open = true; throw new Error("The server needs an access code: enter it in Settings."); }
     const data = await res.json(); if (!res.ok) throw new Error(JSON.stringify(data));
     Cards.render($("out"), data, { headers: authHeaders });
+    if (Ocr.active()) $("out").insertAdjacentHTML("afterbegin", Ocr.warningHtml());  // the text came from a scan: say so on the results too
   } catch (e) { $("out").innerHTML = `<div class="err">${Cards.esc(e.message)}</div>`; } finally { $("go").disabled = wordCount() > 500; }
 }
 for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]]) {
