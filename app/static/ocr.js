@@ -2,10 +2,12 @@
    - A PDF page that has its own text layer is read directly in the browser (pdf.js): no OCR, nothing uploaded.
    - Any other page (a scan, a photo, an image file) is shrunk in the browser and sent to /api/ocr, where two different models read it.
      Words on which the two readings differ are listed so the person can check them against the page.
-   - At most 3 pages; the 500-word limit stays the real limit: the person chooses which pages to keep, then edits the text freely.
+   - Up to 10 pages are shown as thumbnails and the person ticks the ones to keep; only ticked pages are read (a scanned page goes to the
+     models when it is ticked, so unticked pages cost nothing). The 500-word limit stays the real limit: ticking stops when it is reached
+     (a page that would pass it is refused, with its words shown), then the person edits the text freely.
    Nothing is stored. Usage: Ocr.mount(container, { textarea, headers: () => ({...}), lang: "ar" | "en", onReview: () => {...} }). */
 const Ocr = (() => {
-  const MAX_PAGES = 3, MAX_SIDE = 1800, WORD_LIMIT = 500, MIN_LAYER_LETTERS = 15;
+  const MAX_PAGES = 10, MAX_SIDE = 1800, WORD_LIMIT = 500, MIN_LAYER_LETTERS = 15;
   const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
   const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const arDigits = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
@@ -16,7 +18,11 @@ const Ocr = (() => {
   const STR = {
     en: {
       pick: "Scan a PDF or image · مسح ملف", firstPage: "first page", clear: "Clear scan", edit: "View and edit the text",
-      help: () => `Up to ${MAX_PAGES} pages. The ${WORD_LIMIT}-word limit still applies: keep the pages you want, then edit the text.`,
+      help: () => `Up to ${MAX_PAGES} pages are shown. Tick the pages you want: a scanned page is read only when you tick it, until the ${WORD_LIMIT}-word limit is reached. Then edit the text.`,
+      count: n => `Selected: ${n} of ${WORD_LIMIT} words`, pickPages: n => `${n} pages found: tick the pages you want to check (a scanned page is read when you tick it).`,
+      scanChip: "scanned page · read when ticked", busyPage: "Reading this page…", preparing: l => `Preparing ${l}…`,
+      refused: w => `This page has ${w} words and does not fit in the ${WORD_LIMIT}-word limit with the pages already ticked: untick another page first.`,
+      full: "The limit is reached: untick another page first.", over: `This page alone is over ${WORD_LIMIT} words: keep it, then cut the text in the box.`,
       thumb: "Click to enlarge or shrink", ocrChip: "OCR · read by two models", layerChip: "text layer", words: n => `${n} words`,
       keep: "keep this page in the box", reread: "Read it as an image instead",
       diffs: n => `${n} place(s) where the two readings differ: check them against the page`, nothing: "(nothing)", useB: "use the second reading",
@@ -24,13 +30,17 @@ const Ocr = (() => {
       unreadable: c => `The page could not be read (${c}).`, opening: "Opening the PDF…", choose: "Choose a PDF or an image (PNG, JPEG, WebP).",
       page: (name, n) => `${name} · page ${n}`, reading: l => `Reading ${l}…`, rereading: l => `Reading ${l} as an image…`,
       garbled: "The PDF has a text layer but it is garbled, so the page was read as an image.", done: "Done. Check the text, then press Check claim.",
-      info: (name, total, a, b) => `${name}: ${total} pages in all; reading ${a}–${b} (the limit is ${MAX_PAGES} pages: change “first page” for others).`,
+      info: (name, total, a, b) => `${name}: ${total} pages in all; showing ${a}–${b} (up to ${MAX_PAGES} pages are shown at once: change “first page” for others).`,
       confirmEdits: "You edited the text in the box. Changing the pages will replace your edits. Continue?",
       cantReplace: "That part of the text was edited, so it can't be replaced automatically.", warning: WARNING_EN, warningOther: WARNING_AR, warningOtherDir: "rtl",
     },
     ar: {
       pick: "مسح ملف PDF أو صورة", firstPage: "أول صفحة", clear: "إزالة المسح", edit: "عرض النص وتعديله",
-      help: () => `حتى ${arDigits(MAX_PAGES)} صفحات. ويبقى حدّ ${arDigits(WORD_LIMIT)} كلمة قائمًا: اختر الصفحات التي تريدها ثم عدّل النص.`,
+      help: () => `تُعرض حتى ${arDigits(MAX_PAGES)} صفحات. حدّد الصفحات التي تريدها: لا تُقرأ الصفحة الممسوحة إلا عند تحديدها، إلى أن يكتمل حدّ ${arDigits(WORD_LIMIT)} كلمة. ثم عدّل النص.`,
+      count: n => `المحدَّد: ${arDigits(n)} من ${arDigits(WORD_LIMIT)} كلمة`, pickPages: n => `وُجدت ${arDigits(n)} صفحات: حدّد الصفحات التي تريد مراجعتها (تُقرأ الصفحة الممسوحة عند تحديدها).`,
+      scanChip: "صفحة ممسوحة · تُقرأ عند تحديدها", busyPage: "جارٍ قراءة هذه الصفحة…", preparing: l => `جارٍ تجهيز ${l}…`,
+      refused: w => `في هذه الصفحة ${arDigits(w)} كلمة ولا تتّسع مع الصفحات المحدَّدة في حدّ ${arDigits(WORD_LIMIT)} كلمة: ألغِ تحديد صفحة أخرى أولًا.`,
+      full: "اكتمل الحد: ألغِ تحديد صفحة أخرى أولًا.", over: `هذه الصفحة وحدها أكثر من ${arDigits(WORD_LIMIT)} كلمة: أبقها ثم اقتطع من النص في الخانة.`,
       thumb: "اضغط للتكبير أو التصغير", ocrChip: "قراءة آلية بنموذجين", layerChip: "نص مضمَّن في الملف", words: n => `${arDigits(n)} كلمة`,
       keep: "إبقاء هذه الصفحة في النص", reread: "قراءتها كصورة بدلًا من ذلك",
       diffs: n => `${arDigits(n)} موضع اختلفت فيه القراءتان: قارنه بالصفحة`, nothing: "(لا شيء)", useB: "اعتمد القراءة الثانية",
@@ -38,7 +48,7 @@ const Ocr = (() => {
       unreadable: c => `تعذّرت قراءة الصفحة (${arDigits(c)}).`, opening: "جارٍ فتح ملف PDF…", choose: "اختر ملف PDF أو صورة (PNG أو JPEG أو WebP).",
       page: (name, n) => `${name} · صفحة ${arDigits(n)}`, reading: l => `جارٍ قراءة ${l}…`, rereading: l => `جارٍ قراءة ${l} كصورة…`,
       garbled: "في ملف PDF طبقة نصية لكنها مشوّهة، فقُرئت الصفحة كصورة.", done: "تمّ. راجع النص ثم اضغط «راجع النص».",
-      info: (name, total, a, b) => `${name}: ${arDigits(total)} صفحة في الملف؛ تُقرأ الصفحات ${arDigits(a)}–${arDigits(b)} (الحد ${arDigits(MAX_PAGES)} صفحات: غيّر «أول صفحة» لقراءة غيرها).`,
+      info: (name, total, a, b) => `${name}: ${arDigits(total)} صفحة في الملف؛ تُعرض الصفحات ${arDigits(a)}–${arDigits(b)} (تُعرض حتى ${arDigits(MAX_PAGES)} صفحات دفعة واحدة: غيّر «أول صفحة» لعرض غيرها).`,
       confirmEdits: "عدّلتَ النص في الخانة. تغيير الصفحات سيستبدل تعديلاتك. أتتابع؟",
       cantReplace: "عُدِّل هذا الموضع من النص، فلا يمكن استبداله تلقائيًا.", warning: WARNING_AR, warningOther: WARNING_EN, warningOtherDir: "ltr",
     },
@@ -110,7 +120,7 @@ const Ocr = (() => {
       <label class="small cap">${T.firstPage} <input type="number" class="ocr-first" min="1" value="1" style="width:4.5em"></label>
       <button type="button" class="ocr-clear btn small" hidden>${T.clear}</button>${opts.onReview ? `<button type="button" class="ocr-edit btn small" hidden>${T.edit}</button>` : ""}<span class="small cap ocr-status" role="status"></span></div>
       <input type="file" class="ocr-file" accept="application/pdf,.pdf,image/png,image/jpeg,image/webp" multiple hidden>
-      <div class="small cap ocr-help">${T.help()}</div><div class="ocr-pages"></div>`;
+      <div class="small cap ocr-help">${T.help()}</div><div class="small cap ocr-count" role="status"></div><div class="ocr-pages"></div>`;
     const $ = sel => root.querySelector(sel), list = $(".ocr-pages"), input = $(".ocr-file"), status = $(".ocr-status");
     const headers = () => Object.assign({ "Content-Type": "application/json" }, opts.headers ? opts.headers() : {});
     ta.addEventListener("input", () => { if (!composing && pages.length) edited = true; if (!ta.value.trim()) scanActive = false; });
@@ -122,28 +132,48 @@ const Ocr = (() => {
       scanActive = pages.some(p => p.include && p.text && p.source === "ocr");
     }
 
+    // words in the pages that are ticked; a page can be ticked only while the total stays within the limit (a page alone over it is allowed when nothing else is ticked, so it can be trimmed)
+    const picked = () => pages.filter(p => p.include && p.text).reduce((n, p) => n + words(p.text), 0);
+    const fits = p => p.include || picked() === 0 || (p.text ? picked() + words(p.text) <= WORD_LIMIT : picked() < WORD_LIMIT);  // an unread scan has no word count yet: it is checked once read
+
     function draw() {
       $(".ocr-clear").hidden = !pages.length;
+      const n = picked(); $(".ocr-count").innerHTML = pages.length ? `<b>${T.count(n)}</b>` : "";
       if ($(".ocr-edit")) $(".ocr-edit").hidden = !pages.some(p => p.text);
-      list.innerHTML = (pages.some(p => p.source === "ocr" && p.text) ? warningHtml() : "") + pages.map((p, i) => `<div class="ocr-page" data-i="${i}">
+      list.innerHTML = (pages.some(p => p.source === "ocr" && p.text) ? warningHtml() : "") + pages.map((p, i) => `<div class="ocr-page${p.big ? " big" : ""}" data-i="${i}">
         <img class="ocr-thumb" src="${p.thumb}" alt="${esc(p.label)}" title="${T.thumb}">
-        <div class="ocr-main"><div><b>${esc(p.label)}</b> <span class="chip ${p.source === "ocr" ? "warn" : "blue"}">${p.source === "ocr" ? T.ocrChip : p.source === "layer" ? T.layerChip : "…"}</span>
+        <div class="ocr-main"><div><b>${esc(p.label)}</b> <span class="chip ${p.source === "ocr" || p.source === "scan" ? "warn" : "blue"}">${p.source === "ocr" ? T.ocrChip : p.source === "layer" ? T.layerChip : p.source === "scan" ? T.scanChip : "…"}</span>
           <span class="small cap">${p.text ? T.words(words(p.text)) : ""}</span></div>
           ${p.error ? `<div class="err">${esc(p.error)}</div>` : ""}
-          ${p.text ? `<label class="small cap"><input type="checkbox" class="ocr-include" ${p.include ? "checked" : ""}> ${T.keep}</label>` : ""}
+          ${p.error || p.source === "…" ? "" : `<label class="small cap"><input type="checkbox" class="ocr-include" ${p.include ? "checked" : ""} ${fits(p) && !p.loading ? "" : "disabled"}> ${T.keep}</label>${p.loading ? ` <span class="small cap">${T.busyPage}</span>` : fits(p) || p.refused ? "" : ` <span class="small cap">${T.full}</span>`}${p.include && words(p.text) > WORD_LIMIT ? ` <span class="small cap">${T.over}</span>` : ""}`}
+          ${p.refused ? `<div class="small cap">${T.refused(words(p.text))}</div>` : ""}
           ${p.source === "layer" ? `<button type="button" class="ocr-reread btn small">${T.reread}</button>` : ""}
           ${p.note ? `<div class="small cap">${esc(p.note)}</div>` : ""}
           ${(p.diffs || []).length ? `<details open class="ocr-diffs"><summary class="small cap">${T.diffs(p.diffs.length)}</summary>${p.diffs.map((d, k) => `<div class="ocr-diff" dir="rtl" data-k="${k}"><span class="small cap">…${esc(d.before)}</span> <mark>${esc(short(d.a)) || T.nothing}</mark> <span class="small cap">|</span> <mark class="b">${esc(short(d.b)) || T.nothing}</mark> <span class="small cap">${esc(d.after)}…</span> <button type="button" class="ocr-useb btn small">${T.useB}</button></div>`).join("")}</details>` : ""}
         </div></div>`).join("");
     }
 
+    // the full-size picture is made only when a page is read, then dropped: ten pages are never held in memory at once
+    async function canvasOf(p) { return p.pdf ? pdfCanvas(await p.pdf.getPage(p.n)) : imageCanvas(p.file); }
     async function ocr(p) {
       p.source = "ocr"; p.error = null; draw();
-      const res = await fetch("/api/ocr", { method: "POST", headers: headers(), body: JSON.stringify({ image: jpeg(p.canvas), page: p.n || 1 }) });
+      const res = await fetch("/api/ocr", { method: "POST", headers: headers(), body: JSON.stringify({ image: jpeg(await canvasOf(p)), page: p.n || 1 }) });
       const d = await res.json().catch(() => ({}));
       if (res.status === 401) throw new Error(T.noAccess);
       if (!res.ok) throw new Error(typeof d.detail === "string" ? d.detail : T.unreadable(res.status));
       p.text = d.text; p.diffs = d.diffs || []; p.note = d.note || null;
+    }
+
+    // a scanned page is read when it is ticked; if it does not fit with the pages already ticked it is un-ticked (its text is kept, so ticking it again later costs nothing)
+    async function tick(p, on) {
+      p.include = on; p.refused = false;
+      if (on && !p.text && p.source === "scan") {
+        p.loading = true; draw();
+        try { await ocr(p); } catch (e) { p.error = e.message; p.include = false; p.source = "scan"; }
+        p.loading = false;
+        if (p.include && picked() - words(p.text) > 0 && picked() > WORD_LIMIT) { p.include = false; p.refused = true; }
+      }
+      compose(); draw();
     }
 
     async function run(files) {
@@ -162,22 +192,21 @@ const Ocr = (() => {
         }
         if (!jobs.length) throw new Error(T.choose);
         for (const j of jobs) {
-          const p = { label: j.kind === "pdf" ? T.page(j.name, j.n) : j.name, n: j.n || 1, thumb: "", text: "", source: "…", include: false, diffs: [], note: null, error: null };
-          pages.push(p); status.textContent = T.reading(p.label); draw();
-          try {
+          const p = { label: j.kind === "pdf" ? T.page(j.name, j.n) : j.name, n: j.n || 1, pdf: j.pdf, file: j.file, thumb: "", text: "", source: "…", include: false, loading: false, refused: false, diffs: [], note: null, error: null };
+          pages.push(p); status.textContent = T.preparing(p.label); draw();
+          try {   // only a thumbnail and the page's own text layer (if it has one) are made here: nothing is sent anywhere yet
             if (j.kind === "pdf") {
-              const page = await j.pdf.getPage(j.n); p.canvas = await pdfCanvas(page); p.thumb = thumbOf(p.canvas);
+              const page = await j.pdf.getPage(j.n); p.thumb = thumbOf(await pdfCanvas(page));
               const t = await layerText(page);
-              if (hasLayer(t)) { p.text = t; p.source = "layer"; }
-              else { if (t.trim()) p.note = T.garbled; await ocr(p); }
-            } else { p.canvas = await imageCanvas(j.file); p.thumb = thumbOf(p.canvas); await ocr(p); }
-          } catch (e) { p.error = e.message; if (!p.thumb && p.canvas) p.thumb = thumbOf(p.canvas); p.source = p.source === "…" ? "ocr" : p.source; }
+              if (hasLayer(t)) { p.text = t; p.source = "layer"; } else { if (t.trim()) p.note = T.garbled; p.source = "scan"; }
+            } else { p.thumb = thumbOf(await imageCanvas(j.file)); p.source = "scan"; }
+          } catch (e) { p.error = e.message; p.source = "scan"; }
           draw();
         }
-        // keep pages, in order, while they fit the limit (the first page is always kept so it can be trimmed)
-        let total = 0;
-        pages.forEach((p, i) => { const w = words(p.text); if (p.text && (i === 0 || total + w <= WORD_LIMIT)) { p.include = true; total += w; } });
-        compose(); draw(); status.textContent = info || T.done;
+        // a single page, or text-layer pages that all fit in the limit, are ticked for the person; otherwise the person chooses from the thumbnails
+        const layered = pages.every(p => p.source === "layer"), all = pages.reduce((n, p) => n + words(p.text), 0), ask = pages.length > 1 && !(layered && all <= WORD_LIMIT);
+        status.textContent = [info, ask ? T.pickPages(pages.length) : T.done].filter(Boolean).join(" ");
+        if (!ask) { for (const p of pages.filter(q => !q.error)) await tick(p, true); } else draw();
       } catch (e) { status.textContent = ""; list.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
       finally { busy = false; input.value = ""; }
     }
@@ -188,10 +217,10 @@ const Ocr = (() => {
     if ($(".ocr-edit")) $(".ocr-edit").onclick = () => opts.onReview();
     list.addEventListener("click", async ev => {
       const el = ev.target.closest(".ocr-page"); if (!el) return; const p = pages[+el.dataset.i];
-      if (ev.target.closest(".ocr-thumb")) { el.classList.toggle("big"); return; }
+      if (ev.target.closest(".ocr-thumb")) { p.big = !p.big; el.classList.toggle("big", p.big); return; }
       if (ev.target.closest(".ocr-include")) {
         if (edited && !confirm(T.confirmEdits)) { draw(); return; }
-        p.include = ev.target.closest(".ocr-include").checked; compose(); return;
+        await tick(p, ev.target.closest(".ocr-include").checked); return;
       }
       if (ev.target.closest(".ocr-reread")) {
         try { status.textContent = T.rereading(p.label); await ocr(p); } catch (e) { p.error = e.message; }
