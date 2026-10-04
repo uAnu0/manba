@@ -51,6 +51,11 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 - The Arabic explanation says the same: its summary line and caution are replaced by a fixed sentence written by code (the ruling is disputed; the texts
   are cited for one view), and the writer is told not to present the claim as supported or settled. `app/services/explain.py`.
 
+**Scan a PDF or image (OCR)**
+- `/claim` accepts a PDF (up to 3 pages) or images; a PDF text layer is read in the browser, anything else (scan, photo, garbled layer) goes to
+  `POST /api/ocr`, read by two different models; the words they disagree on are listed for the person to check. Nothing stored.
+  `app/services/ocr.py`, `app/routers/ocr.py`, `app/static/ocr.js`. See the README section for the reasoning and the spike results.
+
 ## Open items for the team
 
 - Run `python evals/eval_fiqh.py --llm` and `python evals/eval_package.py -v` with the team key and record the numbers here.

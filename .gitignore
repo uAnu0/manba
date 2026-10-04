@@ -10,3 +10,4 @@ data/hadith2/*.json
 data/embeddings_cache/
 data/tafsir_raw/
 data/fiqh_raw/
+samples/

@@ -50,6 +50,7 @@
   <p class="sub">Paste a claim about Islam, a quoted verse or hadith, a question, or a whole paragraph with several claims. You get where the evidence stands for each, never a true/false verdict. <a href="/">Quote verifier</a> · <a href="/evidence">Evidence finder</a></p>
 
   <textarea id="q" dir="auto" style="min-height:120px" placeholder="مثال: الإسلام يحرم الربا   ·   Example: Islam allows alcohol   ·   قال النبي صلى الله عليه وسلم: النظافة من الإيمان"></textarea>
+  <div id="ocr"></div>
   <div class="small" id="wc">0 / 500 words</div>
   <div class="row">
     <button id="go" class="primary">Check claim</button>
@@ -82,6 +83,7 @@
 </main>
 <script src="/static/grades.js"></script>
 <script src="/static/cards.js"></script>
+<script src="/static/ocr.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const SAMPLES = ["زكاة الحلي المستعمل واجبة بالإجماع", "التسمية عند الوضوء واجبة", "اطلبوا العلم ولو في الصين", "الإسلام يحرم الربا", "الإسلام يبيح شرب الخمر", "Islam commands honouring parents", "الإسلام يأمر بعقوق الوالدين",
@@ -116,6 +118,7 @@ fetch("/api/config").then(r => r.json()).then(c => {
   if (c.access_required && !$("token").value) $("settings").open = true;
 }).catch(() => {});
 $("go").onclick = run;
+Ocr.mount($("ocr"), { textarea: $("q"), headers: authHeaders });
 $("q").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); });
 </script>
 </body>

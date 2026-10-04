@@ -323,6 +323,29 @@ class TafsirResponse(BaseModel):
     available: list[str] = Field(default_factory=list)  # the tafsirs this server has
 
 
+class OcrRequest(BaseModel):
+    image: str = Field(..., max_length=4_500_000)  # a PNG, JPEG or WebP data URL: one page, already shrunk by the browser
+    page: int = Field(1, ge=1, le=999)
+
+
+class OcrDiff(BaseModel):
+    before: str = ""  # up to three words of the first reading before the difference
+    a: str  # what the first reading has there (may be empty: the second reading has extra words)
+    b: str  # what the second reading has there (may be empty: the second reading lacks these words)
+    after: str = ""
+
+
+class OcrResponse(BaseModel):
+    page: int
+    text: str  # the first reading: the text that is used
+    text_b: Optional[str] = None  # the second reading
+    diffs: list[OcrDiff] = Field(default_factory=list)  # words on which the two readings differ: to check against the page
+    words: int
+    model_a: str
+    model_b: str
+    note: Optional[str] = None
+
+
 class ExplainRequest(BaseModel):
     claim: str = Field(..., min_length=3, max_length=3000)
     result: Optional[ClaimResponse] = None  # a claim-check result as returned by /api/claim (or an item of /api/check)
