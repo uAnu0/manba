@@ -11,6 +11,7 @@ from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
 from app.services.evidence import excerpt, index, search_text, stem, terms
 from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
 from app.services.fiqh import assertion_of, fiqh_check
+from app.services.tafsir import context_of
 from app.services.levels import claim_level
 from app.services.llm_query import classify_claim, judge_claim
 from app.services.similar import nearest_text
@@ -141,6 +142,9 @@ def settles(entry, anchors: set[str], required: frozenset[str] | set[str] = froz
 
 def _response(claim: str, claim_type: str, outcome: str, llm: ClaimLLMInfo, **fields) -> ClaimResponse:
     summary_en, summary_ar = SUMMARIES[outcome]
+    for key in ("supporting", "contradicting", "partial", "related"):
+        for item in fields.get(key) or []:
+            _add_context(item)
     return ClaimResponse(
         claim=claim,
         claim_type=claim_type,
@@ -152,6 +156,15 @@ def _response(claim: str, claim_type: str, outcome: str, llm: ClaimLLMInfo, **fi
         llm=llm,
         **fields,
     )
+
+
+def _add_context(item: EvidenceItem) -> None:
+    """A verse listed as evidence carries its tafsir line, so a verse about fighting (2:191, 33:61) is shown with what the
+    verse is about, not on its own."""
+    if item.classification == "quran" and item.context_ar is None:
+        found = context_of(item.source.number)
+        if found:
+            item.context_source, item.context_ar = found
 
 
 def _order(items: list[EvidenceItem]) -> list[EvidenceItem]:

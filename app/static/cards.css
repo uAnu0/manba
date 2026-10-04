@@ -67,3 +67,9 @@
 /* a ruling the encyclopedia reports as disputed (or as agreed differently): never the green "supported" look */
 .outcome.fiqh_disputed { border-color: var(--warn); } .outcome.fiqh_disputed h3 { color: var(--warn); }
 .outcome.fiqh_differs { border-color: var(--bad); } .outcome.fiqh_differs h3 { color: var(--bad); }
+/* grades.js pieces on the developer pages */
+.ctx { font-size: 14px; line-height: 1.9; border-inline-start: 3px solid #D9DCEA; padding-inline-start: 10px; margin: 4px 0; direction: rtl; }
+.ctx .cap, .item .cap { font-size: 12px; opacity: .8; }
+.link { background: none; border: 0; padding: 0; color: #0B6E5C; font: inherit; cursor: pointer; text-decoration: underline; }
+details.unjudged { border: 1px dashed #C9CCDD; border-radius: 10px; padding: 8px 10px; margin-top: 8px; }
+details.unjudged > summary { cursor: pointer; }
