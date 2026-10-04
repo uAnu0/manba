@@ -1,11 +1,16 @@
-"""Embed every verse and hadith of the corpus and save corpus_embeddings.npz (needs OPENROUTER_API_KEY).
+"""Embed every verse and hadith of the corpus and save data/corpus_embeddings.npz (needs OPENROUTER_API_KEY).
 
 Quran verses are embedded in modern spelling (Tanzil simple-clean), hadith as their text without the chain of
 narrators, both without vowel marks, hadith cut at 200 words. Batches are cached in data/embeddings_cache/ so an
 interrupted run resumes. The model and size are set in app/services/dense.py. Cost with the default model is a few cents.
 
-Usage: python embed_corpus.py
+Usage: python scripts/embed_corpus.py
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import gzip
 import json
 import os
@@ -21,7 +26,7 @@ from app.services import dense
 from app.services.evidence import matn_start
 from app.services.verifier import CORPUS_PATHS, load_corpus
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "data" / "embeddings_cache" / dense.MODEL.replace("/", "_")  # one folder per model: never mix vectors
 BATCH = 48
 WORKERS = 8

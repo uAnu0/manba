@@ -2,7 +2,7 @@
 
 This is a plain lookup by verse number (sura:ayah): it takes no part in the search, the judge or any outcome, and no model writes
 or summarises it. Each text is shown as its author wrote it, labelled with the tafsir's name and author. The files are built by
-ingest_tafsir.py from data/tafsir_raw.
+scripts/ingest_tafsir.py from data/tafsir_raw.
 """
 import gzip
 import json

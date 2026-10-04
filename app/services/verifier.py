@@ -1,6 +1,6 @@
-"""Text verification against a reference corpus loaded from corpus.json.
+"""Text verification against a reference corpus loaded from data/corpus.json.
 
-corpus.json is a list of objects:
+data/corpus.json is a list of objects:
     [{"text": "...", "match_text": "...", "source": {"book": "...", "chapter": "...", "number": "..."}}]
 `match_text` (modern spelling), `number` and a top-level `classification` ("quran" | "hadith") are optional;
 when classification is missing it is inferred from the book name.
@@ -31,7 +31,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 # CORPUS_PATH may hold several files separated by os.pathsep; by default every corpus file that exists is loaded.
 CORPUS_PATHS = tuple(
     Path(p) for p in os.getenv("CORPUS_PATH", "").split(os.pathsep) if p
-) or tuple(p for p in (_ROOT / "corpus.json", _ROOT / "corpus_hadith.json.gz") if p.exists())
+) or tuple(p for p in (_ROOT / "data" / "corpus.json", _ROOT / "data" / "corpus_hadith.json.gz") if p.exists())
 CORPUS_PATH = CORPUS_PATHS[0]  # the Quran corpus (kept for tools that validate it)
 
 _DAGGER_ALEF = "\u0670"

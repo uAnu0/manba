@@ -11,15 +11,20 @@ A scholar who comments on a group of verses at once has the text on the first ve
 repeated on each verse: both are stored once, and the other verses point to the first one ("group" in the file), so the app can
 say "this commentary covers 4:60-62".
 
-Usage: python ingest_tafsir.py
+Usage: python scripts/ingest_tafsir.py
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import gzip
 import html
 import json
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "tafsir_raw"
 OUT = ROOT / "data" / "tafsir"
 

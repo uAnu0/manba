@@ -80,7 +80,7 @@ class VerifyResponse(BaseModel):
 class EvidenceRequest(BaseModel):
     question: str = Field(..., min_length=2, max_length=1000)
     use_llm: bool = False  # also let an LLM recite the evidence it knows (each text is checked against the corpus)
-    use_meaning: bool = True  # meaning-based search with embeddings (needs an OpenRouter key and corpus_embeddings.npz)
+    use_meaning: bool = True  # meaning-based search with embeddings (needs an OpenRouter key and data/corpus_embeddings.npz)
 
     _words = field_validator("question")(_limit_words)
 

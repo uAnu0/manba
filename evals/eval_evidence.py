@@ -4,9 +4,14 @@ For every question and every expected phrase: is it contained in one of the retu
 Reports recall (phrases found) and the share of questions with at least one expected text found, with and without the
 optional LLM query expansion.
 
-Usage: python eval_evidence.py [--llm] [--no-meaning] [--limit 8] [-v]
+Usage: python evals/eval_evidence.py [--llm] [--no-meaning] [--limit 8] [-v]
 The LLM run needs OPENROUTER_API_KEY (from .env) and costs about one cheap call per question.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import argparse
 import asyncio
 import json
@@ -15,7 +20,7 @@ from pathlib import Path
 from app.services.evidence_card import build_card
 from app.services.verifier import load_corpus, normalize
 
-GOLDEN = Path(__file__).resolve().parent / "golden" / "evidence_golden.json"
+GOLDEN = Path(__file__).resolve().parents[1] / "golden" / "evidence_golden.json"
 
 
 def contains(texts: list[str], phrase: str) -> bool:

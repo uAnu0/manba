@@ -53,7 +53,7 @@ sources do not report?** It never says which opinion is right.
 1. **How the sentence is worded** (code): a claimed consensus (أجمع، بالإجماع، اتفق العلماء، لا خلاف، متفقون), a flat ruling (حرام، واجب، لا يجوز، سنة، ينقض ...),
    or a hedged one (عند الجمهور، على الراجح، في قول، عند الحنفية ...). A sentence with no ruling word is not a fiqh claim.
 2. **Where the encyclopedia discusses it**: BM25 over the 26,363 numbered paragraphs of the Kuwaiti Fiqh Encyclopedia (45 volumes, built by
-   `python ingest_fiqh.py` into `data/fiqh/kuwaiti.jsonl.gz`), with a second index over entry names and paragraph headings ("زكاة الحلي").
+   `python scripts/ingest_fiqh.py` into `data/fiqh/kuwaiti.jsonl.gz`), with a second index over entry names and paragraph headings ("زكاة الحلي").
 3. **Which passages are about the same issue** (model, optional): it may only say same issue or not, copy the passage's own ruling sentence (the copy must
    occur in the passage, or it is dropped), and say whether the person's ruling is one the passage reports. It writes no ruling.
 4. **Agreement or disagreement** (code, never the model): read from the encyclopedia's fixed wording (اتفق الفقهاء، أجمعوا، بلا خلاف / اختلف الفقهاء، ذهب ... وذهب،
@@ -62,7 +62,7 @@ sources do not report?** It never says which opinion is right.
    `partly_disputed`, `found_no_marker`, `not_found` (nothing concluded, refer to a specialist). Without a model the best keyword match is shown and labelled so.
 
 Measured on `golden/fiqh_golden.json` (11 sentences written from the encyclopedia's wording; needs a scholar's review) in keyword mode, no model:
-status acceptable 11/11, the expected entry shown 9/9, **false_settled 0** (no disputed question shown as agreed). Run `python eval_fiqh.py [--llm]`.
+status acceptable 11/11, the expected entry shown 9/9, **false_settled 0** (no disputed question shown as agreed). Run `python evals/eval_fiqh.py [--llm]`.
 Startup cost: about 8 s and 190 MB more memory.
 
 ## Content levels (challenge day 1)
@@ -85,7 +85,7 @@ counted as authentic. The parser is tested on a real Dorar response (`tests/fixt
 ## Organizers' test cases
 
 `golden/package_cases.json` holds the test table of the scientific pack (page 6) as it applies to Track 4: the input Manba gets, the pack's expected
-behaviour, and a check. Cases for a conversational or translation product are listed as not applicable, with the reason. `python eval_package.py -v` (needs a model).
+behaviour, and a check. Cases for a conversational or translation product are listed as not applicable, with the reason. `python evals/eval_package.py -v` (needs a model).
 
 ## Transparency and privacy
 
@@ -105,7 +105,7 @@ automatically when the text has several sentences.
 3. Each claim goes through the claim check (up to 8 per request, 5 at a time); the response lists the items in reading order with a count per outcome and the number of commentary sentences.
 
 Measured on `golden/paragraphs_golden.json` (4 paragraphs written by the developer): 9 of 10 expected claims found with an acceptable outcome, 3/3 quotes right, no commentary checked as a claim,
-no claim invented in claim-free text, 0 reversals. The miss is the weak spot of the stance judge (a claim about keeping covenants came back `mixed`). Run `python eval_paragraphs.py`.
+no claim invented in claim-free text, 0 reversals. The miss is the weak spot of the stance judge (a claim about keeping covenants came back `mixed`). Run `python evals/eval_paragraphs.py`.
 
 **Speed.** Model calls that do not depend on each other run at the same time (the router, the evidence search and the recitation; the recitation of verses and of hadith; the stance judging of the
 candidates in chunks of 10), and repeated calls are cached in memory (`services/cache.py`). A single claim went from about 21 s to about 9 s with the same results on the golden claims
@@ -132,7 +132,7 @@ Without a model (`use_llm: false`) only the quote check and the nearest texts ar
 
 Measured on `golden/claims_golden.json` (30 claims written by the developer: 20 topic, 5 quotes, 2 personal, 2 not religious, 1 invented; run twice, same result):
 claim type right 30/30, outcome acceptable 27/30, quote statuses 5/5, **reversals 0, false support 0**. The three misses are on the cautious side (one `mixed`, one `supported_weakly`, one `no_clear_evidence`).
-Run `python eval_claims.py -v` to re-measure (about 4 model calls per claim). This is a smoke test: a scholar must review the claims and expected outcomes before anyone relies on it.
+Run `python evals/eval_claims.py -v` to re-measure (about 4 model calls per claim). This is a smoke test: a scholar must review the claims and expected outcomes before anyone relies on it.
 A claim takes 15-40 seconds with the model (routing, recitation, two judging calls).
 
 ## Evidence finder (version 0)
@@ -143,8 +143,8 @@ It also returns `refer_to_scholar` with a reason (sensitive topics such as famil
 and a notice that this is evidence, not a ruling. Test page: `/evidence`.
 
 How it finds texts. Three searches run and their rankings are merged; only corpus text is ever shown:
-1. **Meaning search** (always, when `corpus_embeddings.npz` and an OpenRouter key are available): every verse and hadith was turned into a vector once
-   (`python embed_corpus.py`, model `google/gemini-embedding-001`, 768 numbers per text, about 37 MB); the question is embedded at request time and the
+1. **Meaning search** (always, when `data/corpus_embeddings.npz` and an OpenRouter key are available): every verse and hadith was turned into a vector once
+   (`python scripts/embed_corpus.py`, model `google/gemini-embedding-001`, 768 numbers per text, about 37 MB); the question is embedded at request time and the
    nearest texts are taken. It finds "من قتل نفسه" for a question about suicide, which keywords cannot.
 2. **Keyword search** (always): BM25 over normalized, lightly stemmed Arabic; hadith are searched without their chain of narrators.
 3. **LLM step** (`use_llm`): the model *recites* the evidence it knows (each recitation is looked up in the corpus; unconfirmed ones are discarded and
@@ -154,7 +154,7 @@ How it finds texts. Three searches run and their rankings are merged; only corpu
 
 Measured on `golden/evidence_golden.json` (25 questions, 36 expected texts, written by the developer) with the card as shown (8 verses + 10 hadith):
 keywords only 22% of the expected texts (32% of the questions); meaning + keywords 47% (60%); with the LLM step 72% (84%).
-Precision (how many shown texts are really relevant) is not measured yet. That is a baseline on a small set, not a quality bar: it needs scholar-reviewed questions. Run `python eval_evidence.py [--llm] [--no-meaning]` to re-measure.
+Precision (how many shown texts are really relevant) is not measured yet. That is a baseline on a small set, not a quality bar: it needs scholar-reviewed questions. Run `python evals/eval_evidence.py [--llm] [--no-meaning]` to re-measure.
 Memory with everything loaded is about 510 MB and startup about 20 s (the indexes are built at first use).
 
 ## Arabic explanation (on demand)
@@ -209,7 +209,7 @@ takes about 20 minutes. Production stays on OpenRouter unless `LLM_PROVIDER` is 
 A Quran verse shown in a card has a **Tafsir** button; the commentary is fetched only when it is clicked (`GET /api/tafsir/2:191` or
 `/api/tafsir/33:41-42`) and is never part of a result: it takes no part in the search, the judge or any outcome, and no model writes
 or summarises it. Shown as the author wrote it: **Al-Tafsir al-Muyassar** and **Tafsir al-Saadi** (`app/services/tafsir.py`,
-`data/tafsir/*.json.gz`). Built by `ingest_tafsir.py` from `data/tafsir_raw/` (not committed; files from
+`data/tafsir/*.json.gz`). Built by `scripts/ingest_tafsir.py` from `data/tafsir_raw/` (not committed; files from
 github.com/abdalrhmanreda/islamic-data-assets, MIT compilation). Only markup is removed; a commentary that covers several verses is
 stored once ("covers 4:60-62"). Both cover all 6,236 verses except Saadi 26:1 (empty in the source). **Rights in the underlying
 texts are not verified: check them before a public release.** Hadith have no tafsir (their commentary, sharh, would be a separate source).
@@ -226,43 +226,58 @@ Each segment has `segment_text`, `classification` (quran | hadith | unverified),
 
 | Command | What it does |
 |---|---|
-| `python eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
-| `python eval_paragraphs.py [-v]` | Runs the golden paragraphs through the paragraph check: claims found with an acceptable outcome, quotes, commentary wrongly checked, reversals. |
-| `python eval_claims.py [-v]` | Runs the golden claims through the claim verifier: type and outcome accuracy, quote statuses, reversals and false support (the two numbers that must be 0). |
-| `python eval_evidence.py [--llm] [--no-meaning]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 75 cheap model calls. |
-| `python embed_corpus.py` | Rebuilds `corpus_embeddings.npz` (about 4 million tokens, under a dollar; resumable). Needed after the corpus changes. |
-| `python validate_corpus.py` | Checks `corpus.json` against the Tanzil files character for character. |
-| `python ingest_quran.py` | Rebuilds `corpus.json` from `data/tanzil/` (offline). |
-| `python ingest_hadith.py` | Rebuilds `corpus_hadith.json.gz`; downloads the raw hadith files on first run (about 100 MB, SHA-256 pinned). |
+| `python evals/eval_golden.py` | Runs the golden set (`golden/quran_golden.json`) through the pipeline: verified accuracy, false confirmations, per-category results. Exit code 1 on any non-gap failure. |
+| `python evals/eval_paragraphs.py [-v]` | Runs the golden paragraphs through the paragraph check: claims found with an acceptable outcome, quotes, commentary wrongly checked, reversals. |
+| `python evals/eval_claims.py [-v]` | Runs the golden claims through the claim verifier: type and outcome accuracy, quote statuses, reversals and false support (the two numbers that must be 0). |
+| `python evals/eval_evidence.py [--llm] [--no-meaning]` | Measures the evidence finder on `golden/evidence_golden.json` (recall of expected texts). `--llm` makes about 75 cheap model calls. |
+| `python evals/eval_fiqh.py [--llm]` | Measures the fiqh check on `golden/fiqh_golden.json`: acceptable status, expected encyclopedia entry shown, and false_settled (a disputed question shown as agreed; must be 0). |
+| `python evals/eval_package.py [-v]` | Runs the organizers' test cases (`golden/package_cases.json`) through the claim check. Needs a model key. |
+| `python scripts/ingest_fiqh.py` | Rebuilds `data/fiqh/kuwaiti.jsonl.gz` from the Kuwaiti Fiqh Encyclopedia (downloads about 260 MB on first run; needs pyarrow). |
+| `python scripts/ingest_tafsir.py` | Rebuilds `data/tafsir/` from the raw tafsir files in `data/tafsir_raw/`. |
+| `python scripts/embed_corpus.py` | Rebuilds `data/corpus_embeddings.npz` (about 4 million tokens, under a dollar; resumable). Needed after the corpus changes. |
+| `python scripts/validate_corpus.py` | Checks `data/corpus.json` against the Tanzil files character for character. |
+| `python scripts/ingest_quran.py` | Rebuilds `data/corpus.json` from `data/tanzil/` (offline). |
+| `python scripts/ingest_hadith.py` | Rebuilds `data/corpus_hadith.json.gz`; downloads the raw hadith files on first run (about 100 MB, SHA-256 pinned). |
 
-Run `python eval_golden.py` before and after any change to matching code. The golden set was written by one person and is a smoke test, not proof of accuracy.
+Run `python evals/eval_golden.py` before and after any change to matching code. The golden set was written by one person and is a smoke test, not proof of accuracy.
 
 ## Layout
 
-- `app/services/verifier.py`: normalization, corpus loading, indexes, `verify_segment`.
-- `app/services/quote_finder.py`: finds quotes inside long text (brackets, attributions, verbatim runs).
-- `app/services/pipeline.py`: sentence splitting, local pass, optional LLM merge.
-- `app/services/llm_extractor.py`: OpenRouter call (`openai/gpt-4o-mini`) that lists quotes; claims must occur in the original text.
-- `app/static/index.html`: test console.
+```
+app/              the FastAPI service
+  main.py         app, routers, startup (builds the indexes)
+  schemas.py      every request and response model
+  routers/        one file per endpoint group (verify, check, claim, evidence, explain, tafsir, fiqh, dorar)
+  services/       the logic: verifier.py, quote_finder.py, pipeline.py (quotes); claim_card.py, text_claims.py (claims);
+                  fiqh.py (fiqh check); levels.py (content levels); dorar.py (Dorar gradings); evidence*.py, dense.py,
+                  similar.py (search); llm_*.py, cache.py (model calls); explain.py, tafsir.py, strength.py
+  static/         the test pages and the result cards (cards.js, cards.css)
+data/             corpora shipped with the app: Quran, hadith, embeddings, tafsir, fiqh encyclopedia, Tanzil sources
+scripts/          rebuild the data (ingest_*.py, embed_corpus.py) and check it (validate_corpus.py)
+evals/            measurement scripts, one per golden set
+golden/           the test sets (quotes, claims, paragraphs, evidence, fiqh, organizers' cases)
+tests/fixtures/   saved real responses used by tests (Dorar)
+BASELINE.md       what existed before the challenge days; CHANGELOG.md: what was built during them
+```
 
 ## Data sources
 
 - `data/fiqh/kuwaiti.jsonl.gz`: al-Mawsu'a al-Fiqhiyya al-Kuwaytiyya (Ministry of Awqaf and Islamic Affairs, Kuwait; published free of charge at
   bohoth.awqaf.gov.kw and named in the challenge's scientific pack). Text from Shamela book 11430 via the Hugging Face dataset
-  MoMonir/shamela_books_text_full (Apache-2.0 for the dataset), pagination matching the printed edition. Rebuild with `python ingest_fiqh.py`.
+  MoMonir/shamela_books_text_full (Apache-2.0 for the dataset), pagination matching the printed edition. Rebuild with `python scripts/ingest_fiqh.py`.
 - Hadith gradings shown in the Dorar tab come live from Dorar al-Saniyya (dorar.net, hadith encyclopedia API) and are credited on every result.
 
 - `data/tanzil/` holds the Quran texts from the [Tanzil Project](https://tanzil.net) (Uthmani and simple-clean),
   unmodified and used under its CC BY 3.0 terms: source must be credited and linked to tanzil.net.
   Each file keeps Tanzil's original copyright header.
-- `corpus.json` is generated offline from those files by `ingest_quran.py` (Uthmani as `text`, simple-clean as `match_text`,
-  surah names in `data/surah_names.json`). `validate_corpus.py` checks it against Tanzil character for character.
-- `corpus_hadith.json.gz` (about 41,200 hadiths, Arabic only) is generated by `ingest_hadith.py` from two sources:
+- `data/corpus.json` is generated offline from those files by `scripts/ingest_quran.py` (Uthmani as `text`, simple-clean as `match_text`,
+  surah names in `data/surah_names.json`). `scripts/validate_corpus.py` checks it against Tanzil character for character.
+- `data/corpus_hadith.json.gz` (about 41,200 hadiths, Arabic only) is generated by `scripts/ingest_hadith.py` from two sources:
   [AhmedBaset/hadith-json](https://github.com/AhmedBaset/hadith-json) tag v1.2.0 (all nine books of `the_9_books`: Bukhari, Muslim,
   Abu Dawud, Tirmidhi, Nasa'i, Ibn Majah, Muwatta Malik, Musnad Ahmad, al-Darimi; texts scraped from sunnah.com) and
   [fawazahmed0/hadith-api](https://github.com/fawazahmed0/hadith-api) commit df57907 (Unlicense), which supplies the standard hadith
   numbers and gradings for seven of those books and 300+ Bukhari hadiths the first source lacks. The two are aligned per book and merged;
-  the rules are at the top of `ingest_hadith.py`. Raw downloads live in `data/hadith/` and `data/hadith2/` (git-ignored, SHA-256 pinned).
+  the rules are at the top of `scripts/ingest_hadith.py`. Raw downloads live in `data/hadith/` and `data/hadith2/` (git-ignored, SHA-256 pinned).
   Neither dataset has a license file for the sunnah.com-derived texts, so check sunnah.com's terms before redistributing.
   Numbers: Bukhari, Abu Dawud, Tirmidhi, Nasa'i, Ibn Majah and Muwatta use B's `hadithnumber`; Muslim uses B's `arabicnumber`
   (the Abd al-Baqi numbering, e.g. 223). Hadiths the two sources could not be paired for, and all of Musnad Ahmad (incomplete in the

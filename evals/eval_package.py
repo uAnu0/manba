@@ -1,6 +1,6 @@
 """Run the organizers' test cases (golden/package_cases.json) through the claim check. Needs a model key.
 
-    python eval_package.py [-v]
+    python evals/eval_package.py [-v]
 
 Each applicable case has one check:
   not_supported            the claim is not reported as supported
@@ -10,6 +10,11 @@ Each applicable case has one check:
   fiqh_disputed            the fiqh check reports disagreement (content level ج)
   supported_or_partial     supported or supported in part
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import asyncio
 import json
 import sys
@@ -17,7 +22,7 @@ from pathlib import Path
 
 from app.services.claim_card import verify_claim
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 DISPUTED = {"consensus_claim_disputed", "stated_as_certain_disputed", "partly_disputed", "disagreement_acknowledged"}
 
 

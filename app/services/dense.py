@@ -1,7 +1,7 @@
 """Meaning-based search over the corpus.
 
 An embedding model turns a text into a list of numbers such that texts with similar meaning get similar numbers.
-Every verse and hadith was embedded once (embed_corpus.py -> corpus_embeddings.npz, shipped with the app); at question
+Every verse and hadith was embedded once (scripts/embed_corpus.py -> data/corpus_embeddings.npz, shipped with the app); at question
 time only the question is embedded (one call to the OpenRouter embeddings API) and compared with all of them.
 It finds "من قتل نفسه بحديدة" for a question about suicide, which keyword search cannot.
 """
@@ -17,7 +17,7 @@ from app.services.llm_extractor import _get_client, provider_for
 from app.services.verifier import Entry, load_corpus
 
 ROOT = Path(__file__).resolve().parents[2]
-EMBEDDINGS_PATH = ROOT / "corpus_embeddings.npz"
+EMBEDDINGS_PATH = ROOT / "data" / "corpus_embeddings.npz"
 
 # Chosen by a bake-off on the golden questions (subset corpus, top 8 / top 20 per type): gemini 81% / 94%,
 # qwen3-embedding-8b 67% / 78%, multilingual-e5-large 44% / 56%, bge-m3 42% / 64%. Truncating gemini's 3072 numbers
