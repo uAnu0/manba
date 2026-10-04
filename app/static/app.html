@@ -39,6 +39,8 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 4h6v3H9z"></path></svg>لصق نص</button>
       <button class="tab" role="tab" id="tabFile" aria-selected="false" aria-controls="paneFile">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg>رفع ملف نصي</button>
+      <button class="tab" role="tab" id="tabScan" aria-selected="false" aria-controls="paneScan">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"></path></svg>مسح PDF أو صورة</button>
     </div>
     <div id="panePaste" role="tabpanel" aria-labelledby="tabPaste" style="display: flex; flex-direction: column; gap: 8px">
       <label for="text" class="cap">النص (حتى 500 كلمة)</label>
@@ -51,6 +53,9 @@
         <label class="btn" for="file">اختيار ملف</label>
         <input type="file" id="file" accept=".txt,.md,text/plain" hidden>
       </div>
+    </div>
+    <div id="paneScan" role="tabpanel" aria-labelledby="tabScan" hidden>
+      <div id="scanRoot"></div>
     </div>
     <div class="row-between">
       <span class="cap" id="wc">0 كلمة من 500</span>
@@ -111,6 +116,7 @@
 </dialog>
 
 <script src="/static/grades.js"></script>
+<script src="/static/ocr.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
