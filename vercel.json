@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/main.py": {
+      "memory": 2048,
+      "maxDuration": 120,
+      "excludeFiles": "{golden/**,evals/**,scripts/**,tests/**,data/tanzil/**,data/fiqh_raw/**,data/tafsir_raw/**,data/hadith/**,data/hadith2/**,data/embeddings_cache/**,*.md}"
+    }
+  }
+}
