@@ -10,18 +10,20 @@ from collections import Counter
 
 from app.schemas import ClaimLLMInfo, TextCheckResponse, TextClaimItem
 from app.services.claim_card import verify_claim
-from app.services.fiqh import assertion_of
+from app.services.fiqh import assertion_of, query_terms
 from app.services.levels import segment_level
 from app.services.llm_query import find_claims
 from app.services.pipeline import _redact, sentence_spans, verify_local
 from app.services.quote_finder import CONTEXT, FILLER, HONORIFIC, PROPHET, SAID, SPEAKER, SPEAKER_NAMES, tokenize
 from app.services.similar import nearest_text
+from app.services.verifier import normalize
 
 MAX_SENTENCES = 80
 MAX_CLAIMS = 8  # claims checked per request (each is about four model calls)
 PARALLEL = 5  # claims checked at the same time
 MAX_PIECES = 60  # stretches compared by meaning per request (one cached embedding each)
 MIN_CLAIM_WORDS = 3
+MIN_RULING_WORDS = 2  # a ruling can be two words ("المهر واجب"); it still needs a subject besides the ruling word
 FRAGMENT_WORDS = 5  # an unmarked verbatim run this short is common speech that happens to occur in a text, not a quotation
 MIN_UNIT_WORDS = 4  # what is left of a sentence around a quote is checked as a claim only if it is at least this long
 
@@ -114,16 +116,37 @@ def _ruling_parts(unit: str, offset: int) -> list[tuple[int, int, str]]:
         piece = unit[s:e]
         lead = len(piece) - len(piece.lstrip(" \t\r\n،؛:.!؟"))
         piece = piece.strip(" \t\r\n،؛:.!؟")
-        if piece and assertion_of(piece)[0] != "none" and len(tokenize(piece)) >= MIN_CLAIM_WORDS:
+        if piece and assertion_of(piece)[0] != "none" and len(tokenize(piece)) >= MIN_RULING_WORDS and _has_subject(piece):
             parts.append((offset + s + lead, offset + s + lead + len(piece), piece))
     if len(parts) < 2:
         whole = unit.strip()
         lead = len(unit) - len(unit.lstrip())
         parts = [(offset + lead, offset + lead + len(whole), whole)]
-    return [_drop_frame(p) for p in parts]
+    return [_drop_frame(_drop_lead(p)) for p in parts]
 
 
 _FRAME = re.compile(r"(?:^|\s)و?أن\s+")
+
+
+# Openers that address the audience or introduce the point; they are not part of the ruling.
+_LEAD = re.compile(r"^(?:(?:(?:و|ف)?(?:أيها|ايها|يا)\s+[^\s،,:]+(?:\s+[^\s،,:]+)?\s*[،,:]|أما بعد\s*[،,:]?|ثم إن|ثم ان|(?:و|ف)?اعلموا\s+أن|(?:و|ف)?اعلم\s+أن))\s*")
+# A ruling needs a subject: "هذا واجب" names none.
+_VAGUE = frozenset(normalize(w) for w in "هذا هذه ذلك تلك هو هي هم الأمر الامر ذاك هنا".split())
+
+
+def _has_subject(piece: str) -> bool:
+    return any(normalize(w) not in _VAGUE for w in piece.split() if query_terms(w))
+
+
+def _drop_lead(part: tuple[int, int, str]) -> tuple[int, int, str]:
+    a, b, piece = part
+    m = _LEAD.match(piece)
+    if not m or m.end() >= len(piece):
+        return part
+    rest = piece[m.end():]
+    if assertion_of(rest)[0] == "none" or len(tokenize(rest)) < MIN_RULING_WORDS or not _has_subject(rest):
+        return part
+    return (a + m.end(), b, rest)
 
 
 def _drop_frame(part: tuple[int, int, str]) -> tuple[int, int, str]:
@@ -136,7 +159,7 @@ def _drop_frame(part: tuple[int, int, str]) -> tuple[int, int, str]:
     if last is None or last.end() >= len(piece):
         return part
     tail = piece[last.end():]
-    if assertion_of(tail)[0] == "none" or len(tokenize(tail)) < MIN_CLAIM_WORDS:
+    if assertion_of(tail)[0] == "none" or len(tokenize(tail)) < MIN_RULING_WORDS or not _has_subject(tail):
         return part
     return (a + last.end(), b, tail)
 
@@ -240,13 +263,18 @@ async def check_text(
                     and not any(_overlap(span, q) > 0 for q in quote_spans)):
                 quotes.append(loc)
                 quote_spans.append(span)
-        units = [u for u in units if not any(_overlap(u, q) > 0.5 * (u[1] - u[0]) for q in quote_spans)]
-        unit_texts = [text[a:b] for a, b in units]
-        # A sentence worded as a fiqh ruling is still looked up in the fiqh encyclopedia,
-        # by keywords, so a disputed question stated as settled is flagged even in the local-only mode.
-        for (a, b), unit in zip(units, unit_texts):
-            if assertion_of(unit)[0] != "none" and len(tokenize(unit)) >= MIN_CLAIM_WORDS:
-                claims.extend(_ruling_parts(unit, a))
+    # A sentence worded as a fiqh ruling ("المهر واجب"، "صلاة الوتر واجبة") is always looked up in the fiqh encyclopedia,
+    # with or without a model: a model that passes over a short unquoted ruling must not leave it unchecked and
+    # unhighlighted. With a model, only the rulings its claims do not already cover are added.
+    units = [u for u in units if not any(_overlap(u, q) > 0.5 * (u[1] - u[0]) for q in quote_spans)]
+    for (a, b) in units:
+        unit = text[a:b]
+        if assertion_of(unit)[0] == "none" or len(tokenize(unit)) < MIN_RULING_WORDS or not _has_subject(unit):
+            continue
+        for part in _ruling_parts(unit, a):
+            if any(_overlap((part[0], part[1]), (c[0], c[1])) > 0.5 * (part[1] - part[0]) for c in claims):
+                continue
+            claims.append(part)
     skipped = max(0, len(claims) - MAX_CLAIMS)
     claims = sorted(claims)[:MAX_CLAIMS]
 

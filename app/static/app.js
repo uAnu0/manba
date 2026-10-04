@@ -253,7 +253,7 @@
     rv.hidden = false; $("newBtn").hidden = false;
     applyFilter();
     window.scrollTo({ top: 0 });
-    const first = rv.querySelector(".card"); if (first && RANK[store.entries[0].v.k] <= 1) openCard(store.entries[0], first);
+    // Details stay closed until the reviewer opens a card; the card itself already says what is wrong and what to do.
     dorarSummaries();
   }
 
@@ -463,7 +463,7 @@
   $("reportView").addEventListener("click", ev => {
     const t = ev.target.closest("button, a"); if (!t) return;
     if (t.dataset.goto) { const e = store.entries.find(x => x.n === +t.dataset.goto), card = $("card-" + e.n); if (card.hidden) { store.filter = "all"; applyFilter(); }
-      card.scrollIntoView({ behavior: "smooth", block: "start" }); card.classList.add("flash"); setTimeout(() => card.classList.remove("flash"), 1400); if (card.querySelector(".more").hidden) openCard(e, card); return; }
+      card.scrollIntoView({ behavior: "smooth", block: "start" }); card.classList.add("flash"); setTimeout(() => card.classList.remove("flash"), 1400); return; }
     if (t.dataset.open) { const e = store.entries.find(x => x.n === +t.dataset.open); openCard(e, t.closest(".card")); return; }
     if (t.dataset.copy) { const e = store.entries.find(x => x.n === +t.dataset.copy); copy(e.v.copy, t); return; }
     if (t.dataset.f) { store.filter = t.dataset.f; applyFilter(); return; }
