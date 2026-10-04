@@ -43,8 +43,14 @@ def health() -> HealthResponse:
 
 
 @app.get("/", include_in_schema=False)
+def reviewer_app() -> FileResponse:
+    """Main reviewer UI: paste text, get a prioritized report."""
+    return FileResponse(Path(__file__).parent / "static" / "app.html")
+
+
+@app.get("/test", include_in_schema=False)
 def test_console() -> FileResponse:
-    """Throwaway page for manual testing of /api/verify."""
+    """Developer page for manual testing of /api/verify."""
     return FileResponse(Path(__file__).parent / "static" / "index.html")
 
 

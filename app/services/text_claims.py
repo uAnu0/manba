@@ -98,6 +98,49 @@ def _units(text: str, spans: list[tuple[int, int]], quote_spans: list[tuple[int,
     return units
 
 
+_JOIN = re.compile(r"\s*[،;؛]\s*(?=و)|\s*[;؛]\s*")
+
+
+def _ruling_parts(unit: str, offset: int) -> list[tuple[int, int, str]]:
+    """A sentence that joins two rulings ("زكاة الحلي واجبة بالإجماع، وأن التسمية عند الوضوء واجبة") is split at the
+    joining comma, and each part that states a ruling on its own is checked by itself; otherwise the sentence stays whole."""
+    bounds, pos = [], 0
+    for m in _JOIN.finditer(unit):
+        bounds.append((pos, m.start()))
+        pos = m.end()
+    bounds.append((pos, len(unit)))
+    parts = []
+    for s, e in bounds:
+        piece = unit[s:e]
+        lead = len(piece) - len(piece.lstrip(" \t\r\n،؛:.!؟"))
+        piece = piece.strip(" \t\r\n،؛:.!؟")
+        if piece and assertion_of(piece)[0] != "none" and len(tokenize(piece)) >= MIN_CLAIM_WORDS:
+            parts.append((offset + s + lead, offset + s + lead + len(piece), piece))
+    if len(parts) < 2:
+        whole = unit.strip()
+        lead = len(unit) - len(unit.lstrip())
+        parts = [(offset + lead, offset + lead + len(whole), whole)]
+    return [_drop_frame(p) for p in parts]
+
+
+_FRAME = re.compile(r"(?:^|\s)و?أن\s+")
+
+
+def _drop_frame(part: tuple[int, int, str]) -> tuple[int, int, str]:
+    """"ومن العلم الواجب على المرأة أن تعلم أن زكاة الحلي واجبة" → "زكاة الحلي واجبة": the words before the last "أن" frame
+    the ruling and only crowd the encyclopedia search, so they are dropped when what follows still states the ruling."""
+    a, b, piece = part
+    last = None
+    for m in _FRAME.finditer(piece):
+        last = m
+    if last is None or last.end() >= len(piece):
+        return part
+    tail = piece[last.end():]
+    if assertion_of(tail)[0] == "none" or len(tokenize(tail)) < MIN_CLAIM_WORDS:
+        return part
+    return (a + last.end(), b, tail)
+
+
 _NEGATIONS = frozenset({"لا", "لم", "لن", "ليس", "ليست", "غير", "ما", "بدون", "no", "not", "never"})
 
 
@@ -203,7 +246,7 @@ async def check_text(
         # by keywords, so a disputed question stated as settled is flagged even in the local-only mode.
         for (a, b), unit in zip(units, unit_texts):
             if assertion_of(unit)[0] != "none" and len(tokenize(unit)) >= MIN_CLAIM_WORDS:
-                claims.append((a, b, unit.strip()))
+                claims.extend(_ruling_parts(unit, a))
     skipped = max(0, len(claims) - MAX_CLAIMS)
     claims = sorted(claims)[:MAX_CLAIMS]
 
