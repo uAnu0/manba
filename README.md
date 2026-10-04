@@ -214,6 +214,20 @@ github.com/abdalrhmanreda/islamic-data-assets, MIT compilation). Only markup is 
 stored once ("covers 4:60-62"). Both cover all 6,236 verses except Saadi 26:1 (empty in the source). **Rights in the underlying
 texts are not verified: check them before a public release.** Hadith have no tafsir (their commentary, sharh, would be a separate source).
 
+## Scan a PDF or image (OCR)
+
+On `/claim`, **Scan a PDF or image** fills the claim box from up to **3 pages**; the 500-word limit stays the real limit and the person
+keeps the pages they want, then edits the text. A PDF page that has a real text layer is read in the browser (pdf.js, nothing uploaded);
+a garbled layer, a scan or an image is shrunk in the browser and sent to `POST /api/ocr`, where **two different models read it**
+(`app/services/ocr.py`: `gemini-3.1-flash-lite` and `gemini-3.5-flash-lite`, on the provider chosen in Settings). The words on which the two
+readings differ are listed next to the page, with a button to take the second reading. Nothing is stored, no cache is kept, and the
+page tells the reader that a mismatch on scanned text may be a reading error.
+
+Why two readers and a strict prompt: an OCR step that "improves" the text would hide a misquote. In the spike both models copied altered
+quotes exactly, but one once added «عَزَّ وَجَلَّ» to a real-looking hadith: the second reading catches that kind of insertion. Tesseract
+(tried in the browser) was perfect on clean typed text but 27-39% wrong on a vowelled page and unusable on stylised frames; ArafiX (OCR
+post-correction by language models) was rejected because it would correct misquotes toward the real text.
+
 ## API
 
 `POST /api/verify` with `{"text": "...", "use_llm": false}` returns `original_text`, `word_count`, `segments[]` and, when `use_llm` is on, `extraction`.
