@@ -55,6 +55,9 @@ class Segment(BaseModel):
     # False for a sentence in which the LLM step found no quote or claim (ordinary commentary): it is still
     # returned, but it is not a claim that failed verification.
     is_claim: bool = True
+    # Content level of the challenge's scientific pack (services/levels.py): أ settled text, ب explanation,
+    # ج disputed or needs care, د personal case. None when nothing was found to classify.
+    content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None
 
 
 class ExtractionInfo(BaseModel):
@@ -150,6 +153,87 @@ class SimilarText(BaseModel):
     missing_words: list[str] = Field(default_factory=list)  # words of the sentence that are NOT in that text
 
 
+class DorarItem(BaseModel):
+    """One narration as Dorar's hadith encyclopedia gives it, with the ruling of the scholar named (not ours)."""
+
+    text: str
+    narrator: str = ""
+    scholar: str = ""  # المحدث
+    source: str = ""  # المصدر
+    page: str = ""  # الصفحة أو الرقم
+    grade: str = ""  # خلاصة حكم المحدث, verbatim
+    category: Literal["sahih", "hasan", "daif", "fabricated", "other"]  # read by code from the ruling's words, for display only
+
+
+class DorarResult(BaseModel):
+    query: str
+    available: bool
+    items: list[DorarItem] = Field(default_factory=list)
+    summary: dict[str, int] = Field(default_factory=dict)
+    error: Optional[str] = None
+
+
+class FiqhPosition(BaseModel):
+    """A sentence of the encyclopedia that names one or more schools, quoted verbatim."""
+
+    schools: list[str]
+    text: str
+
+
+class FiqhPassage(BaseModel):
+    """One numbered paragraph of the Kuwaiti Fiqh Encyclopedia, with where it is printed."""
+
+    entry: str  # the encyclopedia entry (مادة)
+    section: str = ""
+    heading: str = ""  # the paragraph's own heading, e.g. "زكاة الحلي"
+    number: int = 0  # paragraph number within the entry
+    volume: int
+    page: int
+    text: str
+    agreement: Literal["agreement", "disagreement", "both", "none"]  # read by code from the encyclopedia's own wording
+    positions: list[FiqhPosition] = Field(default_factory=list)
+    ruling_sentence: Optional[str] = None  # the passage's sentence on the issue, copied by the model and found in the passage
+    direction: Optional[Literal["same", "different", "unclear"]] = None  # does the person's ruling match what the passage reports
+    same_issue: Optional[bool] = None  # model's decision; None for a keyword match nobody confirmed
+    score: float = 0.0
+    cite: str
+
+
+class FiqhCheck(BaseModel):
+    claim: str
+    assertion: Literal["consensus", "definite", "hedged", "none"]  # how the person's sentence states the ruling
+    assertion_words: list[str] = Field(default_factory=list)
+    status: Literal[
+        "consensus_claim_disputed",  # claims consensus; the encyclopedia reports disagreement
+        "stated_as_certain_disputed",  # a flat ruling on a question the encyclopedia reports as disputed
+        "disagreement_acknowledged",  # the text itself mentions the disagreement or attributes the opinion
+        "agreement_reported",  # the encyclopedia reports agreement, and the ruling matches
+        "agreement_differs",  # the encyclopedia reports an agreed ruling different from the text's
+        "partly_disputed",  # agreement on part, disagreement on another part
+        "found_no_marker",  # found, without explicit agreement or disagreement
+        "not_found",
+        "not_fiqh",
+    ]
+    attention: bool = False
+    content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None
+    summary_ar: str
+    summary_en: str
+    passages: list[FiqhPassage] = Field(default_factory=list)
+    matched_by: Literal["model", "keywords"]
+    source_ar: str
+    source_en: str
+    notice_ar: str
+    notice_en: str
+    error: Optional[str] = None
+
+
+class FiqhRequest(BaseModel):
+    claim: str = Field(..., min_length=3, max_length=2000)
+    use_llm: bool = True
+
+    _words = field_validator("claim")(_limit_words)
+
+
 class ClaimResponse(BaseModel):
     claim: str
     claim_type: Literal["quote", "topic", "personal", "not_religious", "unknown"]
@@ -179,6 +263,8 @@ class ClaimResponse(BaseModel):
     notice_ar: str
     notice_en: str
     similar: Optional[SimilarText] = None  # a known text this wording is close to (see services/similar.py)
+    fiqh: Optional[FiqhCheck] = None  # a sentence that states a fiqh ruling: what the fiqh encyclopedia reports (services/fiqh.py)
+    content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None  # level of the scientific pack (services/levels.py)
     llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
 
 
@@ -199,6 +285,7 @@ class TextClaimItem(BaseModel):
     result: Optional[ClaimResponse] = None  # kind == "claim": the claim check
     fragment: bool = False  # kind == "quote": an unmarked run of five words or fewer that happens to occur in a text: a matched phrase, not a quotation
     similar: Optional[SimilarText] = None  # kind == "similar": a sentence close to a known text, nothing else found in it
+    content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None  # level of the scientific pack (services/levels.py)
 
 
 class TextCheckResponse(BaseModel):

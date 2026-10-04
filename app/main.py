@@ -6,9 +6,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import check, claim, evidence, explain, tafsir, verify
+from app.routers import check, claim, dorar, evidence, explain, fiqh, tafsir, verify
 from app.schemas import HealthResponse
 from app.services import verifier
+from app.services.fiqh import fiqh_index
 
 
 @asynccontextmanager
@@ -17,6 +18,7 @@ async def lifespan(_: FastAPI):
     verifier.verse_index()
     verifier.window_index()
     verifier.hadith_index()
+    fiqh_index()  # the fiqh encyclopedia (about 26,000 passages): about 8 s and 190 MB
     yield
 
 
@@ -30,6 +32,8 @@ app.include_router(claim.router)
 app.include_router(check.router)
 app.include_router(explain.router)
 app.include_router(tafsir.router)
+app.include_router(fiqh.router)
+app.include_router(dorar.router)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
