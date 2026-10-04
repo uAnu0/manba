@@ -107,6 +107,9 @@ const Cards = (() => {
       + r.items.map(i => `<div class="item dorar-item"><div class="meta"><span class="chip ${(CAT_AR[i.category] || ["", ""])[1]}">${esc(i.grade || "—")}</span><span class="src">${esc(i.scholar)}</span><span class="small">${esc(i.source)}${i.page ? " · " + esc(i.page) : ""}${i.narrator ? " · الراوي: " + esc(i.narrator) : ""}</span></div><div class="ar">${esc(i.text)}</div></div>`).join("")
       + `<div class="small">المصدر: الموسوعة الحديثية، الدرر السنية (dorar.net). الأحكام منقولة بألفاظ أصحابها كما يعرضها الموقع. · Gradings as given by Dorar (${r.via === "browser" ? "fetched by your browser" : "fetched by the server"}).</div></div>`;
   }
+  const dorarSearchUrl = q => "https://dorar.net/hadith/search?q=" + encodeURIComponent(q);
+  const dorarLinkHtml = q => `<div class="dorar-link" dir="rtl"><a class="dorar-open" href="${esc(dorarSearchUrl(q))}" target="_blank" rel="noopener">افتح البحث في الموسوعة الحديثية بالدرر السنية ↗</a>`
+    + `<div class="small">يعرض الموقع أحكام المحدثين على كل رواية مع المصدر والصفحة. لم يُعرض هنا مباشرة لأن الدرر السنية تحجب الطلبات الآلية. · Dorar blocks automated requests, so the search opens on dorar.net in a new tab.</div></div>`;
   const dorarBox = text => `<div class="dorar-box" data-q="${esc(dorarQuery(text))}"><button class="dorar-btn" type="button">Gradings from Dorar · أحكام العلماء من الدرر السنية</button><div class="small">Searches Dorar's hadith encyclopedia for: «${esc(dorarQuery(text))}»</div><div class="dorar-out"></div></div>`;
 
   // ---------- small pieces of markup ----------
@@ -327,7 +330,9 @@ const Cards = (() => {
         const box = db.parentElement, out = box.querySelector(".dorar-out");
         db.disabled = true; out.innerHTML = `<div class="small">Asking Dorar…</div>`;
         try { out.innerHTML = dorarHtml(await dorarLookup(box.dataset.q, opts.headers ? opts.headers() : {}), box.dataset.q); db.remove(); }
-        catch (e) { out.innerHTML = `<div class="err">Dorar is not reachable right now (${esc(e.message)}). You can search it directly: dorar.net/hadith</div>`; db.disabled = false; }
+        catch (e) {  // Dorar's Cloudflare refuses requests that are not a normal page visit: open the same search on dorar.net instead
+          out.innerHTML = dorarLinkHtml(box.dataset.q); db.remove();
+        }
         return;
       }
       const btn = ev.target.closest(".explain-btn");
