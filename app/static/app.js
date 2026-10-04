@@ -160,18 +160,31 @@
 
   // ---------- loading ----------
   const STEPS = ["استخراج الآيات والأحاديث والأحكام", "المطابقة مع المصحف والكتب التسعة", "تقييم الادعاءات بالأدلة", "المسائل الفقهية في الموسوعة الكويتية"];
-  let timer = null;
+  let timer = null, typers = [];
+  // Each step is written letter by letter when it appears; the next one then appears below it and the card grows (the earlier steps turn into a tick).
+  function typeInto(node, text, reduced) {
+    if (reduced) { node.textContent = text; return; }
+    let n = 0; node.classList.add("typing");
+    const id = setInterval(() => { n++; node.textContent = text.slice(0, n); if (n >= text.length) { clearInterval(id); node.classList.remove("typing"); } }, 38);
+    typers.push(id);
+  }
   function startLoading() {
     $("inputView").hidden = true; $("reportView").hidden = true; $("loadingView").hidden = false;
-    let i = 0;
-    const paint = () => {
-      $("steps").innerHTML = STEPS.map((s, k) => `<div class="step ${k < i ? "done" : k === i ? "now" : ""}"><span class="d">${k < i ? "✓" : AR_DIGITS(k + 1)}</span>${esc(s)}</div>`).join("");
+    const box = $("steps"), reduced = matchMedia("(prefers-reduced-motion: reduce)").matches; let i = -1;
+    box.innerHTML = "";
+    const next = () => {
+      i++;
+      const prev = box.lastElementChild;
+      if (prev) { prev.className = "step done"; prev.querySelector(".d").textContent = "✓"; }
+      const el = document.createElement("div"); el.className = "step now enter";
+      el.innerHTML = `<span class="d">${AR_DIGITS(i + 1)}</span><span class="t"></span>`;
+      box.appendChild(el); typeInto(el.querySelector(".t"), STEPS[i], reduced);
       $("barFill").style.width = Math.min(92, 12 + i * 24) + "%";
     };
-    paint();
-    timer = setInterval(() => { if (i < STEPS.length - 1) { i++; paint(); } }, 3500);
+    next();
+    timer = setInterval(() => { if (i < STEPS.length - 1) next(); }, 3500);
   }
-  function stopLoading() { clearInterval(timer); $("loadingView").hidden = true; }
+  function stopLoading() { clearInterval(timer); typers.forEach(clearInterval); typers = []; $("loadingView").hidden = true; }
 
   // ---------- run ----------
   async function run() {
@@ -192,7 +205,7 @@
     }
   }
   $("go").onclick = run;
-  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); };
+  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); if (typeof writeLogo === "function") writeLogo(); };
   window.addEventListener("popstate", () => { if (!location.hash.includes("report")) $("newBtn").onclick(); });
 
   // ---------- report ----------
@@ -279,7 +292,7 @@
     const v = e.v, it = e.it, lvl = it.content_level;
     const quoteText = isQuoteish(v) ? shownQuote(it.text) : it.text;
     const isScripture = v.type === "آية" || v.type === "حديث" || v.type === "اقتباس";
-    return `<article class="card ${v.k === "bad" ? "k-bad-b" : ""}" id="card-${e.n}" data-k="${v.k}">
+    return `<article class="card ${v.k === "bad" ? "k-bad-b" : ""}" id="card-${e.n}" data-k="${v.k}" style="--i: ${e.n}">
       <div class="head">
         <div><span class="num" style="vertical-align: baseline">${AR_DIGITS(e.n)}</span><span class="chip k-${v.k}">${esc(v.label)}</span>${lvl ? `<span class="lv" title="${esc(LEVEL_TITLE[lvl] || "")}">مستوى ${esc(lvl)}</span>` : ""}</div>
         <span class="cap">${esc(v.type)}</span>
@@ -488,6 +501,14 @@
     try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
     $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value.trim()); } catch (e) {} });
   }
+  // the name is written when the page shows (after the font has loaded, so the letters have their real shape) and again when a new review starts
+  function writeLogo() {
+    const el = $("heroLogo"); if (!el) return;
+    el.classList.remove("go", "pre"); void el.getBoundingClientRect();
+    el.classList.add("go");
+  }
+  const logoFont = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('700 96px "Amiri"', "مَنبَع"), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
+  logoFont.catch(() => {}).then(writeLogo);
   fetch("/api/config").then(r => r.json()).then(c => {
     const k = c.server_keys || {};
     const has = Object.keys(k).filter(x => k[x]);
