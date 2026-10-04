@@ -76,9 +76,11 @@ Nothing that was not found gets a level. Rules: `app/services/levels.py`. `/api/
 The pack's rule: no hadith is attributed without a source and an approved grading. The local corpus has no grading for about 4,800 hadith (Musnad Ahmad,
 al-Darimi) and covers nine books. A card with a hadith, or with words attributed to the Prophet that were not found, has a **Dorar** tab: it searches Dorar's
 hadith encyclopedia (about 300,000 hadith) and lists each narration with its scholar, book, page and ruling **as Dorar gives them**, flags when the rulings
-differ, and never merges them into one grade. Dorar's Cloudflare refuses most data-centre addresses (this server got HTTP 403), so the page asks Dorar from
-the reader's browser (JSONP, as Dorar's API documents) and falls back to `GET /api/dorar?q=...` (`app/services/dorar.py`). The parser is tested on a real
-Dorar response (`tests/fixtures/dorar_sample.json`).
+differ, and never merges them into one grade. Dorar's Cloudflare decides by the TLS fingerprint of the request (Python httpx,
+PowerShell and the in-page JSONP request all get 403, with browser headers or not), so the server calls Dorar's official API with `curl_cffi`
+impersonating Chrome, which gets the API's normal answer from a data centre too (`GET /api/dorar?q=...`, `app/services/dorar.py`, cached a day).
+If that fails the page tries JSONP, then offers the same search on dorar.net. Rulings with a negation ("ليس بصحيح", "ليس بحديث") are never
+counted as authentic. The parser is tested on a real Dorar response (`tests/fixtures/dorar_sample.json`).
 
 ## Organizers' test cases
 

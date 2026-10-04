@@ -52,10 +52,9 @@ const Cards = (() => {
   }
 
   // ---------- Dorar: gradings as Dorar gives them, fetched from the reader's browser ----------
-  // Dorar's Cloudflare refuses most server addresses, so the page asks Dorar directly (JSONP, as its API documents)
-  // and falls back to the server's /api/dorar.
-  const DORAR_CATS = [["fabricated", ["موضوع", "باطل", "لا أصل له", "لا اصل له", "مكذوب", "كذب"]],
-    ["daif", ["ضعيف", "ضعفه", "لا يعرف", "لين", "منكر", "لا يصح", "لا يثبت", "شاذ", "معلول", "مرسل", "منقطع", "واه", "فيه ضعف", "متروك", "مجهول"]],
+  // The server asks Dorar's official API (services/dorar.py); if that fails the page tries JSONP, then offers the search on dorar.net.
+  const DORAR_CATS = [["fabricated", ["موضوع", "باطل", "لا أصل له", "لا اصل له", "ليس له أصل", "ليس له اصل", "مكذوب", "كذب", "ليس بحديث", "لا يعرف مرفوعا"]],
+    ["daif", ["لم يصح", "جرحه", "ليس بصحيح", "غير صحيح", "ليس بثابت", "لم يثبت", "لا يثبت مرفوعا", "ضعيف", "ضعفه", "لا يعرف", "لين", "منكر", "لا يصح", "لا يثبت", "شاذ", "معلول", "مرسل", "منقطع", "واه", "فيه ضعف", "متروك", "مجهول"]],
     ["hasan", ["حسن"]], ["sahih", ["صحيح", "ثابت", "متفق عليه", "على شرط", "إسناده جيد", "اسناده جيد", "رجاله ثقات"]]];
   const CAT_AR = { sahih: ["صحيح أو ثابت", "ok"], hasan: ["حسن", "blue"], daif: ["ضعيف أو فيه علة", "warn"], fabricated: ["موضوع أو لا أصل له", "bad"], other: ["حكم آخر", ""] };
   const undiac = t => String(t || "").replace(/[\u064B-\u065F\u0670\u0640]/g, "");
@@ -88,15 +87,19 @@ const Cards = (() => {
     });
   }
   async function dorarLookup(q, headers) {
+    // The server calls Dorar's official API with a Chrome-like connection, which Dorar's Cloudflare accepts; the in-page
+    // JSONP request is refused by Cloudflare today but is kept as a second try in case that changes.
+    let serverError = "";
+    try {
+      const res = await fetch("/api/dorar?q=" + encodeURIComponent(q), { headers });
+      const d = await res.json();
+      if (res.ok && d.available) return { items: d.items, via: "server" };
+      serverError = (d && d.error) || ("HTTP " + res.status);
+    } catch (e) { serverError = e.message; }
     try {
       const d = await dorarJsonp(q);
       return { items: dorarParse((d && d.ahadith && d.ahadith.result) || ""), via: "browser" };
-    } catch (e) {
-      const res = await fetch("/api/dorar?q=" + encodeURIComponent(q), { headers });
-      const d = await res.json();
-      if (!res.ok || !d.available) throw new Error((d && d.error) || ("HTTP " + res.status));
-      return { items: d.items, via: "server" };
-    }
+    } catch (e) { throw new Error(serverError || e.message); }
   }
   function dorarHtml(r, q) {
     if (!r.items.length) return `<div class="small" dir="rtl">لم يُرجع الدرر السنية نتائج لهذا النص («${esc(q)}»).</div>`;
