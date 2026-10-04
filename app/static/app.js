@@ -35,7 +35,8 @@
     if (sg.status === "verified" && s) {
       if (quran) return { k: "ok", label: "آية موثّقة", type: "آية", why: surahRef(s) };
       const st = s.strength;
-      if (st === "sahihayn" || st === "sahih") return { k: "ok", label: "حديث صحيح", type: "حديث", why: where(s) };
+      if (st === "sahihayn") return { k: "ok", label: "حديث صحيح", type: "حديث", why: `${where(s)} · في الصحيحين، وقد تلقتهما الأمة بالقبول` };
+      if (st === "sahih") return { k: "ok", label: "حديث صحيح", type: "حديث", why: where(s) };
       if (st === "hasan") return { k: "ok", label: "حديث حسن", type: "حديث", why: where(s) };
       if (st === "daif") return { k: "bad", label: "حديث ضعيف", type: "حديث", why: `${where(s)} · حكم عليه العلماء بالضعف`, next: "لا يُستدل به، أو يُذكر مع بيان ضعفه", dorar: true };
       if (st === "disputed") return { k: "khl", label: "أحكام المحدثين مختلفة", type: "حديث", why: `${where(s)} · بعض العلماء صححه وبعضهم ضعفه`, next: "اطّلع على أحكام المحدثين قبل الاستدلال به", dorar: true };
@@ -288,8 +289,8 @@
   // ---------- details ----------
   function sourceBlock(s, label) {
     if (!s) return "";
-    const grades = (s.grades || []).map(g => `${esc(g.name)}: ${esc(g.grade)}`).join(" · ");
-    return `<div class="src"><span class="cap">${esc(label || where(s))}</span><div class="q">${esc(s.matched_text)}</div>${grades ? `<span class="cap">أحكام العلماء في بياناتنا: ${grades}</span>` : ""}</div>`;
+    const g = gradeChips(s, s.matched_text);
+    return `<div class="src"><span class="cap">${esc(label || where(s))}</span><div class="q">${esc(s.matched_text)}</div>${g ? `<div class="counts">${g}</div>` : ""}</div>`;
   }
   function diffBlock(sg) {
     const d = (sg.differences || []).filter(x => !/^verbatim/.test(x));
@@ -306,11 +307,21 @@
       <span class="cap">${esc(p.cite)}${p.same_issue === null ? " · مطابقة بالكلمات، تأكد أنها في المسألة نفسها" : ""}</span>
     </div>`).join("") + `<span class="cap">${esc(f.notice_ar)}</span>`;
   }
+  const gradeChips = (s, text) => window.ManbaGrades ? ManbaGrades.chips(s, k => "k-" + k, { text }) : "";
+  // One evidence text: where it is, its grading (hadith) or its tafsir line (verse), and the text itself.
+  const evItem = (it, lab) => {
+    const g = gradeChips(it.source, it.source.matched_text);
+    return `<div class="src"><span class="cap">${lab ? lab + " · " : ""}${esc(where(it.source))}</span><div class="q">${esc(it.source.matched_text)}</div>${g ? `<div class="counts">${g}</div>` : ""}${window.ManbaGrades ? ManbaGrades.context(it) : ""}</div>`;
+  };
   function evidenceBlock(r) {
     const sup = (r.supporting || []).slice(0, 3), con = (r.contradicting || []).slice(0, 3);
-    const one = (it, lab) => `<div class="src"><span class="cap">${lab} · ${esc(where(it.source))}${it.source.strength && it.source.strength !== "quran" ? "" : ""}</span><div class="q">${esc(it.source.matched_text)}</div></div>`;
-    return (sup.length ? `<b style="font-size: 14px">نصوص تؤيده</b>` + sup.map(x => one(x, "يؤيد")).join("") : "")
-      + (con.length ? `<b style="font-size: 14px">نصوص تخالفه</b>` + con.map(x => one(x, "يخالف")).join("") : "");
+    const side = [...(r.partial || []), ...(r.related || [])].slice(0, 6);
+    return (sup.length ? `<b style="font-size: 14px">نصوص تؤيده</b>` + sup.map(x => evItem(x, "يؤيد")).join("") : "")
+      + (con.length ? `<b style="font-size: 14px">نصوص تخالفه</b>` + con.map(x => evItem(x, "يخالف")).join("") : "")
+      // Texts found by words or meaning that the judge did not count for or against: kept closed and labelled, because a verse
+      // on fighting listed under a claim about violence reads as evidence when it is shown bare.
+      + (side.length ? `<details class="related"><summary class="cap" style="cursor: pointer">${AR_DIGITS(side.length)} نصوص قريبة من موضوع العبارة، لم يُحكم بأنها تؤيدها أو تخالفها</summary>
+          <p class="cap" style="margin: 6px 0">تُعرض للاطلاع فقط. اقرأ كل آية مع سياقها، ولا تُنسب إليها العبارة.</p>${side.map(x => evItem(x, "")).join("")}</details>` : "");
   }
   function detailsHtml(e) {
     const v = e.v, it = e.it;

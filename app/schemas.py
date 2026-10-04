@@ -100,6 +100,8 @@ class EvidenceItem(BaseModel):
     covers_all: Optional[bool] = None  # the judge's view: this text addresses the whole claim (False: only part of it, weighed at half)
     covers: list[str] = Field(default_factory=list)  # stance "partial": the parts of the claim this text itself addresses (model-written)
     says: Optional[str] = None  # the judge model's one-line note on what the text says (model-written, used by the explanation)
+    context_ar: Optional[str] = None  # a verse only: the tafsir's commentary on it, verbatim (services/tafsir.context_of)
+    context_source: Optional[str] = None  # the tafsir's name
 
 
 class QueryInfo(BaseModel):

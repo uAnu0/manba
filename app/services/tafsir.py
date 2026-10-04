@@ -70,3 +70,18 @@ def lookup(ref: str) -> TafsirResponse:
             )
         verses.append(TafsirVerse(ref=key, entries=entries))
     return TafsirResponse(ref=ref.strip(), verses=verses, available=[s["meta"]["id"] for s in sources])
+
+
+def context_of(number: str) -> tuple[str, str] | None:
+    """The first tafsir's commentary (التفسير الميسر) on a verse, for showing beside a verse listed as evidence, so that a
+    verse such as 2:191 is never read without what it is about. Returns (tafsir name, text) or None."""
+    try:
+        keys = parse_ref(number)
+    except ValueError:
+        return None
+    for source in _sources():
+        holder = source["group"].get(keys[0], keys[0])
+        text = source["verses"].get(holder)
+        if text:
+            return source["meta"]["name_ar"], text
+    return None

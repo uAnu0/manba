@@ -4,7 +4,7 @@ Verification service for Islamic text. It takes raw text (a sentence or a whole 
 and checks each against local corpora: word for word, with the source, and an exact account of what differs when a quote is altered.
 A language model is optional and only *finds* candidate quotes; it never decides a verdict.
 
-**The challenge requires this repository to be public at submission.** Before that, settle the hadith texts: they come from sunnah.com-derived datasets without a license file (see Data sources and the open decisions in `CHANGELOG.md`).
+Code: MIT (`LICENSE`). Data: each file keeps its source's terms; the register of sources, tools and licences, with what is not yet verified, is `SOURCES.md` (سجل المصادر والتراخيص).
 What existed before the challenge days is declared in `BASELINE.md` (tag `v0-baseline`); what was built from 4 October is in `CHANGELOG.md`.
 
 ## Quick start

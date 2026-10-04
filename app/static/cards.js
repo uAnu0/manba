@@ -137,8 +137,12 @@ const Cards = (() => {
   const dorarBox = text => `<div class="dorar-box" data-q="${esc(dorarQuery(text))}"><button class="dorar-btn" type="button">Gradings from Dorar · أحكام العلماء من الدرر السنية</button><div class="small">Searches Dorar's hadith encyclopedia for: «${esc(dorarQuery(text))}»</div><div class="dorar-out"></div></div>`;
 
   // ---------- small pieces of markup ----------
-  const strengthChip = s => { const m = STRENGTH[s.strength]; return m ? `<span class="chip ${m[1]}">Level ${s.level} · ${m[0]}</span>` : ""; };
-  const gradeChips = s => (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join("");
+  const strengthChip = s => { if (window.ManbaGrades && s.strength && s.strength !== "quran") return ""; const m = STRENGTH[s.strength]; return m ? `<span class="chip ${m[1]}">Level ${s.level} · ${m[0]}</span>` : ""; };
+  const G_CLS = { ok: "ok", fix: "warn", bad: "bad", neu: "" };
+  // Arabic grading chips (grades.js): "في الصحيحين" for Bukhari/Muslim, the grader named for the Sunan, and a plain
+  // "no grading in our data" with a Dorar link for Ahmad, al-Darimi and anything else ungraded.
+  const gradeChips = (s, text) => window.ManbaGrades && s.book !== QURAN ? ManbaGrades.chips(s, k => G_CLS[k], { text })
+    : (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join("");
   const whereOf = (s, cls) => [s.book, s.chapter && cls === "quran" ? s.chapter : "", s.number].filter(Boolean).join(" · ");
 
   // A Quran verse shown in a card gets a Tafsir button; the commentary is fetched only when it is clicked (it is not part of the result).
@@ -161,9 +165,14 @@ const Cards = (() => {
     const says = it.says ? `<div class="small">The judge's note: ${esc(it.says)}</div>` : "";
     const full = it.full_text && it.full_text !== s.matched_text
       ? `<details><summary>Full text${it.classification === "hadith" ? " with chain of narrators" : ""}</summary><div class="ar">${esc(it.full_text)}</div></details>` : "";
-    return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(whereOf(s, it.classification))}</span>${strengthChip(s)}${gradeChips(s)}</div><div class="ar">${esc(s.matched_text)}</div>${covers}${says}${full}${tafsirBox(s)}</div>`;
+    const ctx = window.ManbaGrades ? ManbaGrades.context(it) : "";
+    return `<div class="item ${cls}"><div class="meta"><span class="src">${esc(whereOf(s, it.classification))}</span>${strengthChip(s)}${gradeChips(s, s.matched_text)}</div><div class="ar">${esc(s.matched_text)}</div>${ctx}${covers}${says}${full}${tafsirBox(s)}</div>`;
   }
   const list = (title, items, cls) => items.length ? `<h4>${title} (${items.length})</h4>` + items.map(i => evidenceItem(i, cls)).join("") : "";
+  // Texts nobody judged for or against the claim: closed by default and labelled, so a bare verse is not read as evidence.
+  const sideList = (title, items) => items.length ? `<details class="unjudged"><summary><b>${title} (${items.length})</b></summary>`
+    + `<div class="small" dir="rtl">لم يُحكم بأن هذه النصوص تؤيد العبارة أو تخالفها. تُعرض للاطلاع فقط؛ اقرأ كل آية مع سياقها. · Not judged for or against: read each verse in its context.</div>`
+    + items.map(i => evidenceItem(i, "related")).join("") + `</details>` : "";
 
   function segmentHtml(sg) {
     const st = { verified: ["Verified", "ok"], semantic_variant: ["Wording differs", "warn"], baseless: ["Not found in the sources", "bad"] }[sg.status] || [sg.status, ""];
@@ -171,13 +180,13 @@ const Cards = (() => {
     const partial = sg.match_type === "partial" && sg.status === "verified" && s && s.matched_text
       ? `<div class="small">This is only part of the verse. <details style="display:inline"><summary style="display:inline">Show the whole verse</summary><div class="ar">${esc(s.matched_text)}</div></details></div>` : "";
     const diffs = (sg.differences || []).length ? `<ul class="small" dir="rtl">${sg.differences.map(d => `<li>${esc(d)}</li>`).join("")}</ul>` : "";
-    return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${sg.match_type === "partial" && sg.status === "verified" ? `<span class="chip warn">Part of the verse</span>` : ""}${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${partial}${diffs}${s ? tafsirBox(s) : ""}</div>`;
+    return `<div class="item"><div class="meta"><span class="chip ${st[1]}">${st[0]}</span>${sg.match_type === "partial" && sg.status === "verified" ? `<span class="chip warn">Part of the verse</span>` : ""}${s ? strengthChip(s) : ""}${s ? `<span class="src">${esc([s.book, s.number].filter(Boolean).join(" · "))}</span>` : ""}${s ? gradeChips(s, sg.segment_text) : ""}</div><div class="ar">${esc(sg.segment_text)}</div>${partial}${diffs}${s ? tafsirBox(s) : ""}</div>`;
   }
 
   function similarHtml(sm) {
     const e = sm.evidence, s = e.source;
     const miss = (sm.missing_words || []).length ? `<div class="small" dir="rtl">كلمات في الجملة ليست في هذا النص: <b>${sm.missing_words.map(esc).join("، ")}</b></div>` : "";
-    return `<div class="item related"><div class="meta"><span class="chip warn">Close to a known text, not the same wording</span><span class="src">${esc(whereOf(s, e.classification))}</span>${strengthChip(s)}${gradeChips(s)}</div>`
+    return `<div class="item related"><div class="meta"><span class="chip warn">Close to a known text, not the same wording</span><span class="src">${esc(whereOf(s, e.classification))}</span>${strengthChip(s)}${gradeChips(s, s.matched_text)}</div>`
       + `<div class="small">The sentence shares ${Math.round(sm.shared_share * 100)}% of its distinctive words with this text. Read both: this is a pointer, not a verification.</div>`
       + `<div class="ar">${esc(e.full_text.length > 600 ? s.matched_text : e.full_text)}</div>${miss}${tafsirBox(s)}</div>`;
   }
@@ -244,7 +253,7 @@ const Cards = (() => {
       const ev = [...(r.supporting || []), ...(r.contradicting || [])];
       if (ev.length) tabs.push({ id: "evidence", label: "Evidence", n: ev.length, html: () => list("Evidence that supports the claim", r.supporting || [], "supports") + list("Evidence that contradicts the claim", r.contradicting || [], "contradicts") });
       const side = [...(r.partial || []), ...(r.related || [])];
-      if (side.length) tabs.push({ id: "related", label: r.outcome === "evidence_only" ? "Related texts" : "Partial & related", n: side.length, html: () => list("Texts that support only part of the claim", r.partial || [], "supports") + list(r.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", r.related || [], "related") });
+      if (side.length) tabs.push({ id: "related", label: r.outcome === "evidence_only" ? "Related texts" : "Partial & related", n: side.length, html: () => list("Texts that support only part of the claim", r.partial || [], "supports") + sideList(r.outcome === "quote_checked" ? "Texts with similar words, not this quote · نصوص بألفاظ قريبة" : r.outcome === "evidence_only" ? "Related texts · نصوص ذات صلة" : "Related, but not deciding · ذات صلة غير حاسمة", r.related || []) });
       if (r.quote_check) tabs.push({ id: "quote", label: "Quote check", html: () => r.quote_check.segments.map(segmentHtml).join("") });
       const hs = r.quote_check && r.quote_check.segments.find(hadithLike);
       if (hs) tabs.push({ id: "dorar", label: "Dorar · الدرر", html: () => dorarBox(hs.segment_text) });
