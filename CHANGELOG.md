@@ -43,6 +43,14 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 - Scripts moved to `scripts/` (ingest, embed, validate) and `evals/` (one per golden set); corpora moved to `data/`. Paths, docstrings and the README
   updated; every script runs from its new place. Checked: corpus validation identical, quotes 51/51 with 0 false confirmations, fiqh 11/11.
 
+**Disputed rulings no longer look "supported" (later on day 1)**
+- A claim the text search supports but the encyclopedia reports as disputed (stated as certain, consensus claimed, partly disputed) now shows an amber
+  **Disputed ruling · خلافية** badge and headline instead of the green "Supported"; a ruling the encyclopedia reports as agreed differently shows a red
+  "Differs from the agreed ruling". The text-search outcome itself is unchanged (it is still printed, as a description of the texts, not of the ruling).
+  The Fiqh tab opens first and the strip counts these separately. Cards only: `app/static/cards.js`, `cards.css`.
+- The Arabic explanation says the same: its summary line and caution are replaced by a fixed sentence written by code (the ruling is disputed; the texts
+  are cited for one view), and the writer is told not to present the claim as supported or settled. `app/services/explain.py`.
+
 ## Open items for the team
 
 - Run `python evals/eval_fiqh.py --llm` and `python evals/eval_package.py -v` with the team key and record the numbers here.
