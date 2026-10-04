@@ -221,7 +221,7 @@ keeps the pages they want, then edits the text. A PDF page that has a real text 
 a garbled layer, a scan or an image is shrunk in the browser and sent to `POST /api/ocr`, where **two different models read it**
 (`app/services/ocr.py`: `gemini-3.1-flash-lite` and `gemini-3.5-flash-lite`, on the provider chosen in Settings). The words on which the two
 readings differ are listed next to the page, with a button to take the second reading. Nothing is stored, no cache is kept, and the
-page tells the reader that a mismatch on scanned text may be a reading error.
+page warns, next to the box and again on the results of the check: "Read from a scan; the reader may have filled in unclear words from context; check every word against the picture." (not shown for a PDF's own text layer). Both models can make the same context-driven mistake on a blurry image (a dialect word read back as a nearby standard one), which the comparison cannot catch: that is what the warning is for.
 
 Why two readers and a strict prompt: an OCR step that "improves" the text would hide a misquote. In the spike both models copied altered
 quotes exactly, but one once added «عَزَّ وَجَلَّ» to a real-looking hadith: the second reading catches that kind of insertion. Tesseract

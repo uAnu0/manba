@@ -8,6 +8,11 @@ const Ocr = (() => {
   const MAX_PAGES = 3, MAX_SIDE = 1800, WORD_LIMIT = 500, MIN_LAYER_LETTERS = 15;
   const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
   const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  // The warning shown next to the box and again on the results whenever the text was read from a scan by the model readers.
+  const WARNING_EN = "Read from a scan; the reader may have filled in unclear words from context; check every word against the picture.";
+  const WARNING_AR = "قُرئ هذا النص من مسح ضوئي؛ وقد يكون القارئ أكمل كلمات غير واضحة من السياق، فتحقّق من كل كلمة بمقارنتها بالصورة.";
+  const warningHtml = () => `<div class="banner scan-warning" dir="auto"><b>${WARNING_EN}</b><span dir="rtl" style="display:block;margin-top:4px">${WARNING_AR}</span></div>`;
+  let scanActive = false;  // true while the text in the box includes a page that a model read from an image
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const words = t => (String(t || "").trim().match(/\S+/g) || []).length;
   const short = t => { const w = String(t || "").split(/\s+/).filter(Boolean); return w.length > 14 ? w.slice(0, 14).join(" ") + " … (" + w.length + " words)" : t; };  // display only: replacing uses the full text
@@ -65,11 +70,12 @@ const Ocr = (() => {
       <div class="small ocr-help">Up to ${MAX_PAGES} pages. The ${WORD_LIMIT}-word limit still applies: keep the pages you want, then edit the text.</div><div class="ocr-pages"></div>`;
     const $ = sel => root.querySelector(sel), list = $(".ocr-pages"), input = $(".ocr-file"), status = $(".ocr-status");
     const headers = () => Object.assign({ "Content-Type": "application/json" }, opts.headers ? opts.headers() : {});
-    ta.addEventListener("input", () => { if (!composing && pages.length) edited = true; });
+    ta.addEventListener("input", () => { if (!composing && pages.length) edited = true; if (!ta.value.trim()) scanActive = false; });
 
     function compose() {
       const parts = pages.filter(p => p.include && p.text).map(p => p.text);
       composing = true; ta.value = parts.join("\n\n"); ta.dispatchEvent(new Event("input")); composing = false; edited = false; summary();
+      scanActive = pages.some(p => p.include && p.text && p.source === "ocr");
     }
     function summary() {
       const n = words(ta.value), el = $(".ocr-total"); if (!el) return;
@@ -79,7 +85,7 @@ const Ocr = (() => {
 
     function draw() {
       $(".ocr-clear").hidden = !pages.length;
-      list.innerHTML = pages.map((p, i) => `<div class="ocr-page" data-i="${i}">
+      list.innerHTML = (pages.some(p => p.source === "ocr" && p.text) ? warningHtml() : "") + pages.map((p, i) => `<div class="ocr-page" data-i="${i}">
         <img class="ocr-thumb" src="${p.thumb}" alt="page ${p.label}" title="Click to enlarge or shrink">
         <div class="ocr-main"><div><b>${esc(p.label)}</b> <span class="chip ${p.source === "ocr" ? "warn" : "blue"}">${p.source === "ocr" ? "OCR · read by two models" : p.source === "layer" ? "text layer" : "…"}</span>
           <span class="small">${p.text ? words(p.text) + " words" : ""}</span></div>
@@ -88,7 +94,7 @@ const Ocr = (() => {
           ${p.source === "layer" ? `<button type="button" class="ocr-reread small">Read it as an image instead</button>` : ""}
           ${p.note ? `<div class="small">${esc(p.note)}</div>` : ""}
           ${(p.diffs || []).length ? `<details open class="ocr-diffs"><summary class="small">${p.diffs.length} place(s) where the two readings differ: check them against the page</summary>${p.diffs.map((d, k) => `<div class="ocr-diff" dir="rtl" data-k="${k}"><span class="small">…${esc(d.before)}</span> <mark>${esc(short(d.a)) || "(nothing)"}</mark> <span class="small">|</span> <mark class="b">${esc(short(d.b)) || "(nothing)"}</mark> <span class="small">${esc(d.after)}…</span> <button type="button" class="ocr-useb small">use the second reading</button></div>`).join("")}</details>` : ""}
-        </div></div>`).join("") + (pages.length ? `<div class="small">This text was read from a scan: a word that differs from a verse or hadith may be a reading error, not a misquote.</div>` : "");
+        </div></div>`).join("");
       summary();
     }
 
@@ -139,7 +145,7 @@ const Ocr = (() => {
 
     $(".ocr-pick").onclick = () => input.click();
     input.onchange = () => run([...input.files]);
-    $(".ocr-clear").onclick = () => { pages = []; draw(); list.innerHTML = ""; status.textContent = ""; };
+    $(".ocr-clear").onclick = () => { pages = []; scanActive = false; draw(); list.innerHTML = ""; status.textContent = ""; };
     list.addEventListener("click", async ev => {
       const el = ev.target.closest(".ocr-page"); if (!el) return; const p = pages[+el.dataset.i];
       if (ev.target.closest(".ocr-thumb")) { el.classList.toggle("big"); return; }
@@ -162,5 +168,5 @@ const Ocr = (() => {
       }
     });
   }
-  return { mount };
+  return { mount, active: () => scanActive, warningHtml };
 })();
