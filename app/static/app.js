@@ -130,14 +130,28 @@
     b.onclick = () => { $("text").value = text; showTab("paste"); updateCount(); run(); };
     $("samples").appendChild(b);
   }
-  function showTab(which) {
-    $("tabPaste").setAttribute("aria-selected", String(which === "paste"));
-    $("tabFile").setAttribute("aria-selected", String(which === "file"));
-    $("tabScan").setAttribute("aria-selected", String(which === "scan"));
-    $("panePaste").hidden = which !== "paste";
-    $("paneFile").hidden = which !== "file";
-    $("paneScan").hidden = which !== "scan";
+  // The three input tabs: a pill slides under the chosen tab, and the new pane slides in from the side of its tab (the tabs run right to left).
+  const TAB_ORDER = ["paste", "file", "scan"], TAB_IDS = { paste: "tabPaste", file: "tabFile", scan: "tabScan" }, PANE_IDS = { paste: "panePaste", file: "paneFile", scan: "paneScan" };
+  let currentTab = "paste", pillReady = false;
+  function placePill() {
+    const bar = document.querySelector(".tabs"), pill = $("tabPill"), t = $(TAB_IDS[currentTab]);
+    if (!bar || !pill || !t || !t.offsetWidth) return;   // not shown right now: placed again when it is (see the observer below)
+    pill.style.width = t.offsetWidth + "px"; pill.style.height = t.offsetHeight + "px";
+    pill.style.transform = `translate(${t.offsetLeft}px, ${t.offsetTop}px)`;
+    if (!pillReady) { pillReady = true; requestAnimationFrame(() => requestAnimationFrame(() => pill.classList.add("slide"))); }   // the first placement is not animated
   }
+  function showTab(which) {
+    const from = TAB_ORDER.indexOf(currentTab), to = TAB_ORDER.indexOf(which);
+    for (const k of TAB_ORDER) { $(TAB_IDS[k]).setAttribute("aria-selected", String(which === k)); $(PANE_IDS[k]).hidden = which !== k; }
+    currentTab = which; placePill();
+    const pane = $(PANE_IDS[which]);
+    if (from !== to && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      pane.style.setProperty("--from", to > from ? "-30px" : "30px");
+      pane.classList.remove("pane-in"); void pane.offsetWidth; pane.classList.add("pane-in");
+      pane.addEventListener("animationend", () => pane.classList.remove("pane-in"), { once: true });
+    }
+  }
+  (() => { const bar = document.querySelector(".tabs"); if (!bar) return; bar.classList.add("has-pill"); if (window.ResizeObserver) { const ro = new ResizeObserver(placePill); /* a tab can change width (font loading, bold) without the bar changing */ ro.observe(bar); bar.querySelectorAll(".tab").forEach(t => ro.observe(t)); } window.addEventListener("resize", placePill); if (document.fonts && document.fonts.ready) document.fonts.ready.then(placePill); placePill(); })();
   $("tabPaste").onclick = () => showTab("paste");
   $("tabFile").onclick = () => showTab("file");
   $("tabScan").onclick = () => showTab("scan");
@@ -211,7 +225,7 @@
     try {
       const res = await fetch("/api/check", { method: "POST", headers: headers(true), body: JSON.stringify({ text, use_llm: true, use_meaning: true }) });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401) { stopLoading(); $("inputView").hidden = false; alertInline("الخادم يطلب رمز دخول: أدخله من الإعدادات."); $("settingsDlg").showModal(); return; }
+      if (res.status === 401) { stopLoading(); $("inputView").hidden = false; alertInline("الخادم يطلب رمز دخول: أدخله من الإعدادات."); openSettings(); return; }
       if (res.status === 422) throw new Error("النص طويل أو غير صالح للفحص. اختصره إلى 500 كلمة أو أقل.");
       if (!res.ok) throw new Error("تعذر الفحص الآن. أعد المحاولة بعد قليل.");
       await finishLoading();
@@ -223,8 +237,9 @@
     }
   }
   $("go").onclick = run;
-  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); popIn(); };
-  window.addEventListener("popstate", () => { if (!location.hash.includes("report")) $("newBtn").onclick(); });
+  // "New review" is a button in the report's summary card (next to copy and print); the report is its only place, so there is nothing to show or hide.
+  function newReview() { $("reportView").hidden = true; $("inputView").hidden = false; history.pushState({}, "", "#"); $("text").focus(); popIn(); }
+  window.addEventListener("popstate", () => { if (!location.hash.includes("report")) newReview(); });
 
   // ---------- report ----------
   // The first thing the reviewer reads: what stops publication, in one sentence.
@@ -254,6 +269,7 @@
         <div class="actions no-print">
           <button class="btn" id="copySummary">نسخ ملخص التقرير</button>
           <button class="btn" id="printBtn">طباعة أو حفظ PDF</button>
+          <button class="btn primary" id="newBtn">مراجعة نص جديد</button>
         </div>
       </div>
       ${store.entries.length ? `<p class="headline">${headline(needs, counts)}</p><div class="seg" aria-hidden="true">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<i class="s-${k}" style="flex: ${counts[k]}"></i>`).join("")}</div>
@@ -287,7 +303,7 @@
     const rv = $("reportView");
     rv.innerHTML = head + body + `<p class="cap" style="line-height: 1.8">هذا التقرير يبيّن مواضع النصوص في المصادر وأحكام العلماء كما نقلتها، وليس فتوى ولا ترجيحًا. ما كتبه الذكاء الاصطناعي معلَّم بذلك.</p>`;
     if (typeof Ocr !== "undefined" && Ocr.active()) rv.insertAdjacentHTML("afterbegin", Ocr.warningHtml());  // the text was read from a scan: say so on the report too
-    rv.hidden = false; $("newBtn").hidden = false;
+    rv.hidden = false;
     applyFilter();
     window.scrollTo({ top: 0 });
     // Details stay closed until the reviewer opens a card; the card itself already says what is wrong and what to do.
@@ -509,16 +525,25 @@
     if (t.hasAttribute("data-allrows")) { t.parentElement.querySelectorAll("[data-extra]").forEach(r => { r.hidden = false; }); t.remove(); return; }
     if (t.id === "copySummary") { copy(summaryText(), t); return; }
     if (t.id === "printBtn") { document.querySelectorAll(".more").forEach(m => { m.hidden = true; }); window.print(); return; }
-    if (t.id === "editBtn") { $("newBtn").onclick(); return; }
+    if (t.id === "editBtn" || t.id === "newBtn") { newReview(); return; }
   });
 
   // ---------- dialogs and settings ----------
   $("aboutBtn").onclick = () => $("aboutDlg").showModal();
-  $("settingsBtn").onclick = () => $("settingsDlg").showModal();
-  for (const [id, key] of [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]]) {
-    try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
-    $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value.trim()); } catch (e) {} });
-  }
+  // Settings are saved only by the Save button. Closing the window any other way (a click outside it, Esc) throws the edits away, and the fields show what is saved the next time.
+  const SETTING_FIELDS = [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]];
+  const settingsDlg = $("settingsDlg");
+  const loadSettings = () => { for (const [id, key] of SETTING_FIELDS) { let v = ""; try { v = localStorage.getItem(key) || ""; } catch (e) {} $(id).value = v; } };
+  const saveSettings = () => { for (const [id, key] of SETTING_FIELDS) { try { localStorage.setItem(key, $(id).value.trim()); } catch (e) {} } };
+  function openSettings() { loadSettings(); settingsDlg.showModal(); }
+  $("settingsBtn").onclick = openSettings;
+  loadSettings();
+  settingsDlg.querySelector("form button").addEventListener("click", saveSettings);
+  const outside = ev => { const r = settingsDlg.getBoundingClientRect(); return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom; };
+  let downOutside = false;   // the press must also start outside, so selecting text inside and letting go outside does not close it
+  settingsDlg.addEventListener("pointerdown", ev => { downOutside = outside(ev); });
+  settingsDlg.addEventListener("click", ev => { if (downOutside && outside(ev)) settingsDlg.close(); downOutside = false; });
+  settingsDlg.addEventListener("close", loadSettings);   // after Save this shows the saved values; after any other way of closing it drops the edits
   // The parts of the home page pop in one after another (the CSS does the staggering); it is also replayed when a new review starts.
   function popIn() {
     const h = $("inputView"); if (!h) return;
@@ -530,7 +555,7 @@
     const cover = $("intro"), logo = $("introLogo"); if (!cover) return;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); $("inputView").classList.remove("wait"); return; }
     let done = false, hold = null;
-    const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; cover.classList.add("out"); popIn(); setTimeout(() => cover.remove(), 700); };
+    const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; placePill(); cover.classList.add("out"); popIn(); setTimeout(() => cover.remove(), 700); };
     document.documentElement.style.overflow = "hidden";
     cover.addEventListener("click", finish); window.addEventListener("keydown", finish, { once: true });
     const font = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('700 96px "Amiri"', "مَنبَع"), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
