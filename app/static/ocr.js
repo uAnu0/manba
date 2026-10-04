@@ -1,21 +1,63 @@
-/* Scan a PDF or image into the claim box (test console).
+/* Scan a PDF or image into the text box (used by the reviewer page "/" in Arabic and by the test console "/claim" in English).
    - A PDF page that has its own text layer is read directly in the browser (pdf.js): no OCR, nothing uploaded.
    - Any other page (a scan, a photo, an image file) is shrunk in the browser and sent to /api/ocr, where two different models read it.
      Words on which the two readings differ are listed so the person can check them against the page.
    - At most 3 pages; the 500-word limit stays the real limit: the person chooses which pages to keep, then edits the text freely.
-   Nothing is stored. Usage: Ocr.mount(container, { textarea, headers: () => ({...}) }). */
+   Nothing is stored. Usage: Ocr.mount(container, { textarea, headers: () => ({...}), lang: "ar" | "en", onReview: () => {...} }). */
 const Ocr = (() => {
   const MAX_PAGES = 3, MAX_SIDE = 1800, WORD_LIMIT = 500, MIN_LAYER_LETTERS = 15;
   const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
   const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  // The warning shown next to the box and again on the results whenever the text was read from a scan by the model readers.
+  const arDigits = n => String(n).replace(/\d/g, d => "٠١٢٣٤٥٦٧٨٩"[d]);
+
+  // Every sentence the person reads, in both languages. The warning is the one the team asked for, shown next to the box and on the results.
   const WARNING_EN = "Read from a scan; the reader may have filled in unclear words from context; check every word against the picture.";
   const WARNING_AR = "قُرئ هذا النص من مسح ضوئي؛ وقد يكون القارئ أكمل كلمات غير واضحة من السياق، فتحقّق من كل كلمة بمقارنتها بالصورة.";
-  const warningHtml = () => `<div class="banner scan-warning" dir="auto"><b>${WARNING_EN}</b><span dir="rtl" style="display:block;margin-top:4px">${WARNING_AR}</span></div>`;
-  let scanActive = false;  // true while the text in the box includes a page that a model read from an image
+  const STR = {
+    en: {
+      pick: "Scan a PDF or image · مسح ملف", firstPage: "first page", clear: "Clear scan", edit: "View and edit the text",
+      help: () => `Up to ${MAX_PAGES} pages. The ${WORD_LIMIT}-word limit still applies: keep the pages you want, then edit the text.`,
+      thumb: "Click to enlarge or shrink", ocrChip: "OCR · read by two models", layerChip: "text layer", words: n => `${n} words`,
+      keep: "keep this page in the box", reread: "Read it as an image instead",
+      diffs: n => `${n} place(s) where the two readings differ: check them against the page`, nothing: "(nothing)", useB: "use the second reading",
+      pdfFail: "Could not load the PDF reader (pdf.js): check the connection.", noAccess: "The server needs an access code: enter it in Settings.",
+      unreadable: c => `The page could not be read (${c}).`, opening: "Opening the PDF…", choose: "Choose a PDF or an image (PNG, JPEG, WebP).",
+      page: (name, n) => `${name} · page ${n}`, reading: l => `Reading ${l}…`, rereading: l => `Reading ${l} as an image…`,
+      garbled: "The PDF has a text layer but it is garbled, so the page was read as an image.", done: "Done. Check the text, then press Check claim.",
+      info: (name, total, a, b) => `${name}: ${total} pages in all; reading ${a}–${b} (the limit is ${MAX_PAGES} pages: change “first page” for others).`,
+      confirmEdits: "You edited the text in the box. Changing the pages will replace your edits. Continue?",
+      cantReplace: "That part of the text was edited, so it can't be replaced automatically.", warning: WARNING_EN, warningOther: WARNING_AR, warningOtherDir: "rtl",
+    },
+    ar: {
+      pick: "مسح ملف PDF أو صورة", firstPage: "أول صفحة", clear: "إزالة المسح", edit: "عرض النص وتعديله",
+      help: () => `حتى ${arDigits(MAX_PAGES)} صفحات. ويبقى حدّ ${arDigits(WORD_LIMIT)} كلمة قائمًا: اختر الصفحات التي تريدها ثم عدّل النص.`,
+      thumb: "اضغط للتكبير أو التصغير", ocrChip: "قراءة آلية بنموذجين", layerChip: "نص مضمَّن في الملف", words: n => `${arDigits(n)} كلمة`,
+      keep: "إبقاء هذه الصفحة في النص", reread: "قراءتها كصورة بدلًا من ذلك",
+      diffs: n => `${arDigits(n)} موضع اختلفت فيه القراءتان: قارنه بالصفحة`, nothing: "(لا شيء)", useB: "اعتمد القراءة الثانية",
+      pdfFail: "تعذّر تحميل قارئ PDF (pdf.js). تحقق من الاتصال.", noAccess: "الخادم يطلب رمز دخول: أدخله من الإعدادات.",
+      unreadable: c => `تعذّرت قراءة الصفحة (${arDigits(c)}).`, opening: "جارٍ فتح ملف PDF…", choose: "اختر ملف PDF أو صورة (PNG أو JPEG أو WebP).",
+      page: (name, n) => `${name} · صفحة ${arDigits(n)}`, reading: l => `جارٍ قراءة ${l}…`, rereading: l => `جارٍ قراءة ${l} كصورة…`,
+      garbled: "في ملف PDF طبقة نصية لكنها مشوّهة، فقُرئت الصفحة كصورة.", done: "تمّ. راجع النص ثم اضغط «راجع النص».",
+      info: (name, total, a, b) => `${name}: ${arDigits(total)} صفحة في الملف؛ تُقرأ الصفحات ${arDigits(a)}–${arDigits(b)} (الحد ${arDigits(MAX_PAGES)} صفحات: غيّر «أول صفحة» لقراءة غيرها).`,
+      confirmEdits: "عدّلتَ النص في الخانة. تغيير الصفحات سيستبدل تعديلاتك. أتتابع؟",
+      cantReplace: "عُدِّل هذا الموضع من النص، فلا يمكن استبداله تلقائيًا.", warning: WARNING_AR, warningOther: WARNING_EN, warningOtherDir: "ltr",
+    },
+  };
+  let lang = "en";
+  const warningHtml = () => { const t = STR[lang]; return `<div class="banner scan-warning" role="note"><b>${t.warning}</b><span dir="${t.warningOtherDir}" style="display:block;margin-top:4px">${t.warningOther}</span></div>`; };
+
+  // true while the text in the box still comes (mostly) from a page that a model read from an image; see active()
+  let scanActive = false, composed = new Set(), boxEl = null;
+  const wordList = t => String(t || "").split(/\s+/).filter(Boolean);
+  const active = () => {
+    if (!scanActive || !boxEl) return false;
+    const w = wordList(boxEl.value); if (!w.length) return false;
+    return w.filter(x => composed.has(x)).length / w.length >= 0.5;  // a sample or a text file loaded afterwards replaces the text: no stale warning
+  };
+
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const words = t => (String(t || "").trim().match(/\S+/g) || []).length;
-  const short = t => { const w = String(t || "").split(/\s+/).filter(Boolean); return w.length > 14 ? w.slice(0, 14).join(" ") + " … (" + w.length + " words)" : t; };  // display only: replacing uses the full text
+  const words = t => wordList(t).length;
+  const short = t => { const w = wordList(t); return w.length > 14 ? w.slice(0, 14).join(" ") + " … (" + w.length + ")" : t; };  // display only: replacing uses the full text
 
   let pdfLoading = null;
   function loadPdfJs() {
@@ -23,7 +65,7 @@ const Ocr = (() => {
     return pdfLoading || (pdfLoading = new Promise((resolve, reject) => {
       const s = document.createElement("script"); s.src = PDFJS;
       s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; resolve(); };
-      s.onerror = () => { pdfLoading = null; reject(new Error("Could not load the PDF reader (pdf.js): check the connection.")); };
+      s.onerror = () => { pdfLoading = null; reject(new Error(STR[lang].pdfFail)); };
       document.head.appendChild(s);
     }));
   }
@@ -61,49 +103,46 @@ const Ocr = (() => {
   function jpeg(c) { let q = 0.85, d = c.toDataURL("image/jpeg", q); while (d.length * 0.75 > 2.8e6 && q > 0.4) { q -= 0.15; d = c.toDataURL("image/jpeg", q); } return d; }
 
   function mount(root, opts) {
-    const ta = opts.textarea; let pages = [], busy = false, edited = false, composing = false;
+    const ta = opts.textarea; boxEl = ta; lang = opts.lang === "ar" ? "ar" : "en"; const T = STR[lang];
+    let pages = [], busy = false, edited = false, composing = false;
     root.classList.add("ocr");
-    root.innerHTML = `<div class="ocr-bar"><button type="button" class="ocr-pick">Scan a PDF or image · مسح ملف</button>
-      <label class="small">first page <input type="number" class="ocr-first" min="1" value="1" style="width:4.5em"></label>
-      <button type="button" class="ocr-clear" hidden>Clear scan</button><span class="small ocr-status"></span></div>
+    root.innerHTML = `<div class="ocr-bar"><button type="button" class="ocr-pick btn">${T.pick}</button>
+      <label class="small cap">${T.firstPage} <input type="number" class="ocr-first" min="1" value="1" style="width:4.5em"></label>
+      <button type="button" class="ocr-clear btn small" hidden>${T.clear}</button>${opts.onReview ? `<button type="button" class="ocr-edit btn small" hidden>${T.edit}</button>` : ""}<span class="small cap ocr-status" role="status"></span></div>
       <input type="file" class="ocr-file" accept="application/pdf,.pdf,image/png,image/jpeg,image/webp" multiple hidden>
-      <div class="small ocr-help">Up to ${MAX_PAGES} pages. The ${WORD_LIMIT}-word limit still applies: keep the pages you want, then edit the text.</div><div class="ocr-pages"></div>`;
+      <div class="small cap ocr-help">${T.help()}</div><div class="ocr-pages"></div>`;
     const $ = sel => root.querySelector(sel), list = $(".ocr-pages"), input = $(".ocr-file"), status = $(".ocr-status");
     const headers = () => Object.assign({ "Content-Type": "application/json" }, opts.headers ? opts.headers() : {});
     ta.addEventListener("input", () => { if (!composing && pages.length) edited = true; if (!ta.value.trim()) scanActive = false; });
 
     function compose() {
-      const parts = pages.filter(p => p.include && p.text).map(p => p.text);
-      composing = true; ta.value = parts.join("\n\n"); ta.dispatchEvent(new Event("input")); composing = false; edited = false; summary();
+      const parts = pages.filter(p => p.include && p.text).map(p => p.text), text = parts.join("\n\n");
+      composing = true; ta.value = text; ta.dispatchEvent(new Event("input")); composing = false; edited = false;
+      composed = new Set(wordList(text));
       scanActive = pages.some(p => p.include && p.text && p.source === "ocr");
     }
-    function summary() {
-      const n = words(ta.value), el = $(".ocr-total"); if (!el) return;
-      el.textContent = `In the box: ${n} / ${WORD_LIMIT} words`; el.style.color = n > WORD_LIMIT ? "#b00020" : "";
-    }
-    ta.addEventListener("input", summary);
 
     function draw() {
       $(".ocr-clear").hidden = !pages.length;
+      if ($(".ocr-edit")) $(".ocr-edit").hidden = !pages.some(p => p.text);
       list.innerHTML = (pages.some(p => p.source === "ocr" && p.text) ? warningHtml() : "") + pages.map((p, i) => `<div class="ocr-page" data-i="${i}">
-        <img class="ocr-thumb" src="${p.thumb}" alt="page ${p.label}" title="Click to enlarge or shrink">
-        <div class="ocr-main"><div><b>${esc(p.label)}</b> <span class="chip ${p.source === "ocr" ? "warn" : "blue"}">${p.source === "ocr" ? "OCR · read by two models" : p.source === "layer" ? "text layer" : "…"}</span>
-          <span class="small">${p.text ? words(p.text) + " words" : ""}</span></div>
+        <img class="ocr-thumb" src="${p.thumb}" alt="${esc(p.label)}" title="${T.thumb}">
+        <div class="ocr-main"><div><b>${esc(p.label)}</b> <span class="chip ${p.source === "ocr" ? "warn" : "blue"}">${p.source === "ocr" ? T.ocrChip : p.source === "layer" ? T.layerChip : "…"}</span>
+          <span class="small cap">${p.text ? T.words(words(p.text)) : ""}</span></div>
           ${p.error ? `<div class="err">${esc(p.error)}</div>` : ""}
-          ${p.text ? `<label class="small"><input type="checkbox" class="ocr-include" ${p.include ? "checked" : ""}> keep this page in the box</label>` : ""}
-          ${p.source === "layer" ? `<button type="button" class="ocr-reread small">Read it as an image instead</button>` : ""}
-          ${p.note ? `<div class="small">${esc(p.note)}</div>` : ""}
-          ${(p.diffs || []).length ? `<details open class="ocr-diffs"><summary class="small">${p.diffs.length} place(s) where the two readings differ: check them against the page</summary>${p.diffs.map((d, k) => `<div class="ocr-diff" dir="rtl" data-k="${k}"><span class="small">…${esc(d.before)}</span> <mark>${esc(short(d.a)) || "(nothing)"}</mark> <span class="small">|</span> <mark class="b">${esc(short(d.b)) || "(nothing)"}</mark> <span class="small">${esc(d.after)}…</span> <button type="button" class="ocr-useb small">use the second reading</button></div>`).join("")}</details>` : ""}
+          ${p.text ? `<label class="small cap"><input type="checkbox" class="ocr-include" ${p.include ? "checked" : ""}> ${T.keep}</label>` : ""}
+          ${p.source === "layer" ? `<button type="button" class="ocr-reread btn small">${T.reread}</button>` : ""}
+          ${p.note ? `<div class="small cap">${esc(p.note)}</div>` : ""}
+          ${(p.diffs || []).length ? `<details open class="ocr-diffs"><summary class="small cap">${T.diffs(p.diffs.length)}</summary>${p.diffs.map((d, k) => `<div class="ocr-diff" dir="rtl" data-k="${k}"><span class="small cap">…${esc(d.before)}</span> <mark>${esc(short(d.a)) || T.nothing}</mark> <span class="small cap">|</span> <mark class="b">${esc(short(d.b)) || T.nothing}</mark> <span class="small cap">${esc(d.after)}…</span> <button type="button" class="ocr-useb btn small">${T.useB}</button></div>`).join("")}</details>` : ""}
         </div></div>`).join("");
-      summary();
     }
 
     async function ocr(p) {
       p.source = "ocr"; p.error = null; draw();
       const res = await fetch("/api/ocr", { method: "POST", headers: headers(), body: JSON.stringify({ image: jpeg(p.canvas), page: p.n || 1 }) });
       const d = await res.json().catch(() => ({}));
-      if (res.status === 401) throw new Error("The server needs an access code: enter it in Settings.");
-      if (!res.ok) throw new Error(typeof d.detail === "string" ? d.detail : "The page could not be read (" + res.status + ").");
+      if (res.status === 401) throw new Error(T.noAccess);
+      if (!res.ok) throw new Error(typeof d.detail === "string" ? d.detail : T.unreadable(res.status));
       p.text = d.text; p.diffs = d.diffs || []; p.note = d.note || null;
     }
 
@@ -114,23 +153,23 @@ const Ocr = (() => {
         for (const f of files) {
           if (jobs.length >= MAX_PAGES) break;
           if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
-            status.textContent = "Opening the PDF…"; await loadPdfJs();
+            status.textContent = T.opening; await loadPdfJs();
             const pdf = await window.pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
             const last = Math.min(pdf.numPages, start + (MAX_PAGES - jobs.length) - 1);
             for (let n = start; n <= last; n++) jobs.push({ kind: "pdf", pdf, n, name: f.name });
-            if (pdf.numPages > last || start > 1) info = `${f.name}: ${pdf.numPages} pages in all; reading ${start}–${Math.max(start, last)} (the limit is ${MAX_PAGES} pages: change “first page” for others).`;
+            if (pdf.numPages > last || start > 1) info = T.info(f.name, pdf.numPages, start, Math.max(start, last));
           } else if (/^image\//.test(f.type)) jobs.push({ kind: "image", file: f, name: f.name });
         }
-        if (!jobs.length) throw new Error("Choose a PDF or an image (PNG, JPEG, WebP).");
+        if (!jobs.length) throw new Error(T.choose);
         for (const j of jobs) {
-          const p = { label: j.kind === "pdf" ? `${j.name} · page ${j.n}` : j.name, n: j.n || 1, thumb: "", text: "", source: "…", include: false, diffs: [], note: null, error: null };
-          pages.push(p); status.textContent = `Reading ${p.label}…`; draw();
+          const p = { label: j.kind === "pdf" ? T.page(j.name, j.n) : j.name, n: j.n || 1, thumb: "", text: "", source: "…", include: false, diffs: [], note: null, error: null };
+          pages.push(p); status.textContent = T.reading(p.label); draw();
           try {
             if (j.kind === "pdf") {
               const page = await j.pdf.getPage(j.n); p.canvas = await pdfCanvas(page); p.thumb = thumbOf(p.canvas);
               const t = await layerText(page);
               if (hasLayer(t)) { p.text = t; p.source = "layer"; }
-              else { if (t.trim()) p.note = "The PDF has a text layer but it is garbled, so the page was read as an image."; await ocr(p); }
+              else { if (t.trim()) p.note = T.garbled; await ocr(p); }
             } else { p.canvas = await imageCanvas(j.file); p.thumb = thumbOf(p.canvas); await ocr(p); }
           } catch (e) { p.error = e.message; if (!p.thumb && p.canvas) p.thumb = thumbOf(p.canvas); p.source = p.source === "…" ? "ocr" : p.source; }
           draw();
@@ -138,7 +177,7 @@ const Ocr = (() => {
         // keep pages, in order, while they fit the limit (the first page is always kept so it can be trimmed)
         let total = 0;
         pages.forEach((p, i) => { const w = words(p.text); if (p.text && (i === 0 || total + w <= WORD_LIMIT)) { p.include = true; total += w; } });
-        compose(); draw(); status.textContent = info || "Done. Check the text, then press Check claim.";
+        compose(); draw(); status.textContent = info || T.done;
       } catch (e) { status.textContent = ""; list.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
       finally { busy = false; input.value = ""; }
     }
@@ -146,27 +185,29 @@ const Ocr = (() => {
     $(".ocr-pick").onclick = () => input.click();
     input.onchange = () => run([...input.files]);
     $(".ocr-clear").onclick = () => { pages = []; scanActive = false; draw(); list.innerHTML = ""; status.textContent = ""; };
+    if ($(".ocr-edit")) $(".ocr-edit").onclick = () => opts.onReview();
     list.addEventListener("click", async ev => {
       const el = ev.target.closest(".ocr-page"); if (!el) return; const p = pages[+el.dataset.i];
       if (ev.target.closest(".ocr-thumb")) { el.classList.toggle("big"); return; }
       if (ev.target.closest(".ocr-include")) {
-        if (edited && !confirm("You edited the text in the box. Changing the pages will replace your edits. Continue?")) { draw(); return; }
+        if (edited && !confirm(T.confirmEdits)) { draw(); return; }
         p.include = ev.target.closest(".ocr-include").checked; compose(); return;
       }
       if (ev.target.closest(".ocr-reread")) {
-        try { status.textContent = "Reading " + p.label + " as an image…"; await ocr(p); } catch (e) { p.error = e.message; }
+        try { status.textContent = T.rereading(p.label); await ocr(p); } catch (e) { p.error = e.message; }
         if (p.include) compose(); draw(); status.textContent = ""; return;
       }
       const use = ev.target.closest(".ocr-useb");
       if (use) {
         const d = p.diffs[+use.closest(".ocr-diff").dataset.k], base = [d.before, d.a, d.after].filter(Boolean).join(" "), repl = [d.before, d.b, d.after].filter(Boolean).join(" ");
         const swap = s => s.indexOf(base) >= 0 ? s.replace(base, repl) : null, a = swap(ta.value);
-        if (a == null) { alert("That part of the text was edited, so it can't be replaced automatically."); return; }
-        composing = true; ta.value = a; ta.dispatchEvent(new Event("input")); composing = false; summary();
+        if (a == null) { alert(T.cantReplace); return; }
+        composing = true; ta.value = a; ta.dispatchEvent(new Event("input")); composing = false;
+        wordList(a).forEach(w => composed.add(w));
         const b = swap(p.text); if (b != null) p.text = b;
         use.closest(".ocr-diff").style.opacity = .5; use.disabled = true;
       }
     });
   }
-  return { mount, active: () => scanActive, warningHtml };
+  return { mount, active, warningHtml };
 })();

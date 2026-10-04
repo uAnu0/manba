@@ -216,7 +216,7 @@ texts are not verified: check them before a public release.** Hadith have no taf
 
 ## Scan a PDF or image (OCR)
 
-On `/claim`, **Scan a PDF or image** fills the claim box from up to **3 pages**; the 500-word limit stays the real limit and the person
+On the reviewer page `/` (a third tab, **مسح PDF أو صورة**, in Arabic) and on the test console `/claim` (English), **Scan a PDF or image** fills the text box from up to **3 pages**; the 500-word limit stays the real limit and the person
 keeps the pages they want, then edits the text. A PDF page that has a real text layer is read in the browser (pdf.js, nothing uploaded);
 a garbled layer, a scan or an image is shrunk in the browser and sent to `POST /api/ocr`, where **two different models read it**
 (`app/services/ocr.py`: `gemini-3.1-flash-lite` and `gemini-3.5-flash-lite`, on the provider chosen in Settings). The words on which the two

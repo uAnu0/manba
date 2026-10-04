@@ -133,11 +133,16 @@
   function showTab(which) {
     $("tabPaste").setAttribute("aria-selected", String(which === "paste"));
     $("tabFile").setAttribute("aria-selected", String(which === "file"));
+    $("tabScan").setAttribute("aria-selected", String(which === "scan"));
     $("panePaste").hidden = which !== "paste";
     $("paneFile").hidden = which !== "file";
+    $("paneScan").hidden = which !== "scan";
   }
   $("tabPaste").onclick = () => showTab("paste");
   $("tabFile").onclick = () => showTab("file");
+  $("tabScan").onclick = () => showTab("scan");
+  // Scan a PDF or image (static/ocr.js): the text lands in the same box, so the word count and the review button below work unchanged.
+  if (typeof Ocr !== "undefined") Ocr.mount($("scanRoot"), { textarea: $("text"), headers: () => headers(true), lang: "ar", onReview: () => { showTab("paste"); $("text").focus(); } });
   async function readFile(f) {
     if (!f) return;
     if (!/\.(txt|md)$/i.test(f.name) && !(f.type || "").startsWith("text/")) { alertInline("هذا النوع من الملفات غير مدعوم بعد. استخدم ملفًا نصيًا ‎.txt‎ أو الصق النص."); return; }
@@ -250,6 +255,7 @@
     }
     const rv = $("reportView");
     rv.innerHTML = head + body + `<p class="cap" style="line-height: 1.8">هذا التقرير يبيّن مواضع النصوص في المصادر وأحكام العلماء كما نقلتها، وليس فتوى ولا ترجيحًا. ما كتبه الذكاء الاصطناعي معلَّم بذلك.</p>`;
+    if (typeof Ocr !== "undefined" && Ocr.active()) rv.insertAdjacentHTML("afterbegin", Ocr.warningHtml());  // the text was read from a scan: say so on the report too
     rv.hidden = false; $("newBtn").hidden = false;
     applyFilter();
     window.scrollTo({ top: 0 });

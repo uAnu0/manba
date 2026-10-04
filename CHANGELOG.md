@@ -52,7 +52,7 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
   are cited for one view), and the writer is told not to present the claim as supported or settled. `app/services/explain.py`.
 
 **Scan a PDF or image (OCR)**
-- `/claim` accepts a PDF (up to 3 pages) or images; a PDF text layer is read in the browser, anything else (scan, photo, garbled layer) goes to
+- The reviewer page `/` has a third input tab, **مسح PDF أو صورة**, and `/claim` has the same reader in English; both accept a PDF (up to 3 pages) or images; a PDF text layer is read in the browser, anything else (scan, photo, garbled layer) goes to
   `POST /api/ocr`, read by two different models; the words they disagree on are listed for the person to check. Nothing stored.
   `app/services/ocr.py`, `app/routers/ocr.py`, `app/static/ocr.js`. See the README section for the reasoning and the spike results.
 
