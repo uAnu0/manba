@@ -26,8 +26,10 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
   level counts above the cards; AI-written explanation labelled as generated and not a source text; AI-transparency and privacy notes on the claim page.
 
 **Dorar access (later on day 1)**
-- Dorar's Cloudflare answers 403 to every non-browser request, including from a home connection with a browser user agent, so the in-page lookup is
-  blocked too. When it fails, the Dorar tab now shows "open this search on dorar.net" (a normal page visit, which passes the check) instead of an error.
+- Dorar's Cloudflare answers 403 by TLS fingerprint: httpx, PowerShell and the in-page JSONP request are refused, browser headers or not; curl and a
+  Chrome-like client are accepted. The server now calls Dorar's official API with `curl_cffi` (impersonate Chrome): 200 from a data centre, full rulings.
+  The page asks the server first, then JSONP, then offers the search on dorar.net.
+- Rulings with a negation ("ليس بصحيح"، "ليس بحديث، لكن معناه صحيح"، "لم يصح") were counted as authentic because they contain "صحيح": fixed in server and page.
 
 **Fixes**
 - Local-only paragraph check: a sentence attributing words to the Prophet or to God that matches nothing is now shown as "not found" instead of disappearing.
@@ -40,7 +42,8 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 ## Open items for the team
 
 - Run `python eval_fiqh.py --llm` and `python eval_package.py -v` with the team key and record the numbers here.
-- Ask the organizers (Discord / info@IslamicAIch.org) or Dorar's support for API access for the challenge: the pack lists Dorar's API, but Cloudflare blocks it.
+- Optional: tell Dorar's support (support@dorar.net) how the app uses their API (cached, credited), so the access is on record.
+- Check `/api/dorar` once from the deployed host (a different data centre) right after deploying.
 - Consider HadeethEnc (hadeethenc.com, the organizers' partner): its API answers without a key and gives grade, attribution, reference and explanation for each hadith.
 - Known baseline gap seen today: "وقال: إنما الأعمال بالنيات" (attribution with no named speaker) is not verified, while the bare text is.
 - Before going public: decide how the hadith corpus ships (build at deploy time from the pinned sources, or limit to the Unlicense data).

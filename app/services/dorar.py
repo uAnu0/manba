@@ -7,21 +7,31 @@ narrator, the scholar who graded it (المحدث), the book and page, and that 
 about 300,000 hadith. The rulings are shown as Dorar gives them, each with its scholar; they are never merged into one
 grade of our own.
 
-Dorar sits behind Cloudflare, which refuses most data-centre addresses, so the result cards call the API from the
-reader's browser (JSONP, as the API documents) and fall back to this server endpoint. From a server that Dorar refuses,
-this module returns `available: false` with the reason, and nothing else changes.
+Dorar sits behind Cloudflare, which refuses requests by how the secure connection is made (its TLS fingerprint), not by
+headers: Python's httpx, PowerShell and the in-page JSONP request all get 403, browser headers or not. A client that
+connects the way Chrome does (curl_cffi with `impersonate`) gets the API's normal answer, from a data centre too, so this
+server calls the official API that way. Results are cached for a day and every result credits Dorar. If the call still
+fails, `available: false` carries the reason and the page offers the same search on dorar.net.
 """
 import html
+import json
 import re
 import time
 from collections import Counter, OrderedDict
 
 import httpx
 
+try:  # connects like Chrome, which Dorar's Cloudflare accepts (see the module docstring)
+    from curl_cffi.requests import AsyncSession
+except ImportError:  # pragma: no cover
+    AsyncSession = None
+
 from app.schemas import DorarItem, DorarResult
 
 API = "https://dorar.net/dorar_api.json"
-TIMEOUT = 8.0
+TIMEOUT = 10.0
+IMPERSONATE = "chrome"
+HEADERS = {"Accept": "application/json, text/plain, */*", "Accept-Language": "ar,en;q=0.9", "Referer": "https://dorar.net/"}
 MAX_QUERY_WORDS = 10
 TTL = 24 * 3600
 _cache: OrderedDict[str, tuple[float, DorarResult]] = OrderedDict()
@@ -35,8 +45,8 @@ _LABEL = re.compile(r"(الراوي|المحدث|المصدر|الصفحة أو 
 
 # The ruling's words, from the strongest to the weakest category. Order matters: "لا يصح" before "صحيح".
 CATEGORIES = [
-    ("fabricated", ("موضوع", "باطل", "لا أصل له", "لا اصل له", "مكذوب", "كذب")),
-    ("daif", ("ضعيف", "ضعفه", "لا يعرف", "لين", "منكر", "لا يصح", "لا يثبت", "شاذ", "معلول", "مرسل", "منقطع", "واه", "فيه ضعف", "متروك", "مجهول")),
+    ("fabricated", ("موضوع", "باطل", "لا أصل له", "لا اصل له", "ليس له أصل", "ليس له اصل", "مكذوب", "كذب", "ليس بحديث", "لا يعرف مرفوعا")),
+    ("daif", ("لم يصح", "جرحه", "ليس بصحيح", "غير صحيح", "ليس بثابت", "لم يثبت", "لا يثبت مرفوعا", "ضعيف", "ضعفه", "لا يعرف", "لين", "منكر", "لا يصح", "لا يثبت", "شاذ", "معلول", "مرسل", "منقطع", "واه", "فيه ضعف", "متروك", "مجهول")),
     ("hasan", ("حسن",)),
     ("sahih", ("صحيح", "ثابت", "متفق عليه", "على شرط", "إسناده جيد", "اسناده جيد", "رجاله ثقات")),
 ]
@@ -97,6 +107,16 @@ def query_of(text: str) -> str:
     return " ".join(words[k : k + MAX_QUERY_WORDS])
 
 
+async def _get(query: str) -> tuple[int, str]:
+    if AsyncSession is not None:
+        async with AsyncSession(impersonate=IMPERSONATE, timeout=TIMEOUT) as session:
+            response = await session.get(API, params={"skey": query}, headers=HEADERS)
+            return response.status_code, response.text
+    async with httpx.AsyncClient(timeout=TIMEOUT, headers=HEADERS) as client:  # usually refused by Cloudflare
+        response = await client.get(API, params={"skey": query})
+        return response.status_code, response.text
+
+
 async def search(text: str) -> DorarResult:
     query = query_of(text)
     if not query:
@@ -105,11 +125,10 @@ async def search(text: str) -> DorarResult:
     if hit and time.time() - hit[0] < TTL:
         return hit[1]
     try:
-        async with httpx.AsyncClient(timeout=TIMEOUT, headers={"User-Agent": "Manba/1.0 (+Islamic content review tool)"}) as client:
-            response = await client.get(API, params={"skey": query})
-        if response.status_code != 200 or "json" not in response.headers.get("content-type", "") and not response.text.lstrip().startswith("{"):
-            return DorarResult(query=query, available=False, error=f"Dorar answered HTTP {response.status_code} to this server (Cloudflare often refuses data-centre addresses); the page asks Dorar from the browser instead")
-        data = response.json()
+        status, body = await _get(query)
+        if status != 200 or not body.lstrip().startswith("{"):
+            return DorarResult(query=query, available=False, error=f"Dorar answered HTTP {status} to this server (Cloudflare); the page offers the search on dorar.net instead")
+        data = json.loads(body)
         items = parse((data.get("ahadith") or {}).get("result", ""))
     except Exception as exc:
         return DorarResult(query=query, available=False, error=f"{type(exc).__name__}: {str(exc)[:160]}")
