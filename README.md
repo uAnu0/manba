@@ -4,7 +4,8 @@ Verification service for Islamic text. It takes raw text (a sentence or a whole 
 and checks each against local corpora: word for word, with the source, and an exact account of what differs when a quote is altered.
 A language model is optional and only *finds* candidate quotes; it never decides a verdict.
 
-**Private repository: for the team only.** The hadith texts come from sunnah.com-derived datasets without a license file (see Data sources).
+**The challenge requires this repository to be public at submission.** Before that, settle the hadith texts: they come from sunnah.com-derived datasets without a license file (see Data sources and the open decisions in `CHANGELOG.md`).
+What existed before the challenge days is declared in `BASELINE.md` (tag `v0-baseline`); what was built from 4 October is in `CHANGELOG.md`.
 
 ## Quick start
 
@@ -42,6 +43,53 @@ LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provid
 
 Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
 On Vercel give the function enough memory and duration, and expect a slow first request after a cold start.
+
+## Fiqh check (challenge day 1)
+
+`POST /api/fiqh` with `{"claim": "...", "use_llm": true}`, and automatically inside `/api/claim` and `/api/check` for any sentence worded as a fiqh
+ruling. It answers one question the scientific pack makes binding: **is a disputed question being stated as settled, or a consensus claimed that the
+sources do not report?** It never says which opinion is right.
+
+1. **How the sentence is worded** (code): a claimed consensus (أجمع، بالإجماع، اتفق العلماء، لا خلاف، متفقون), a flat ruling (حرام، واجب، لا يجوز، سنة، ينقض ...),
+   or a hedged one (عند الجمهور، على الراجح، في قول، عند الحنفية ...). A sentence with no ruling word is not a fiqh claim.
+2. **Where the encyclopedia discusses it**: BM25 over the 26,363 numbered paragraphs of the Kuwaiti Fiqh Encyclopedia (45 volumes, built by
+   `python ingest_fiqh.py` into `data/fiqh/kuwaiti.jsonl.gz`), with a second index over entry names and paragraph headings ("زكاة الحلي").
+3. **Which passages are about the same issue** (model, optional): it may only say same issue or not, copy the passage's own ruling sentence (the copy must
+   occur in the passage, or it is dropped), and say whether the person's ruling is one the passage reports. It writes no ruling.
+4. **Agreement or disagreement** (code, never the model): read from the encyclopedia's fixed wording (اتفق الفقهاء، أجمعوا، بلا خلاف / اختلف الفقهاء، ذهب ... وذهب،
+   خلافًا لـ، في رواية). The schools' positions are the passage's own sentences that name الحنفية، المالكية، الشافعية، الحنابلة، الجمهور, quoted verbatim, with volume, page and paragraph.
+5. **Outcome**: `consensus_claim_disputed`, `stated_as_certain_disputed`, `disagreement_acknowledged`, `agreement_reported`, `agreement_differs`,
+   `partly_disputed`, `found_no_marker`, `not_found` (nothing concluded, refer to a specialist). Without a model the best keyword match is shown and labelled so.
+
+Measured on `golden/fiqh_golden.json` (11 sentences written from the encyclopedia's wording; needs a scholar's review) in keyword mode, no model:
+status acceptable 11/11, the expected entry shown 9/9, **false_settled 0** (no disputed question shown as agreed). Run `python eval_fiqh.py [--llm]`.
+Startup cost: about 8 s and 190 MB more memory.
+
+## Content levels (challenge day 1)
+
+Every quote segment, claim result and paragraph item carries `content_level`, the level of the scientific pack: **أ** settled text (Quran, authentic hadith),
+**ب** explanation with the reference shown, **ج** disputed or sensitive (disagreement stated, or referral), **د** personal case or fatwa (referral only).
+Nothing that was not found gets a level. Rules: `app/services/levels.py`. `/api/check` counts them in `summary` (`level_أ` ...), next to the fiqh flags (`fiqh_<status>`).
+
+## Dorar gradings (challenge day 1)
+
+The pack's rule: no hadith is attributed without a source and an approved grading. The local corpus has no grading for about 4,800 hadith (Musnad Ahmad,
+al-Darimi) and covers nine books. A card with a hadith, or with words attributed to the Prophet that were not found, has a **Dorar** tab: it searches Dorar's
+hadith encyclopedia (about 300,000 hadith) and lists each narration with its scholar, book, page and ruling **as Dorar gives them**, flags when the rulings
+differ, and never merges them into one grade. Dorar's Cloudflare refuses most data-centre addresses (this server got HTTP 403), so the page asks Dorar from
+the reader's browser (JSONP, as Dorar's API documents) and falls back to `GET /api/dorar?q=...` (`app/services/dorar.py`). The parser is tested on a real
+Dorar response (`tests/fixtures/dorar_sample.json`).
+
+## Organizers' test cases
+
+`golden/package_cases.json` holds the test table of the scientific pack (page 6) as it applies to Track 4: the input Manba gets, the pack's expected
+behaviour, and a check. Cases for a conversational or translation product are listed as not applicable, with the reason. `python eval_package.py -v` (needs a model).
+
+## Transparency and privacy
+
+The claim page states that Manba is an AI-assisted tool, not a scholar; that it issues no fatwa and prefers no opinion; that AI-written explanations are
+labelled and kept apart from source texts; and what happens to the text a person enters (sent for checking, not stored; keys stay in the browser; the Dorar
+tab contacts dorar.net from the browser).
 
 ## Paragraph check (version 0)
 
@@ -196,6 +244,11 @@ Run `python eval_golden.py` before and after any change to matching code. The go
 - `app/static/index.html`: test console.
 
 ## Data sources
+
+- `data/fiqh/kuwaiti.jsonl.gz`: al-Mawsu'a al-Fiqhiyya al-Kuwaytiyya (Ministry of Awqaf and Islamic Affairs, Kuwait; published free of charge at
+  bohoth.awqaf.gov.kw and named in the challenge's scientific pack). Text from Shamela book 11430 via the Hugging Face dataset
+  MoMonir/shamela_books_text_full (Apache-2.0 for the dataset), pagination matching the printed edition. Rebuild with `python ingest_fiqh.py`.
+- Hadith gradings shown in the Dorar tab come live from Dorar al-Saniyya (dorar.net, hadith encyclopedia API) and are credited on every result.
 
 - `data/tanzil/` holds the Quran texts from the [Tanzil Project](https://tanzil.net) (Uthmani and simple-clean),
   unmodified and used under its CC BY 3.0 terms: source must be credited and linked to tanzil.net.

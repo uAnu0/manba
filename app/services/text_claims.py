@@ -10,6 +10,8 @@ from collections import Counter
 
 from app.schemas import ClaimLLMInfo, TextCheckResponse, TextClaimItem
 from app.services.claim_card import verify_claim
+from app.services.fiqh import assertion_of
+from app.services.levels import segment_level
 from app.services.llm_query import find_claims
 from app.services.pipeline import _redact, sentence_spans, verify_local
 from app.services.quote_finder import CONTEXT, FILLER, HONORIFIC, PROPHET, SAID, SPEAKER, SPEAKER_NAMES, tokenize
@@ -22,6 +24,14 @@ MAX_PIECES = 60  # stretches compared by meaning per request (one cached embeddi
 MIN_CLAIM_WORDS = 3
 FRAGMENT_WORDS = 5  # an unmarked verbatim run this short is common speech that happens to occur in a text, not a quotation
 MIN_UNIT_WORDS = 4  # what is left of a sentence around a quote is checked as a claim only if it is at least this long
+
+
+_ATTRIBUTED = re.compile(r"قال رسول الله|قال النبي|ﷺ|صلى الله عليه وسلم|قال تعالى|قال الله|رواه|في الحديث")
+
+
+def _level(segment):
+    segment.content_level = segment_level(segment)
+    return segment.content_level
 
 
 def _locate(sentence: str, claim: str) -> tuple[int, int] | None:
@@ -178,6 +188,22 @@ async def check_text(
             llm.used = True
         except Exception as exc:
             llm.error = _redact(f"{type(exc).__name__}: {exc}")
+    if not llm.used:
+        # No model (or it failed): a sentence that attributes words to the Prophet or to God and matches nothing is shown
+        # as a quote that was not found (with a model, the router handles it as a claim); it must never disappear.
+        for loc in verify_local(text):
+            span = (loc.start, loc.end)
+            if (loc.segment.status == "baseless" and _ATTRIBUTED.search(text[loc.start : loc.end])
+                    and not any(_overlap(span, q) > 0 for q in quote_spans)):
+                quotes.append(loc)
+                quote_spans.append(span)
+        units = [u for u in units if not any(_overlap(u, q) > 0.5 * (u[1] - u[0]) for q in quote_spans)]
+        unit_texts = [text[a:b] for a, b in units]
+        # A sentence worded as a fiqh ruling is still looked up in the fiqh encyclopedia,
+        # by keywords, so a disputed question stated as settled is flagged even in the local-only mode.
+        for (a, b), unit in zip(units, unit_texts):
+            if assertion_of(unit)[0] != "none" and len(tokenize(unit)) >= MIN_CLAIM_WORDS:
+                claims.append((a, b, unit.strip()))
     skipped = max(0, len(claims) - MAX_CLAIMS)
     claims = sorted(claims)[:MAX_CLAIMS]
 
@@ -186,7 +212,7 @@ async def check_text(
 
     async def check(claim: str):
         async with sem:
-            return await verify_claim(claim, True, api_key, use_meaning, with_similar=False)
+            return await verify_claim(claim, llm.used, api_key, use_meaning, with_similar=False)
 
     async def nearest(sentence: str):
         async with sem:
@@ -202,7 +228,7 @@ async def check_text(
     items = [
         TextClaimItem(
             kind="quote", text=text[q.start : q.end].strip(), start=q.start, end=q.end, quote=q.segment,
-            fragment=is_fragment(q),
+            fragment=is_fragment(q), content_level=_level(q.segment),
         )
         for q in quotes
     ]
@@ -210,7 +236,7 @@ async def check_text(
         if isinstance(result, Exception):
             llm.error = (llm.error + "; " if llm.error else "") + _redact(f"{type(result).__name__}: {result}")
             continue
-        items.append(TextClaimItem(kind="claim", text=claim, start=start, end=end, result=result))
+        items.append(TextClaimItem(kind="claim", text=claim, start=start, end=end, result=result, content_level=result.content_level))
     taken: list[tuple[int, int]] = []  # a part of the text already pointed out (the best match per stretch wins)
     ranked = sorted(((p, s) for p, s in zip(pieces, nears) if s is not None), key=lambda ps: (-ps[1].shared_share, -ps[1].similarity))
     for (a, b), similar in ranked:
@@ -234,6 +260,11 @@ async def check_text(
         ("matched_phrase" if i.fragment else i.quote.status) if i.kind == "quote" else "similar_text" if i.kind == "similar" else i.result.outcome
         for i in items
     )
+    for i in items:  # what the fiqh check flagged, and how many results fall in each content level
+        if i.kind == "claim" and i.result.fiqh is not None:
+            summary[f"fiqh_{i.result.fiqh.status}"] += 1
+        if i.content_level:
+            summary[f"level_{i.content_level}"] += 1
     busy = [(i.start, i.end) for i in items]
     commentary = sum(1 for span in spans if not any(_overlap(span, b) > 0 for b in busy))
     return TextCheckResponse(

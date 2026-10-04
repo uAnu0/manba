@@ -18,6 +18,97 @@ const Cards = (() => {
     "similar", "refer_to_scholar", "evidence_only", "out_of_scope", "q_fragment", "quote_checked"];
   const FRAGMENT_WORDS = 5;  // a verified run this short is a stock phrase, not a quotation: kept apart so it does not inflate "verified"
 
+  // Content levels of the challenge's scientific pack (set by the server on every result).
+  const LEVELS = {
+    "أ": ["مستوى أ", "ok", "Level A · settled text (Quran, authentic hadith): answer directly with the source"],
+    "ب": ["مستوى ب", "blue", "Level B · explanation from approved material, with the reference shown"],
+    "ج": ["مستوى ج", "warn", "Level C · disputed or sensitive: state the disagreement or refer"],
+    "د": ["مستوى د", "bad", "Level D · personal case or fatwa: general information and referral only"] };
+  const levelChip = lv => { const m = LEVELS[lv]; return m ? `<span class="chip ${m[1]} level" title="${esc(m[2])}">${m[0]}</span>` : ""; };
+
+  // ---------- fiqh: what the Kuwaiti Fiqh Encyclopedia reports ----------
+  const FIQH = {
+    consensus_claim_disputed: ["ادّعاء إجماع في مسألة خلافية", "bad"], stated_as_certain_disputed: ["مسألة خلافية بصيغة القطع", "warn"],
+    disagreement_acknowledged: ["الخلاف مذكور", "ok"], agreement_reported: ["تنقل الموسوعة الاتفاق", "ok"],
+    agreement_differs: ["يخالف ما نُقل الاتفاق عليه", "bad"], partly_disputed: ["اتفاق في جانب وخلاف في جانب", "warn"],
+    found_no_marker: ["وُجدت المسألة دون تصريح باتفاق أو خلاف", ""], not_found: ["لم توجد في الموسوعة الفقهية", ""] };
+  const AGREE = { agreement: ["اتفاق", "ok"], disagreement: ["خلاف", "warn"], both: ["اتفاق وخلاف", "warn"], none: ["", ""] };
+  const fiqhChip = f => { const m = f && FIQH[f.status]; return m ? `<span class="chip ${m[1]}">فقه · ${m[0]}</span>` : ""; };
+  function fiqhHtml(f) {
+    const m = FIQH[f.status] || [f.status, ""];
+    const said = { consensus: "النص يدّعي الإجماع أو الاتفاق", definite: "النص يذكر الحكم بصيغة القطع", hedged: "النص يذكر الخلاف أو ينسب القول" }[f.assertion] || "";
+    let h = `<div class="outcome fiqh ${esc(f.status)}" dir="rtl"><h3><span class="chip ${m[1]}">${esc(m[0])}</span></h3><p>${esc(f.summary_ar)}</p><p class="small" dir="ltr">${esc(f.summary_en)}</p>`
+      + (said ? `<p class="small">${esc(said)}${(f.assertion_words || []).length ? `: «${f.assertion_words.map(esc).join("، ")}»` : ""}</p>` : "") + `</div>`;
+    h += (f.passages || []).map(p => {
+      const a = AGREE[p.agreement] || ["", ""];
+      const ruling = p.ruling_sentence ? `<div class="ruling" dir="rtl"><span class="small">موضع الحكم في النص:</span> ${esc(p.ruling_sentence)}</div>` : "";
+      const pos = (p.positions || []).length ? `<div class="positions" dir="rtl"><div class="small">أقوال المذاهب كما في الموسوعة:</div>${p.positions.map(x => `<div class="pos"><span class="chip">${x.schools.map(esc).join(" · ")}</span> ${esc(x.text)}</div>`).join("")}</div>` : "";
+      const head = [p.entry, p.heading].filter(Boolean).map(esc).join(" · ");
+      return `<div class="item fiqh-passage" dir="rtl"><div class="meta"><span class="src">${head}</span>${a[0] ? `<span class="chip ${a[1]}">${a[0]}</span>` : ""}${p.same_issue === null ? `<span class="chip">مطابقة بالكلمات</span>` : ""}</div>`
+        + ruling + pos + `<details><summary>نص الفقرة كاملًا</summary><div class="ar">${esc(p.text)}</div></details><div class="small cite">${esc(p.cite)}</div></div>`;
+    }).join("");
+    if (f.error) h += `<div class="small" dir="ltr">AI step unavailable, keyword match used: ${esc(f.error)}</div>`;
+    return h + `<div class="notice" dir="rtl">${esc(f.notice_ar)}<span dir="ltr" style="display:block;margin-top:4px">${esc(f.notice_en)}</span></div>`;
+  }
+
+  // ---------- Dorar: gradings as Dorar gives them, fetched from the reader's browser ----------
+  // Dorar's Cloudflare refuses most server addresses, so the page asks Dorar directly (JSONP, as its API documents)
+  // and falls back to the server's /api/dorar.
+  const DORAR_CATS = [["fabricated", ["موضوع", "باطل", "لا أصل له", "لا اصل له", "مكذوب", "كذب"]],
+    ["daif", ["ضعيف", "ضعفه", "لا يعرف", "لين", "منكر", "لا يصح", "لا يثبت", "شاذ", "معلول", "مرسل", "منقطع", "واه", "فيه ضعف", "متروك", "مجهول"]],
+    ["hasan", ["حسن"]], ["sahih", ["صحيح", "ثابت", "متفق عليه", "على شرط", "إسناده جيد", "اسناده جيد", "رجاله ثقات"]]];
+  const CAT_AR = { sahih: ["صحيح أو ثابت", "ok"], hasan: ["حسن", "blue"], daif: ["ضعيف أو فيه علة", "warn"], fabricated: ["موضوع أو لا أصل له", "bad"], other: ["حكم آخر", ""] };
+  const undiac = t => String(t || "").replace(/[\u064B-\u065F\u0670\u0640]/g, "");
+  const dorarCategory = g => { const t = undiac(g); for (const [c, ws] of DORAR_CATS) if (ws.some(w => t.includes(w))) return c; return "other"; };
+  const DORAR_DROP = new Set(["و", "ف", "قال", "وقال", "فقال", "يقول", "ويقول", "رسول", "الله", "النبي", "صلى", "عليه", "وسلم", "رواه", "حديث", "في", "الحديث"]);
+  const dorarQuery = t => {  // the quoted words only: no attribution, punctuation or stray clitics
+    const words = undiac(t).replace(/ﷺ|صلى الله عليه وسلم|قال رسول الله|قال النبي/g, " ").replace(/[^\u0621-\u064A\s]/g, " ").split(/\s+/).filter(Boolean);
+    let k = 0; while (k < words.length && DORAR_DROP.has(words[k])) k++;  // leading "وقال" etc.
+    return words.slice(k).slice(0, 10).join(" ");
+  };
+  function dorarParse(htmlText) {
+    const doc = new DOMParser().parseFromString(htmlText, "text/html");
+    return [...doc.querySelectorAll(".hadith-info")].map(info => {
+      const body = info.previousElementSibling, flat = info.textContent.replace(/\s+/g, " ");
+      const field = label => { const m = flat.match(new RegExp(label + "\\s*:\\s*(.*?)(?=(الراوي|المحدث|المصدر|الصفحة أو الرقم|خلاصة حكم المحدث)\\s*:|$)")); return m ? m[1].trim() : ""; };
+      const grade = field("خلاصة حكم المحدث");
+      return { text: (body ? body.textContent : "").replace(/^\s*\d+\s*-\s*/, "").trim(), narrator: field("الراوي"), scholar: field("المحدث"), source: field("المصدر"), page: field("الصفحة أو الرقم"), grade, category: dorarCategory(grade) };
+    });
+  }
+  let dorarSeq = 0;
+  function dorarJsonp(q) {
+    return new Promise((resolve, reject) => {
+      const cb = "manbaDorar" + (++dorarSeq), s = document.createElement("script");
+      const done = () => { clearTimeout(timer); delete window[cb]; s.remove(); };
+      const timer = setTimeout(() => { done(); reject(new Error("Dorar did not answer")); }, 9000);
+      window[cb] = d => { done(); resolve(d); };
+      s.onerror = () => { done(); reject(new Error("Dorar could not be reached from this browser")); };
+      s.src = "https://dorar.net/dorar_api.json?skey=" + encodeURIComponent(q) + "&callback=" + cb;
+      document.head.appendChild(s);
+    });
+  }
+  async function dorarLookup(q, headers) {
+    try {
+      const d = await dorarJsonp(q);
+      return { items: dorarParse((d && d.ahadith && d.ahadith.result) || ""), via: "browser" };
+    } catch (e) {
+      const res = await fetch("/api/dorar?q=" + encodeURIComponent(q), { headers });
+      const d = await res.json();
+      if (!res.ok || !d.available) throw new Error((d && d.error) || ("HTTP " + res.status));
+      return { items: d.items, via: "server" };
+    }
+  }
+  function dorarHtml(r, q) {
+    if (!r.items.length) return `<div class="small" dir="rtl">لم يُرجع الدرر السنية نتائج لهذا النص («${esc(q)}»).</div>`;
+    const counts = {}; r.items.forEach(i => counts[i.category] = (counts[i.category] || 0) + 1);
+    const strip = Object.keys(CAT_AR).filter(c => counts[c]).map(c => `<span class="chip ${CAT_AR[c][1]}">${counts[c]} · ${CAT_AR[c][0]}</span>`).join("");
+    const mixed = (counts.sahih || counts.hasan) && (counts.daif || counts.fabricated);
+    return `<div dir="rtl"><div class="meta">${strip}</div>${mixed ? `<div class="banner">أحكام العلماء على هذه الروايات مختلفة؛ تُعرض كما هي دون ترجيح، ويُرجع إلى أهل الاختصاص.</div>` : ""}`
+      + r.items.map(i => `<div class="item dorar-item"><div class="meta"><span class="chip ${(CAT_AR[i.category] || ["", ""])[1]}">${esc(i.grade || "—")}</span><span class="src">${esc(i.scholar)}</span><span class="small">${esc(i.source)}${i.page ? " · " + esc(i.page) : ""}${i.narrator ? " · الراوي: " + esc(i.narrator) : ""}</span></div><div class="ar">${esc(i.text)}</div></div>`).join("")
+      + `<div class="small">المصدر: الموسوعة الحديثية، الدرر السنية (dorar.net). الأحكام منقولة بألفاظ أصحابها كما يعرضها الموقع. · Gradings as given by Dorar (${r.via === "browser" ? "fetched by your browser" : "fetched by the server"}).</div></div>`;
+  }
+  const dorarBox = text => `<div class="dorar-box" data-q="${esc(dorarQuery(text))}"><button class="dorar-btn" type="button">Gradings from Dorar · أحكام العلماء من الدرر السنية</button><div class="small">Searches Dorar's hadith encyclopedia for: «${esc(dorarQuery(text))}»</div><div class="dorar-out"></div></div>`;
+
   // ---------- small pieces of markup ----------
   const strengthChip = s => { const m = STRENGTH[s.strength]; return m ? `<span class="chip ${m[1]}">Level ${s.level} · ${m[0]}</span>` : ""; };
   const gradeChips = s => (s.grades || []).map(g => `<span class="chip">${esc(g.grade)} · ${esc(g.name)}</span>`).join("");
@@ -66,8 +157,8 @@ const Cards = (() => {
 
   // ---------- entries: one per card ----------
   function entriesOf(data) {
-    if (data.items) return data.items.map(it => ({ kind: it.kind, text: it.text, start: it.start, result: it.result, quote: it.quote, similar: it.similar, fragment: it.fragment }));
-    return [{ kind: "claim", text: data.claim, start: 0, result: data }];
+    if (data.items) return data.items.map(it => ({ kind: it.kind, text: it.text, start: it.start, result: it.result, quote: it.quote, similar: it.similar, fragment: it.fragment, level: it.content_level }));
+    return [{ kind: "claim", text: data.claim, start: 0, result: data, level: data.content_level }];
   }
 
   const quoteStatus = (status, text, fragment) => {
@@ -96,7 +187,7 @@ const Cards = (() => {
       const variant = sg.find(x => x.status === "semantic_variant");
       return quoteStatus(variant ? "semantic_variant" : "baseless", e.text);
     }
-    return { key: r.outcome, label: SHORT[r.outcome] || r.outcome, cls: CHIP[r.outcome] || "", attention: !["supported", "out_of_scope"].includes(r.outcome), group: "claims" };
+    return { key: r.outcome, label: SHORT[r.outcome] || r.outcome, cls: CHIP[r.outcome] || "", attention: !["supported", "out_of_scope"].includes(r.outcome) || !!(r.fiqh && r.fiqh.attention), group: "claims" };
   }
 
   function bestSource(e) {
@@ -117,15 +208,20 @@ const Cards = (() => {
   function tabsOf(e, idx, store) {
     const tabs = [];
     const r = e.result;
+    const hadithLike = sg => sg && (sg.classification === "hadith" || (sg.status !== "verified" && /قال رسول الله|قال النبي|ﷺ|صلى الله عليه وسلم|حديث|رواه/.test(e.text || "")));
+    if (e.kind === "claim" && r.fiqh) tabs.push({ id: "fiqh", label: "Fiqh · الفقه", n: (r.fiqh.passages || []).length, html: () => fiqhHtml(r.fiqh) });
     if (e.kind === "claim") {
       const ev = [...(r.supporting || []), ...(r.contradicting || [])];
       if (ev.length) tabs.push({ id: "evidence", label: "Evidence", n: ev.length, html: () => list("Evidence that supports the claim", r.supporting || [], "supports") + list("Evidence that contradicts the claim", r.contradicting || [], "contradicts") });
       const side = [...(r.partial || []), ...(r.related || [])];
       if (side.length) tabs.push({ id: "related", label: r.outcome === "evidence_only" ? "Related texts" : "Partial & related", n: side.length, html: () => list("Texts that support only part of the claim", r.partial || [], "supports") + list(r.outcome === "evidence_only" ? "Related texts" : "Related, but not deciding", r.related || [], "related") });
       if (r.quote_check) tabs.push({ id: "quote", label: "Quote check", html: () => r.quote_check.segments.map(segmentHtml).join("") });
+      const hs = r.quote_check && r.quote_check.segments.find(hadithLike);
+      if (hs) tabs.push({ id: "dorar", label: "Dorar · الدرر", html: () => dorarBox(hs.segment_text) });
       if (r.similar) tabs.push({ id: "similar", label: "Close text", html: () => similarHtml(r.similar) });
     } else if (e.kind === "quote") {
       tabs.push({ id: "quote", label: "Quote check", html: () => segmentHtml(e.quote) });
+      if (hadithLike(e.quote)) tabs.push({ id: "dorar", label: "Dorar · الدرر", html: () => dorarBox(e.quote.segment_text) });
     } else {
       tabs.push({ id: "similar", label: "Close text", html: () => similarHtml(e.similar) });
     }
@@ -167,7 +263,9 @@ const Cards = (() => {
     if (data.items) {
       intro += `<div class="small" style="margin:10px 0">${entries.length} item(s) found in ${data.sentences} sentence(s); ${data.commentary_sentences} sentence(s) were commentary.${data.skipped_claims ? ` ${data.skipped_claims} more claim(s) were not checked (limit per request).` : ""}${data.truncated ? " The text was longer than the limit; only the first part was read." : ""}</div>`;
       if (data.llm && data.llm.error) intro += `<div class="err">${esc(data.llm.error)}</div>`;
-      if (!data.llm || !data.llm.used) intro += `<div class="banner">No model was used, so only quoted texts were checked.</div>`;
+      if (!data.llm || !data.llm.used) intro += `<div class="banner">No model was used, so only quoted texts and sentences worded as fiqh rulings were checked.</div>`;
+      const lv = ["أ", "ب", "ج", "د"].filter(l => data.summary && data.summary["level_" + l]);
+      if (lv.length) intro += `<div class="meta levels-strip" dir="rtl"><span class="small">مستويات المحتوى:</span>${lv.map(l => `${levelChip(l)}<span class="small">${data.summary["level_" + l]}</span>`).join(" ")}</div>`;
     }
     const multi = entries.length > 1;
     const root = document.createElement("div");  // listeners live on a fresh element, so re-rendering never stacks them
@@ -178,7 +276,7 @@ const Cards = (() => {
     cardsEl.innerHTML = entries.map(e => `
       <article class="card" data-i="${e.i}" data-group="${e.st.group}" data-status="${e.st.key}" data-needs="${e.st.attention ? 1 : 0}">
         <button class="card-head" aria-expanded="false" data-i="${e.i}">
-          <span class="badge chip ${e.st.cls}">${esc(e.st.label)}</span>
+          <span class="badge"><span class="chip ${e.st.cls}">${esc(e.st.label)}</span>${levelChip(e.level)}${e.kind === "claim" ? fiqhChip(e.result.fiqh) : ""}</span>
           <span class="card-text ar">${esc(e.text)}</span>
           <span class="card-src">${bestSource(e)}</span>
           <span class="chev" aria-hidden="true">▾</span>
@@ -223,6 +321,14 @@ const Cards = (() => {
           out.innerHTML = tafsirHtml(d);
         } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; }
         tb.disabled = false; return;
+      }
+      const db = ev.target.closest(".dorar-btn");
+      if (db) {
+        const box = db.parentElement, out = box.querySelector(".dorar-out");
+        db.disabled = true; out.innerHTML = `<div class="small">Asking Dorar…</div>`;
+        try { out.innerHTML = dorarHtml(await dorarLookup(box.dataset.q, opts.headers ? opts.headers() : {}), box.dataset.q); db.remove(); }
+        catch (e) { out.innerHTML = `<div class="err">Dorar is not reachable right now (${esc(e.message)}). You can search it directly: dorar.net/hadith</div>`; db.disabled = false; }
+        return;
       }
       const btn = ev.target.closest(".explain-btn");
       if (!btn) return;
@@ -273,7 +379,7 @@ const Cards = (() => {
   }
 
   function explainHtml(e) {
-    let h = `<div class="item" dir="rtl"><div class="meta"><span class="chip ${e.ai_written ? "blue" : ""}">${e.ai_written ? "كتب هذا الشرح نموذج ذكاء اصطناعي اعتمادًا على النصوص المعروضة فقط" : "شرح مبسّط مولَّد آليًا من النتيجة"}</span></div>`;
+    let h = `<div class="item" dir="rtl"><div class="meta"><span class="chip ${e.ai_written ? "blue" : ""}">${e.ai_written ? "شرح مولَّد بالذكاء الاصطناعي من النصوص المعروضة فقط، وليس من نصوص المصادر" : "شرح مبسّط مولَّد آليًا من النتيجة"}</span></div>`;
     if (e.summary_ar) h += `<p><b>${esc(e.summary_ar)}</b></p>`;
     h += (e.points || []).map(p => `<p>${esc(p.text)} <span class="small">[${p.cites.join("، ")}]</span></p>`).join("");
     if (e.caution) h += `<p class="small">${esc(e.caution)}</p>`;

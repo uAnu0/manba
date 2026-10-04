@@ -71,11 +71,19 @@
   </details>
 
   <div id="out"></div>
+
+  <section class="site-notes small" aria-label="About this tool">
+    <p dir="rtl"><b>أداة آلية مدعومة بالذكاء الاصطناعي.</b> مَنبَع ليس عالمًا ولا مفتيًا: يبيّن مواضع النصوص في المصادر وأحكام العلماء كما نقلتها المصادر، ولا يُصدر فتوى ولا يرجّح بين الأقوال. ما كُتب بالذكاء الاصطناعي (الشرح) معلَّم بذلك ومنفصل عن نصوص المصادر.</p>
+    <p><b>AI-assisted tool.</b> Manba is not a scholar or a mufti. It shows where texts are found and what scholars' rulings the sources record; it issues no fatwa and does not prefer one opinion over another. Anything an AI wrote (the explanation) is labelled and kept apart from the source texts.</p>
+    <p dir="rtl"><b>الخصوصية:</b> لا نطلب تسجيلًا ولا نجمع بيانات شخصية. النص الذي تُدخله يُرسل إلى الخادم للتحقق ثم إلى مزوّد نموذج الذكاء الاصطناعي عند تفعيله، ولا يُحفظ في قاعدة بيانات. المفاتيح التي تُدخلها في الإعدادات تبقى في متصفحك. عند فتح تبويب «الدرر» يتصل متصفحك مباشرة بموقع الدرر السنية.</p>
+    <p><b>Privacy:</b> no account, no personal data collected. Your text is sent to this server for checking and, when the AI is on, to the AI provider; it is not stored in a database. Keys you enter stay in your browser. Opening the Dorar tab makes your browser contact dorar.net directly.</p>
+    <p>Sources: Quran text Tanzil (tanzil.net, CC BY 3.0) · hadith: nine books (see README) · gradings: Dorar al-Saniyya (dorar.net) · fiqh: al-Mawsu'a al-Fiqhiyya al-Kuwaytiyya, Ministry of Awqaf, Kuwait · tafsir: al-Muyassar, al-Saadi.</p>
+  </section>
 </main>
 <script src="/static/cards.js"></script>
 <script>
 const $ = id => document.getElementById(id);
-const SAMPLES = ["الإسلام يحرم الربا", "الإسلام يبيح شرب الخمر", "Islam commands honouring parents", "الإسلام يأمر بعقوق الوالدين",
+const SAMPLES = ["زكاة الحلي المستعمل واجبة بالإجماع", "التسمية عند الوضوء واجبة", "اطلبوا العلم ولو في الصين", "الإسلام يحرم الربا", "الإسلام يبيح شرب الخمر", "Islam commands honouring parents", "الإسلام يأمر بعقوق الوالدين",
   "قال تعالى: وأحل الله البيع وحرم الربا", "قال النبي صلى الله عليه وسلم: النظافة من الإيمان", "هل يجوز لي أن أطلق زوجتي وهي حائض", "كيف أطبخ الأرز"];
 for (const q of SAMPLES) { const b = document.createElement("button"); b.textContent = q; b.onclick = () => { $("q").value = q; run(); }; $("samples").appendChild(b); }
 

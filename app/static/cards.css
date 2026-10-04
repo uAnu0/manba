@@ -44,3 +44,20 @@
 .tafsir-text { font: 18px/1.9 "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif; margin-top: 6px; }
 .tafsir-text p { margin: 0 0 8px; }
 .tafsir-text.clamp { max-height: 9.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+
+/* content levels, fiqh, Dorar */
+.badge { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.chip.level { font-family: "Noto Naskh Arabic", system-ui, sans-serif; }
+.levels-strip { margin: 6px 0; gap: 6px; }
+.outcome.fiqh { border-left-width: 6px; }
+.outcome.fiqh.consensus_claim_disputed, .outcome.fiqh.agreement_differs { border-color: var(--bad); }
+.outcome.fiqh.stated_as_certain_disputed, .outcome.fiqh.partly_disputed { border-color: var(--warn); }
+.outcome.fiqh.agreement_reported, .outcome.fiqh.disagreement_acknowledged { border-color: var(--ok); }
+.fiqh-passage .ruling { background: var(--warn-bg); border-radius: 8px; padding: 8px 10px; margin: 6px 0; font: 18px/1.9 "Amiri", "Noto Naskh Arabic", serif; }
+.positions { margin: 8px 0; display: grid; gap: 6px; }
+.pos { font: 17px/1.9 "Amiri", "Noto Naskh Arabic", serif; }
+.cite { margin-top: 6px; }
+.dorar-box { margin: 8px 0; display: grid; gap: 6px; } .dorar-btn { cursor: pointer; justify-self: start; }
+.dorar-item .ar { font-size: 18px; }
+.site-notes { margin-top: 28px; display: grid; gap: 8px; }
+.site-notes p { margin: 0; }

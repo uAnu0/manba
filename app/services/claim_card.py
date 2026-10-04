@@ -10,6 +10,8 @@ import asyncio
 from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
 from app.services.evidence import excerpt, index, search_text, stem, terms
 from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
+from app.services.fiqh import assertion_of, fiqh_check
+from app.services.levels import claim_level
 from app.services.llm_query import classify_claim, judge_claim
 from app.services.similar import nearest_text
 from app.services.pipeline import SAID_VERBS, SOURCE_WORDS, _redact, verify_text, verify_text_llm
@@ -178,13 +180,27 @@ def _unmarked_statement(claim: str, local) -> bool:
 async def verify_claim(
     claim: str, use_llm: bool = True, api_key: str | None = None, use_meaning: bool = True, with_similar: bool = True
 ) -> ClaimResponse:
-    """Check one claim. With `with_similar` it also points to the known text the wording is close to (one cached embedding)."""
+    """Check one claim. With `with_similar` it also points to the known text the wording is close to (one cached embedding).
+
+    A claim worded as a fiqh ruling ("... حرام", "... واجب بالإجماع") is also looked up in the fiqh encyclopedia, at the
+    same time, to see whether the question is agreed or disputed there (services/fiqh.py). Every result gets the
+    content level of the scientific pack (services/levels.py)."""
+    fiqh_task = asyncio.create_task(fiqh_check(claim, use_llm, api_key)) if assertion_of(claim)[0] != "none" else None
     if not (with_similar and use_meaning):
-        return await _verify_claim(claim, use_llm, api_key, use_meaning)
-    result, similar = await asyncio.gather(_verify_claim(claim, use_llm, api_key, use_meaning), nearest_text(claim, api_key))
-    quote_found = result.quote_check is not None and any(s.status == "verified" for s in result.quote_check.segments)
-    if similar is not None and not quote_found and result.outcome not in ("out_of_scope", "refer_to_scholar"):
-        result.similar = similar
+        result = await _verify_claim(claim, use_llm, api_key, use_meaning)
+    else:
+        result, similar = await asyncio.gather(_verify_claim(claim, use_llm, api_key, use_meaning), nearest_text(claim, api_key))
+        quote_found = result.quote_check is not None and any(s.status == "verified" for s in result.quote_check.segments)
+        if similar is not None and not quote_found and result.outcome not in ("out_of_scope", "refer_to_scholar"):
+            result.similar = similar
+    if fiqh_task is not None:
+        try:
+            fiqh = await fiqh_task
+        except Exception:  # the fiqh lookup is an addition: the claim check stands without it
+            fiqh = None
+        if fiqh is not None and fiqh.status != "not_fiqh" and result.claim_type in ("topic", "unknown"):
+            result.fiqh = fiqh
+    result.content_level = claim_level(result)
     return result
 
 

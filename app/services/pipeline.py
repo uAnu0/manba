@@ -11,6 +11,7 @@ results that were NOT verified and that overlap it; verified local results are n
 import re
 
 from app.schemas import ExtractionInfo, Segment, VerifyResponse
+from app.services.levels import segment_level
 from app.services.llm_extractor import extract_claims
 from app.services.quote_finder import REGION_MIN_WORDS, Located, locate_quotes, tokenize, _TRIM
 from app.services.verifier import normalize, verify_segment
@@ -82,6 +83,8 @@ def verify_local(text: str) -> list[Located]:
 
 
 def _response(text: str, located: list[Located], extraction: ExtractionInfo | None = None) -> VerifyResponse:
+    for item in located:
+        item.segment.content_level = segment_level(item.segment)
     return VerifyResponse(
         original_text=text,
         word_count=len(text.split()),
