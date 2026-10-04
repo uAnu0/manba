@@ -160,31 +160,48 @@
 
   // ---------- loading ----------
   const STEPS = ["استخراج الآيات والأحاديث والأحكام", "المطابقة مع المصحف والكتب التسعة", "تقييم الادعاءات بالأدلة", "المسائل الفقهية في الموسوعة الكويتية"];
-  let timer = null, typers = [];
+  let timer = null, typers = [], loading = null;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
   // Each step is written letter by letter when it appears; the next one then appears below it and the card grows (the earlier steps turn into a tick).
-  function typeInto(node, text, reduced) {
+  function typeInto(node, text, reduced, speed) {
     if (reduced) { node.textContent = text; return; }
     let n = 0; node.classList.add("typing");
-    const id = setInterval(() => { n++; node.textContent = text.slice(0, n); if (n >= text.length) { clearInterval(id); node.classList.remove("typing"); } }, 38);
-    typers.push(id);
+    const id = setInterval(() => { n++; node.textContent = text.slice(0, n); if (n >= text.length) { clearInterval(id); node.classList.remove("typing"); } }, speed || 38);
+    node._typer = id; typers.push(id);
   }
   function startLoading() {
     $("inputView").hidden = true; $("reportView").hidden = true; $("loadingView").hidden = false;
     const box = $("steps"), reduced = matchMedia("(prefers-reduced-motion: reduce)").matches; let i = -1;
-    box.innerHTML = "";
-    const next = () => {
+    box.innerHTML = ""; $("barFill").style.width = "0";
+    const ctl = loading = { reduced, step: () => i, last: STEPS.length - 1, box };
+    ctl.next = fast => {
       i++;
       const prev = box.lastElementChild;
-      if (prev) { prev.className = "step done"; prev.querySelector(".d").textContent = "✓"; }
+      if (prev) {   // the earlier step is finished at once if it was still being written
+        const t = prev.querySelector(".t"); clearInterval(t._typer); t.textContent = STEPS[i - 1]; t.classList.remove("typing");
+        prev.className = "step done"; prev.querySelector(".d").textContent = "✓";
+      }
       const el = document.createElement("div"); el.className = "step now enter";
       el.innerHTML = `<span class="d">${AR_DIGITS(i + 1)}</span><span class="t"></span>`;
-      box.appendChild(el); typeInto(el.querySelector(".t"), STEPS[i], reduced);
+      box.appendChild(el); typeInto(el.querySelector(".t"), STEPS[i], reduced, fast ? 16 : 38);
       $("barFill").style.width = Math.min(92, 12 + i * 24) + "%";
     };
-    next();
-    timer = setInterval(() => { if (i < STEPS.length - 1) next(); }, 3500);
+    ctl.next();
+    timer = setInterval(() => { if (i < STEPS.length - 1) ctl.next(); }, 3500);
   }
-  function stopLoading() { clearInterval(timer); typers.forEach(clearInterval); typers = []; $("loadingView").hidden = true; }
+  // The answer can come back at once (it was checked before and is kept): the person still sees every step, quickly, so it is clear what was checked.
+  async function finishLoading() {
+    const ctl = loading; if (!ctl) return;
+    clearInterval(timer); timer = null;
+    const k = ctl.reduced ? 0.15 : 1;
+    while (ctl.step() < ctl.last) { ctl.next(true); await sleep(900 * k); }
+    const last = ctl.box.lastElementChild;
+    if (last && last.querySelector(".t.typing")) await sleep(700 * k);   // the last step finishes being written
+    if (last) { const t = last.querySelector(".t"); clearInterval(t._typer); t.textContent = STEPS[ctl.last]; t.classList.remove("typing"); last.className = "step done"; last.querySelector(".d").textContent = "✓"; }
+    $("barFill").style.width = "100%";
+    await sleep(500 * k);
+  }
+  function stopLoading() { clearInterval(timer); typers.forEach(clearInterval); typers = []; loading = null; $("loadingView").hidden = true; }
 
   // ---------- run ----------
   async function run() {
@@ -197,6 +214,7 @@
       if (res.status === 401) { stopLoading(); $("inputView").hidden = false; alertInline("الخادم يطلب رمز دخول: أدخله من الإعدادات."); $("settingsDlg").showModal(); return; }
       if (res.status === 422) throw new Error("النص طويل أو غير صالح للفحص. اختصره إلى 500 كلمة أو أقل.");
       if (!res.ok) throw new Error("تعذر الفحص الآن. أعد المحاولة بعد قليل.");
+      await finishLoading();
       stopLoading();
       renderReport(data);
       history.pushState({ report: true }, "", "#report");
@@ -205,7 +223,7 @@
     }
   }
   $("go").onclick = run;
-  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); };
+  $("newBtn").onclick = () => { $("reportView").hidden = true; $("inputView").hidden = false; $("newBtn").hidden = true; history.pushState({}, "", "#"); $("text").focus(); popIn(); };
   window.addEventListener("popstate", () => { if (!location.hash.includes("report")) $("newBtn").onclick(); });
 
   // ---------- report ----------
@@ -501,13 +519,18 @@
     try { $(id).value = localStorage.getItem(key) || ""; } catch (e) {}
     $(id).addEventListener("change", () => { try { localStorage.setItem(key, $(id).value.trim()); } catch (e) {} });
   }
+  // The parts of the home page pop in one after another (the CSS does the staggering); it is also replayed when a new review starts.
+  function popIn() {
+    const h = $("inputView"); if (!h) return;
+    h.classList.remove("wait", "pop"); void h.getBoundingClientRect(); h.classList.add("pop");
+  }
   // Intro: the logo is written over the blurred page (after the font has loaded, so the letters have their real shape), held a moment, then the
   // cover fades away. A click or a key skips it; with reduced motion it is not shown. (The CSS also hides it after 9 s whatever happens.)
   (function intro() {
     const cover = $("intro"), logo = $("introLogo"); if (!cover) return;
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); return; }
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); $("inputView").classList.remove("wait"); return; }
     let done = false, hold = null;
-    const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; cover.classList.add("out"); setTimeout(() => cover.remove(), 700); };
+    const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; cover.classList.add("out"); popIn(); setTimeout(() => cover.remove(), 700); };
     document.documentElement.style.overflow = "hidden";
     cover.addEventListener("click", finish); window.addEventListener("keydown", finish, { once: true });
     const font = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('700 96px "Amiri"', "مَنبَع"), new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
