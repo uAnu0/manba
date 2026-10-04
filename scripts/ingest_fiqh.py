@@ -7,11 +7,16 @@ challenge's scientific pack as a reference for general fiqh. The text used here 
 passage the app shows can be cited to the printed page.
 
 Usage:
-    python ingest_fiqh.py                       # downloads the category file (~260 MB) into data/fiqh_raw/
-    python ingest_fiqh.py path/to/train-category-018.parquet
+    python scripts/ingest_fiqh.py                       # downloads the category file (~260 MB) into data/fiqh_raw/
+    python scripts/ingest_fiqh.py path/to/train-category-018.parquet
 
 Needs pyarrow (pip install pyarrow) only for this build step; the app reads the .jsonl.gz.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import gzip
 import json
 import re
@@ -19,7 +24,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "fiqh_raw" / "train-category-018.parquet"
 URL = "https://huggingface.co/datasets/MoMonir/shamela_books_text_full/resolve/main/data/train-category-018.parquet"
 OUT = ROOT / "data" / "fiqh" / "kuwaiti.jsonl.gz"

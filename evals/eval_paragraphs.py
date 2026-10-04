@@ -4,8 +4,13 @@ For each paragraph: is every expected claim found (and checked with an acceptabl
 found with the right status, was commentary wrongly checked as a claim, and were claims invented where there are none.
 A REVERSAL (a claim that must be contradicted shown as supported, or the other way round) is the worst error: target 0.
 
-Needs an OpenRouter key. Usage: python eval_paragraphs.py [-v]
+Needs an OpenRouter key. Usage: python evals/eval_paragraphs.py [-v]
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import argparse
 import asyncio
 import json
@@ -13,7 +18,7 @@ from pathlib import Path
 
 from app.services.text_claims import check_text
 
-GOLDEN = Path(__file__).resolve().parent / "golden" / "paragraphs_golden.json"
+GOLDEN = Path(__file__).resolve().parents[1] / "golden" / "paragraphs_golden.json"
 SUPPORT = {"supported", "supported_weakly", "supported_in_part"}
 
 

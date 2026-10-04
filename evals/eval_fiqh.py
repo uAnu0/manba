@@ -1,11 +1,16 @@
 """Measure the fiqh check on golden/fiqh_golden.json.
 
-    python eval_fiqh.py           # keyword mode (no model, no key)
-    python eval_fiqh.py --llm     # with the model step (about one call per item)
+    python evals/eval_fiqh.py           # keyword mode (no model, no key)
+    python evals/eval_fiqh.py --llm     # with the model step (about one call per item)
 
 Reports: status acceptable, the expected encyclopedia entry among the passages shown, and false_settled (a question the
 encyclopedia reports as disputed shown as agreed: target 0). Exit code 1 if false_settled > 0.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import asyncio
 import json
 import sys
@@ -13,7 +18,7 @@ from pathlib import Path
 
 from app.services.fiqh import fiqh_check
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 async def main(use_llm: bool) -> int:

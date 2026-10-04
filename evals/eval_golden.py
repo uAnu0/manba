@@ -6,9 +6,14 @@ Headline numbers (known_gap items are reported separately and never fail the run
   - false confirmations: items expected NOT verified that came back verified (target: 0)
   - status accuracy: every item's status is acceptable
 
-Usage: python eval_golden.py [--golden golden/quran_golden.json] [-v]
+Usage: python evals/eval_golden.py [--golden golden/quran_golden.json] [-v]
 Exit code 1 if there is any false confirmation or any non-gap failure.
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import argparse
 import json
 import sys
@@ -19,7 +24,7 @@ from pathlib import Path
 from app.services.pipeline import verify_text
 from app.services.verifier import hadith_index, verse_index, window_index
 
-DEFAULT_GOLDEN = Path(__file__).resolve().parent / "golden" / "quran_golden.json"
+DEFAULT_GOLDEN = Path(__file__).resolve().parents[1] / "golden" / "quran_golden.json"
 
 
 def acceptable_statuses(expect: dict) -> set[str]:

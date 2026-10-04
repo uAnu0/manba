@@ -1,4 +1,4 @@
-"""Build corpus.json from the Tanzil Quran texts in data/tanzil/ (no network needed).
+"""Build data/corpus.json from the Tanzil Quran texts in data/tanzil/ (no network needed).
 
 Each entry keeps the Uthmani verse as `text` (reference/display) and the Tanzil simple-clean verse as
 `match_text` (modern spelling, what people type). Tanzil text is used unmodified, except that the basmala
@@ -6,15 +6,20 @@ Tanzil prepends to ayah 1 of every surah other than 1 and 9 is removed (it is no
 
 Tanzil Project, https://tanzil.net, CC BY 3.0: keep the credit and the link to tanzil.net.
 
-Usage: python ingest_quran.py
+Usage: python scripts/ingest_quran.py
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 TANZIL_DIR = ROOT / "data" / "tanzil"
 SURAH_NAMES = ROOT / "data" / "surah_names.json"
-OUTPUT = ROOT / "corpus.json"
+OUTPUT = ROOT / "data" / "corpus.json"
 BOOK = "القرآن الكريم"
 BASMALA_WORDS = 4  # بسم الله الرحمن الرحيم
 EXPECTED_AYAHS = 6236

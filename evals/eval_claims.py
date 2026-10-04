@@ -5,8 +5,13 @@ segments' statuses right. A REVERSAL is a claim shown as contradicted that shoul
 (or supported_weakly) that should be contradicted: the worst error, the target is 0. A claim that must not be
 supported (golden outcome contradicted / no_clear_evidence) but comes back supported is a false support, also 0.
 
-Needs an OpenRouter key (about 4 model calls per claim). Usage: python eval_claims.py [-v] [--concurrency 3]
+Needs an OpenRouter key (about 4 model calls per claim). Usage: python evals/eval_claims.py [-v] [--concurrency 3]
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import argparse
 import asyncio
 import json
@@ -15,7 +20,7 @@ from pathlib import Path
 
 from app.services.claim_card import verify_claim
 
-GOLDEN = Path(__file__).resolve().parent / "golden" / "claims_golden.json"
+GOLDEN = Path(__file__).resolve().parents[1] / "golden" / "claims_golden.json"
 SUPPORT = {"supported", "supported_weakly", "supported_in_part"}
 
 

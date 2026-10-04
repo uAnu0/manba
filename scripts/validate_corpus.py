@@ -1,12 +1,17 @@
-"""Check corpus.json against the Tanzil texts in data/tanzil/.
+"""Check data/corpus.json against the Tanzil texts in data/tanzil/.
 
-  1. Integrity: every ayah of corpus.json equals Tanzil Uthmani (`text`) and Tanzil simple-clean
+  1. Integrity: every ayah of data/corpus.json equals Tanzil Uthmani (`text`) and Tanzil simple-clean
      (`match_text`) character for character, apart from the removed basmala; numbering is complete.
   2. Reach: after normalization, how many verses are matched by BOTH spellings, and which word-level
      differences remain between the two (these are what a user typing one script against the other hits).
 
-Usage: python validate_corpus.py [--show N]
+Usage: python scripts/validate_corpus.py [--show N]
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import argparse
 import difflib
 import json
@@ -14,7 +19,7 @@ import sys
 from collections import Counter
 
 from app.services.verifier import CORPUS_PATH, normalize
-from ingest_quran import BASMALA_WORDS, EXPECTED_AYAHS, load_tanzil, strip_basmala
+from scripts.ingest_quran import BASMALA_WORDS, EXPECTED_AYAHS, load_tanzil, strip_basmala
 
 
 def tanzil_without_basmala(name: str) -> dict[tuple[int, int], str]:

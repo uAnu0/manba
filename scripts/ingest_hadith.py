@@ -1,4 +1,4 @@
-"""Build corpus_hadith.json.gz from two sources that complement each other.
+"""Build data/corpus_hadith.json.gz from two sources that complement each other.
 
 Source A, AhmedBaset/hadith-json (tag v1.2.0, `the_9_books`, texts scraped from sunnah.com): all nine books,
 Arabic chapter titles, but no usable hadith numbers (`idInBook` is a scrape sequence, not the standard number).
@@ -20,8 +20,13 @@ Ahmad and Darimi come from A with an empty number.
 The raw downloads go to data/hadith/ (A) and data/hadith2/ (B), are git-ignored, and are checked against the
 SHA-256 values below.
 
-Usage: python ingest_hadith.py
+Usage: python scripts/ingest_hadith.py
 """
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # the repository root holds the app package
+
 import difflib
 import gzip
 import hashlib
@@ -31,10 +36,10 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 DIR_A = ROOT / "data" / "hadith"
 DIR_B = ROOT / "data" / "hadith2"
-OUTPUT = ROOT / "corpus_hadith.json.gz"  # gzip: the plain JSON is 53 MB
+OUTPUT = ROOT / "data" / "corpus_hadith.json.gz"  # gzip: the plain JSON is 53 MB
 
 TAG_A = "v1.2.0"
 URL_A = "https://raw.githubusercontent.com/AhmedBaset/hadith-json/" + TAG_A + "/db/by_book/the_9_books/{name}.json"
