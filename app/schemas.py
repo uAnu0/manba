@@ -319,6 +319,8 @@ class TextClaimItem(BaseModel):
     similar: Optional[SimilarText] = None  # kind == "similar": a sentence close to a known text, nothing else found in it
     content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None  # level of the scientific pack (services/levels.py)
     translated_ar: Optional[str] = None  # a claim written in another language: the machine translation that was searched (model-written)
+    verdict_kind: Optional[Literal["bad", "fix", "khl", "ref", "neu", "ok"]] = None
+    needs_action: bool = True
 
 
 class BadgeInfo(BaseModel):
@@ -331,7 +333,7 @@ class BadgeInfo(BaseModel):
 
 
 class BadgeVerifyRequest(BaseModel):
-    code: str = Field(..., max_length=64)
+    code: str = Field(..., max_length=128)
     text: Optional[str] = Field(default=None, max_length=60000)
 
 
@@ -361,6 +363,8 @@ class TextCheckResponse(BaseModel):
     content_type_cues: list[str] = Field(default_factory=list)  # the words that decided it
     blocking: int = 0  # findings that must change before publishing (services/badge.py; the page shows the same count)
     badge: Optional[BadgeInfo] = None  # given only when nothing blocks publishing
+    review_complete: bool = False
+    badge_unavailable: Optional[str] = None
 
 
 class TafsirEntry(BaseModel):
