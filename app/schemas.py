@@ -321,6 +321,29 @@ class TextClaimItem(BaseModel):
     translated_ar: Optional[str] = None  # a claim written in another language: the machine translation that was searched (model-written)
 
 
+class BadgeInfo(BaseModel):
+    """The serial of a clean review, signed by the server (services/badge.py). Anyone can check it at /api/badge/{code}."""
+
+    code: str  # MNB-XXXX-XXXX-XXXX-XXXX
+    date: str  # the day of the review, YYYY-MM-DD
+    mode: str  # "full": quotes, claims and rulings with the AI's help; "matching": direct matching only (no model)
+    items: int  # how many texts and rulings were checked
+
+
+class BadgeVerifyRequest(BaseModel):
+    code: str = Field(..., max_length=64)
+    text: Optional[str] = Field(default=None, max_length=60000)
+
+
+class BadgeVerifyResponse(BaseModel):
+    valid: bool
+    code: str
+    date: Optional[str] = None
+    mode: Optional[str] = None
+    text_matches: Optional[bool] = None  # only when a text was sent: is it the very text that was reviewed?
+    reason: Optional[str] = None
+
+
 class TextCheckResponse(BaseModel):
     original_text: str
     word_count: int
@@ -336,6 +359,8 @@ class TextCheckResponse(BaseModel):
     content_type: str = "text"  # khutbah | article | post | lesson | question | text (services/genre.py)
     content_type_ar: str = "النص"
     content_type_cues: list[str] = Field(default_factory=list)  # the words that decided it
+    blocking: int = 0  # findings that must change before publishing (services/badge.py; the page shows the same count)
+    badge: Optional[BadgeInfo] = None  # given only when nothing blocks publishing
 
 
 class TafsirEntry(BaseModel):

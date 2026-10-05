@@ -31,6 +31,7 @@
       <a href="#" class="view-tab" data-view="review" aria-current="page" data-en="Review">المراجعة</a>
       <a href="#how" class="view-tab" data-view="how" data-en="How it works">كيف يعمل</a>
       <a href="#who" class="view-tab" data-view="who" data-en="Who it's for">لمن مَنبَع</a>
+      <a class="view-tab" href="#verify" data-view="verify" data-en="Verify">التحقق</a>
     </nav>
     <a class="logo" href="/" aria-label="مَنبَع، الصفحة الرئيسية">
       <svg width="30" height="30" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" style="color: var(--brand)"><rect x="9" y="9" width="22" height="22" rx="2"></rect><rect x="9" y="9" width="22" height="22" rx="2" transform="rotate(45 20 20)"></rect><circle cx="20" cy="20" r="4" fill="currentColor" stroke="none"></circle></svg>
@@ -66,7 +67,8 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"></path></svg><span data-en="Scan a PDF or image">مسح PDF أو صورة</span></button>
     </div>
     <div id="panePaste" role="tabpanel" aria-labelledby="tabPaste" style="display: flex; flex-direction: column; gap: 8px">
-      <label for="text" class="cap" data-en="Text (up to 500 words)">النص (حتى 500 كلمة)</label>
+      <div class="row-between"><label for="text" class="cap" data-en="Text (up to 500 words)">النص (حتى 500 كلمة)</label>
+        <button class="btn small" id="clearBtn" type="button" hidden data-en="Clear the text">مسح النص</button></div>
       <textarea id="text" dir="auto" placeholder="ألصق النص هنا… مثال: قال رسول الله ﷺ: «…»" data-en-placeholder="Paste the text here… e.g. The Prophet ﷺ said: &quot;…&quot;"></textarea>
     </div>
     <div id="paneFile" role="tabpanel" aria-labelledby="tabFile" hidden>
@@ -117,7 +119,6 @@
       <div class="tour-nav">
         <button class="btn small" id="tourBack" type="button" data-en="Back">السابق</button>
         <div class="tour-dots" id="tourDots" role="group" aria-label="الخطوات" data-en-aria-label="Steps"></div>
-        <button class="btn small" id="tourPlay" type="button" aria-pressed="false"></button>
         <button class="btn small primary" id="tourNext" type="button"></button>
       </div>
     </div>
@@ -136,8 +137,34 @@
     <p class="cap tests" data-en="Tested before every release: 51 of 51 quotes checked correctly with no altered quote shown as verified, 16 of 16 fiqh cases with no disputed question shown as settled, and 10 of 10 quotes in other languages.">مُختبَر قبل كل إصدار: ٥١ من ٥١ اقتباسًا فُحصت صحيحًا دون أن يُعرض محرَّف على أنه موثّق، و١٦ من ١٦ حالة فقهية دون أن تُعرض مسألة خلافية على أنها متفق عليها، و١٠ من ١٠ اقتباسات بلغات أخرى.</p>
   </section>
 
+  <section class="principles-wrap" aria-labelledby="prTitle">
+    <h2 id="prTitle" data-en="What Manba does, and what it will not do">ما يفعله مَنبَع، وما لا يفعله</h2>
+    <div class="personas principles">
+    <article class="persona principle">
+      <img class="p-img" src="/static/img/principle-sources.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
+      <h3 data-en="The sources decide, not the model">المصادر تحكم، لا النموذج</h3>
+      <p class="p-does" data-en="The AI points at the verses, hadith and rulings; the verdict is read by code from the Mushaf, the hadith books and their gradings, and the fiqh encyclopedia.">الذكاء الاصطناعي يدلّ على مواضع الآيات والأحاديث والأحكام، أما الحكم فيُقرأ بالكود من المصحف وكتب الحديث وأحكام المحدثين والموسوعة الفقهية.</p>
+    </article>
+    <article class="persona principle">
+      <img class="p-img" src="/static/img/principle-scholar.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
+      <h3 data-en="No fatwa, no preference">لا يُفتي ولا يرجّح</h3>
+      <p class="p-does" data-en="It reports the schools' views as they are and chooses none; a personal case is referred to a scholar who hears its details.">ينقل أقوال المذاهب كما هي ولا يختار بينها، والحالة الشخصية تُحال إلى عالم يسمع تفاصيلها.</p>
+    </article>
+    <article class="persona principle">
+      <img class="p-img" src="/static/img/principle-private.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
+      <h3 data-en="Your text is not stored">نصك لا يُحفظ</h3>
+      <p class="p-does" data-en="The text is checked, then forgotten. A share link carries the text itself and the badge only its fingerprint, so nothing is kept on our side.">يُفحص النص ثم يُنسى. رابط المشاركة يحمل النص نفسه، والشارة تحمل بصمته فقط، فلا شيء محفوظ عندنا.</p>
+    </article>
+    <article class="persona principle">
+      <img class="p-img" src="/static/img/principle-labelled.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
+      <h3 data-en="AI-written lines are labelled">ما كتبه الذكاء الاصطناعي معلَّم</h3>
+      <p class="p-does" data-en="Every line the AI wrote, such as a plain-language explanation or a machine translation, carries a label that keeps it apart from the source texts.">كل سطر كتبه الذكاء الاصطناعي، كالشرح المبسط أو الترجمة الآلية، يحمل علامة تفصله عن نصوص المصادر.</p>
+    </article>
+    </div>
+  </section>
+
   <details class="panel how-more">
-    <summary data-en="Who decides what, the four content levels, and what Manba will not do">من يقرّر ماذا، ومستويات المحتوى الأربعة، وما لا يفعله مَنبَع</summary>
+    <summary data-en="Who decides what, and the four content levels">من يقرّر ماذا، ومستويات المحتوى الأربعة</summary>
     <section class="split">
     <div class="panel">
       <h2 data-en="Who decides what">من يقرّر ماذا</h2>
@@ -158,17 +185,7 @@
       </dl>
     </div>
   </section>
-    <section class="split">
-    <div class="panel">
-      <h2 data-en="What Manba will not do">ما لا يفعله مَنبَع</h2>
-      <ul class="ticks no">
-        <li data-en="Issue a fatwa or choose between scholars' opinions.">لا يُفتي، ولا يرجّح بين أقوال العلماء.</li>
-        <li data-en="Answer a personal case: those are referred to a scholar.">لا يجيب عن حالة شخصية: تُحال إلى عالم.</li>
-        <li data-en="Keep your text: it is checked and not stored.">لا يحفظ النص الذي تدخله: يُفحص ولا يُخزَّن.</li>
-        <li data-en="Hide what the AI wrote: every AI-written line is labelled.">لا يُخفي ما كتبه الذكاء الاصطناعي: كل سطر منه معلَّم.</li>
-      </ul>
-    </div>
-  </section>
+    
   </details>
   <div class="page-cta"><a class="btn primary big" href="#" data-view="review" data-en="Review your text">راجع نصك الآن</a></div>
 </main>
@@ -224,6 +241,22 @@
     </div>
   </section>
 </main>
+<main id="verifyView" class="page wrap" hidden>
+  <header class="page-head">
+    <span class="eyebrow" data-en="Verify a badge">تحقق من شارة</span>
+    <h1 data-en="Was this text really reviewed by Manba?">هل رُوجع هذا النص بمَنبَع فعلًا؟</h1>
+    <p class="lede" data-en="Every badge carries a serial signed by the Manba server. Enter it to see when the review took place; add the text to confirm it is the very text that was reviewed, letter for letter.">كل شارة تحمل رقمًا تسلسليًا موقَّعًا من خادم مَنبَع. أدخله لتعرف متى جرت المراجعة، وأرفق النص لتتأكد أنه النص نفسه الذي رُوجع، حرفًا بحرف.</p>
+  </header>
+  <section class="panel vform">
+    <label for="vCode" class="cap" data-en="Serial">الرقم التسلسلي</label>
+    <input id="vCode" dir="ltr" autocomplete="off" spellcheck="false" placeholder="MNB-XXXX-XXXX-XXXX-XXXX">
+    <label for="vText" class="cap" data-en="The text (optional)">النص (اختياري)</label>
+    <textarea id="vText" dir="auto" placeholder="ألصق النص الذي يحمل الشارة" data-en-placeholder="Paste the text that carries the badge"></textarea>
+    <div><button class="btn primary" id="vGo" type="button" data-en="Verify">تحقق</button></div>
+    <div id="vOut" class="vout" role="status" aria-live="polite" hidden></div>
+  </section>
+</main>
+<section id="printDoc" class="print-doc" aria-hidden="true"></section>
 <section id="loadingView" class="loading" hidden aria-live="polite">
   <b style="font-size: 18px" data-en="Reviewing your text">نراجع النص الآن</b>
   <div id="steps" style="display: flex; flex-direction: column; gap: 12px"></div>
@@ -236,7 +269,7 @@
 <footer class="foot">
   <div class="wrap">
     <span data-en="Sources: Quran text from Tanzil (CC BY 3.0) · the nine hadith books · Dorar's hadith encyclopedia · the Kuwaiti Fiqh Encyclopedia (Ministry of Awqaf, Kuwait) · Tafsir al-Muyassar and al-Saadi · QuranEnc approved translations.">المصادر: نص المصحف من Tanzil (CC BY 3.0) · الكتب التسعة · الموسوعة الحديثية في الدرر السنية · الموسوعة الفقهية الكويتية (وزارة الأوقاف بالكويت) · التفسير الميسر وتفسير السعدي.</span>
-    <span data-en="Manba is an automated tool, not a scholar or a mufti. Anything the AI writes is always labelled and kept apart from the source texts. <a href='/claim'>Developer tools</a>">مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="/claim">أدوات الاختبار للمطورين</a></span>
+    <span data-en="Manba is an automated tool, not a scholar or a mufti. Anything the AI writes is always labelled and kept apart from the source texts. <a href='#verify' data-view='verify'>Verify a badge</a> · <a href='/claim'>Developer tools</a>">مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="#verify" data-view="verify">تحقق من شارة</a> · <a href="/claim">أدوات الاختبار للمطورين</a></span>
   </div>
 </footer>
 

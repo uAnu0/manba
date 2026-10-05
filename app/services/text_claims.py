@@ -14,7 +14,7 @@ from app.services.fiqh import assertion_of, query_terms
 from app.services.levels import segment_level
 from app.services.llm_query import find_claims
 from app.services.pipeline import _redact, sentence_spans, verify_local
-from app.services.quote_finder import CONTEXT, FILLER, HONORIFIC, PROPHET, SAID, SPEAKER, SPEAKER_NAMES, tokenize
+from app.services.quote_finder import CONTEXT, Located, FILLER, HONORIFIC, PROPHET, SAID, SPEAKER, SPEAKER_NAMES, tokenize
 from app.services.similar import nearest_text
 from app.services.verifier import normalize
 
@@ -28,6 +28,15 @@ FRAGMENT_WORDS = 5  # an unmarked verbatim run this short is common speech that 
 MIN_UNIT_WORDS = 4  # what is left of a sentence around a quote is checked as a claim only if it is at least this long
 
 
+# The words that introduce a quotation ("قال تعالى:", "وقد قال رسول الله ﷺ:"), left at the end of a claim when the quote itself
+# was taken out: they are not part of the claim, and a claim ending in them must not be routed as a quotation.
+_TRAILING_CUE = re.compile(
+    r"[\s،؛:,]*(?:(?:و|ف)?(?:قد\s+)?(?:قال|يقول|جاء في (?:الحديث|القرآن)|ورد في الحديث)"
+    r"(?:\s+(?:الله|رسول الله|النبي|الرسول|سبحانه|ربنا))?(?:\s+(?:تعالى|عز وجل|جل وعلا|سبحانه وتعالى))?"
+    r"(?:\s*(?:ﷺ|صلى الله عليه وسلم|ﷻ))?)\s*:?\s*$"
+)
+_QUOTED = re.compile(r"«[^»]{4,}»|\"[^\"]{4,}\"|“[^”]{4,}”")
+_VIRTUE = re.compile(r"^\s*(?:و|ف)?(?:إن\s+)?(?:من|أن من|ان من)\s+(?:ثمرات|ثمار|فضائل|فضل|فوائد|بركات|أعظم|اعظم|أهم|اهم|أجمل|علامات)\b")
 _ATTRIBUTED = re.compile(r"قال رسول الله|قال النبي|ﷺ|صلى الله عليه وسلم|قال تعالى|قال الله|رواه|في الحديث")
 
 
@@ -252,6 +261,12 @@ async def check_text(
                 subject_span = _locate(unit_texts[k], subject) if subject else None
                 if span and subject_span and subject_span[1] <= span[0] and not claim.startswith(subject):
                     claim = f"{unit_texts[k][subject_span[0] : subject_span[1]]} {claim}"
+                cue = _TRAILING_CUE.search(claim)
+                if cue and cue.start() > 0:
+                    cut = len(claim) - cue.start()
+                    claim, end = claim[: cue.start()].rstrip(" ،؛:"), max(start + 1, end - cut)
+                if _VIRTUE.match(claim) and assertion_of(claim)[0] == "none" and not _ATTRIBUTED.search(claim):
+                    continue  # "من ثمرات العلم معرفة الحلال والحرام": praise of a thing, no ruling and nothing attributed
                 if _attribution_only(claim) or len(tokenize(claim)) < MIN_CLAIM_WORDS or any(_overlap((start, end), q) > 0.5 * (end - start) for q in quote_spans):
                     continue
                 if all(c[2] != claim for c in claims):
@@ -259,15 +274,29 @@ async def check_text(
             llm.used = True
         except Exception as exc:
             llm.error = _redact(f"{type(exc).__name__}: {exc}")
-    if not llm.used:
-        # No model (or it failed): a sentence that attributes words to the Prophet or to God and matches nothing is shown
-        # as a quote that was not found (with a model, the router handles it as a claim); it must never disappear.
-        for loc in verify_local(text):
+    # A sentence that attributes quoted words to the Prophet or to God and matches nothing is shown as a quote that was not
+    # found. With a model the claim router usually handles it, but a model that passes over it must not make it
+    # disappear: it is added unless one of the model's claims already covers the quoted words themselves.
+    for loc in verify_local(text):
+        span = (loc.start, loc.end)
+        piece = text[loc.start : loc.end]
+        if loc.segment.status != "baseless" or not _ATTRIBUTED.search(piece) or any(_overlap(span, q) > 0 for q in quote_spans):
+            continue
+        inner = _QUOTED.search(piece)
+        core = (loc.start + inner.start(), loc.start + inner.end()) if inner else span
+        if llm.used and not inner:
+            continue  # unquoted attributed wording: the model's claims are the better judge of what is a quotation
+        if any(_overlap(core, (c[0], c[1])) > 0.5 * (core[1] - core[0]) for c in claims):
+            continue
+        claims[:] = [c for c in claims if _overlap((c[0], c[1]), core) == 0]
+        if inner:  # point at the attribution and the quote ("وقد قال رسول الله ﷺ: «…»"), not the whole sentence around it
+            cues = [m for m in _ATTRIBUTED.finditer(piece, 0, inner.start())]
+            lead = re.search(r"(?:(?:و|ف)?قد\s+|و|ف)?$", piece[: cues[0].start()]) if cues else None
+            first = (lead.start() if lead else cues[0].start()) if cues else inner.start()
+            loc = Located(start=loc.start + first, end=loc.start + inner.end(), segment=loc.segment, kind=loc.kind)
             span = (loc.start, loc.end)
-            if (loc.segment.status == "baseless" and _ATTRIBUTED.search(text[loc.start : loc.end])
-                    and not any(_overlap(span, q) > 0 for q in quote_spans)):
-                quotes.append(loc)
-                quote_spans.append(span)
+        quotes.append(loc)
+        quote_spans.append(span)
     # A sentence worded as a fiqh ruling ("المهر واجب"، "صلاة الوتر واجبة") is always looked up in the fiqh encyclopedia,
     # with or without a model: a model that passes over a short unquoted ruling must not leave it unchecked and
     # unhighlighted. With a model, only the rulings its claims do not already cover are added.

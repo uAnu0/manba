@@ -163,8 +163,10 @@
     $("wc").textContent = L(`${AR_DIGITS(n)} كلمة من ${AR_DIGITS(MAX_WORDS)}`, `${n} of ${MAX_WORDS} words`) + (n > MAX_WORDS ? L(" · النص أطول من الحد، اختصره أو قسّمه", " · too long: shorten or split it") : "");
     $("wc").style.color = n > MAX_WORDS ? "var(--bad)" : "";
     $("go").disabled = n === 0 || n > MAX_WORDS;
+    $("clearBtn").hidden = !$("text").value.length;
   }
   $("text").addEventListener("input", updateCount);
+  $("clearBtn").onclick = () => { $("text").value = ""; updateCount(); $("text").focus(); };
   $("text").addEventListener("keydown", e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) run(); });
   function renderSamples() {
     $("samples").innerHTML = "";
@@ -382,9 +384,10 @@
     store.data = data; store.onReport = true;
     store.type = data.content_type || "text";
     const items = (data.items || []).filter(it => !it.fragment && !(it.kind === "claim" && it.result && it.result.outcome === "out_of_scope"));
-    store.entries = items.map((it, i) => ({ it, v: verdictOf(it), i }))
-      .sort((a, b) => RANK[a.v.k] - RANK[b.v.k] || a.it.start - b.it.start);
+    // Numbers follow the order of the text, so the marks read ١، ٢، ٣ down the page; the cards are ordered by what matters most.
+    store.entries = items.map((it, i) => ({ it, v: verdictOf(it), i })).sort((a, b) => a.it.start - b.it.start);
     store.entries.forEach((e, n) => { e.n = n + 1; });
+    store.entries.sort((a, b) => RANK[a.v.k] - RANK[b.v.k] || a.n - b.n);
     const counts = {}; store.entries.forEach(e => { counts[e.v.k] = (counts[e.v.k] || 0) + 1; });
     const needs = (counts.bad || 0) + (counts.fix || 0);
     store.filter = store.entries.length > 6 ? "attention" : "all";
@@ -451,12 +454,10 @@
     const hl = $("headline"); if (hl) hl.focus({ preventScroll: true });  // keyboard and screen-reader users land on the verdict
     const db = $("draftBox"); if (db) db.addEventListener("input", () => { db.dataset.edited = "1"; });
     // A re-check of the corrected text, or a badge link: the badge is given only when nothing needs changing.
-    if (store.recheck || store.verifyLink) {
-      const clean = needs === 0;
-      if (clean) { store.verifiedText = data.original_text; showBadge(data.original_text); }
-      else rv.insertAdjacentHTML("afterbegin", `<div class="notice" role="status">${store.verifyLink ? L("هذا النص لم يعد يجتاز مراجعة مَنبَع: فيه ما يحتاج تعديلًا.", "This text no longer passes the Manba review: something in it needs changing.") : L(`بقي ما يحتاج تعديلًا (${AR_DIGITS(needs)}). عالجه ثم أعد الفحص.`, `Something still needs changing (${needs}). Handle it, then re-check.`)}</div>`);
-      store.recheck = false; store.verifyLink = false;
-    }
+    // The badge comes from the server, signed, and only when nothing blocks publishing (services/badge.py).
+    if (data.badge) { store.verifiedText = data.original_text; showBadge(data); }
+    else if (store.recheck) rv.insertAdjacentHTML("afterbegin", `<div class="notice" role="status">${L(`بقي ما يحتاج تعديلًا (${AR_DIGITS(needs || data.blocking || 0)}). عالجه ثم أعد الفحص.`, `Something still needs changing (${needs || data.blocking || 0}). Handle it, then re-check.`)}</div>`);
+    store.recheck = false;
     dorarSummaries();
   }
 
@@ -466,7 +467,7 @@
     for (const sp of spans) {
       if (sp.s < pos) continue;
       out += esc(text.slice(pos, sp.s));
-      out += `<button class="mk k-${sp.en.v.k}" data-goto="${sp.en.n}" aria-label="${L("النتيجة", "Result")} ${sp.en.n}: ${esc(sp.en.v.label)}">${esc(text.slice(sp.s, sp.e))}</button><span class="num" aria-hidden="true">${N(sp.en.n)}</span>`;
+      out += `<span class="num" aria-hidden="true">${N(sp.en.n)}</span><button class="mk k-${sp.en.v.k}" data-goto="${sp.en.n}" aria-label="${L("النتيجة", "Result")} ${sp.en.n}: ${esc(sp.en.v.label)}">${esc(text.slice(sp.s, sp.e))}</button>`;
       pos = sp.e;
     }
     return out + esc(text.slice(pos));
@@ -573,27 +574,32 @@
   function progressHtml() {
     const todo = store.entries.filter(e => e.v.k !== "ok"), done = todo.filter(e => store.fixes[e.n]).length;
     if (!todo.length) return "";
-    const all = done === todo.length;
+    const all = done === todo.length, left = todo.length - done, auto = todo.filter(e => !store.fixes[e.n] && fixPlan(e)).length;
     return `<section class="fixpanel no-print" id="fixpanel" aria-label="${L("تطبيق التصحيحات", "Applying the fixes")}">
       <div class="row-between"><b>${L("طبّق التصحيحات واحصل على شارة مَنبَع", "Apply the fixes and earn the Manba badge")}</b><span class="cap">${L(`${AR_DIGITS(done)} من ${AR_DIGITS(todo.length)}`, `${done} of ${todo.length}`)}</span></div>
       <div class="fixprog"><i style="width: ${Math.round(100 * done / todo.length)}%"></i></div>
       <details ${done ? "open" : ""}><summary class="cap" style="cursor: pointer">${L("النص المصحح (يمكنك تحريره)", "The corrected text (you can edit it)")}</summary>
         <textarea id="draftBox" dir="auto">${esc(draftNow())}</textarea></details>
-      <div class="actions"><button class="btn ${all ? "primary" : ""}" id="recheckBtn" ${all ? "" : "disabled"}>${L("أعد الفحص لنيل الشارة", "Re-check to earn the badge")}</button>
+      <div class="actions">${auto ? `<button class="btn primary" id="applyAll">${auto === left ? L("طبّق كل التصحيحات وأعد الفحص", "Apply every fix and re-check") : L(`طبّق التصحيحات المقترحة (${AR_DIGITS(auto)})`, `Apply the suggested fixes (${auto})`)}</button>` : ""}
+        <button class="btn ${all ? "primary" : ""}" id="recheckBtn" ${all ? "" : "disabled"}>${L("أعد الفحص لنيل الشارة", "Re-check to earn the badge")}</button>
         <button class="btn" id="copyDraft">${L("انسخ النص المصحح", "Copy the corrected text")}</button>
-        <span class="cap">${all ? L("كل المواضع عولجت: أعد الفحص للتأكد.", "Every place is handled: re-check to confirm.") : L("عالج كل موضع، ثم أعد الفحص. الشارة تُمنح فقط إذا جاء الفحص الجديد نظيفًا.", "Handle every place, then re-check. The badge is given only if the new check comes back clean.")}</span></div>
+        <span class="cap">${all ? L("كل المواضع عولجت: أعد الفحص للتأكد.", "Every place is handled: re-check to confirm.") : auto < left ? L(`${AR_DIGITS(left - auto)} من المواضع لا تصحيح آليًا لها: عدّلها في النص المصحح ثم اضغط «عالجتُه بنفسي».`, `${left - auto} of the places have no automatic fix: edit them in the corrected text, then press "I handled it myself".`) : L("الشارة تُمنح فقط إذا جاء الفحص الجديد نظيفًا.", "The badge is given only if the new check comes back clean.")}</span></div>
     </section>`;
+  }
+  // Every fix the sources give, in one go; when nothing is left to handle by hand, the corrected text is re-checked at once.
+  function applyAll() {
+    store.entries.forEach(e => { if (e.v.k !== "ok" && !store.fixes[e.n] && fixPlan(e)) store.fixes[e.n] = "applied"; });
+    const box = $("draftBox"); if (box) delete box.dataset.edited;
+    refreshFixes();
+    const left = store.entries.filter(e => e.v.k !== "ok" && !store.fixes[e.n]);
+    if (!left.length) { $("recheckBtn").click(); return; }
+    const c = $("card-" + left[0].n); if (c) { c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.add("flash"); setTimeout(() => c.classList.remove("flash"), 1600); }
   }
   function refreshFixes() {
     const box = $("draftBox"), edited = box && box.dataset.edited === "1" ? box.value : null;
     const panel = $("fixpanel"); if (panel) panel.outerHTML = progressHtml();
     if (edited !== null && $("draftBox")) { $("draftBox").value = edited; $("draftBox").dataset.edited = "1"; }
     store.entries.forEach(e => { const c = $("card-" + e.n); if (!c) return; const fb = c.querySelector(".fixbar"); if (fb) fb.outerHTML = fixBar(e); c.classList.toggle("is-fixed", !!store.fixes[e.n]); });
-  }
-  // A short code from the corrected text itself: the same text always gives the same code, any change gives another.
-  async function codeOf(text) {
-    const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text.trim()));
-    return [...new Uint8Array(d)].slice(0, 5).map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
   }
   // Share links carry the text itself (compressed), so the report is rebuilt from the sources when the link is opened.
   async function packText(text) {
@@ -608,28 +614,103 @@
     if (packed[0] === "u") return decodeURIComponent(escape(bin));
     return await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
   }
-  async function shareLink(text, kind) { return `${location.origin}/#${kind}=${await packText(text)}`; }
+  async function shareLink(text) { return `${location.origin}/#s=${await packText(text)}`; }
+  // The badge's own link: the serial, and the reviewed text so the verifier can confirm it is the same text.
+  async function badgeLink(code, text) { return `${location.origin}/#v=${code}${text ? "&t=" + await packText(text) : ""}`; }
+
+  // The badge is the Manba mark itself: the eight-pointed star, with the statement and the serial written inside it.
   function badgeSvg(code, date) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 120" width="360" height="120" direction="ltr" style="direction: ltr" role="img" aria-label="${L("رُوجع بمَنبَع", "Reviewed with Manba")}">
-      <rect x="1" y="1" width="358" height="118" rx="18" fill="#0B6E5C"/><rect x="7" y="7" width="346" height="106" rx="13" fill="none" stroke="#E3F5EC" stroke-opacity=".5"/>
-      <g transform="translate(286 60)" fill="none" stroke="#E3F5EC" stroke-width="3"><rect x="-22" y="-22" width="44" height="44" rx="4"/><rect x="-22" y="-22" width="44" height="44" rx="4" transform="rotate(45)"/><circle r="8" fill="#E3F5EC" stroke="none"/></g>
-      <text x="236" y="52" text-anchor="end" font-family="Amiri, serif" font-size="30" font-weight="700" fill="#fff">رُوجع بمَنبَع</text>
-      <text x="236" y="80" text-anchor="end" font-family="IBM Plex Sans Arabic, sans-serif" font-size="14" fill="#E3F5EC">Reviewed with Manba · ${esc(date)}</text>
-      <text x="236" y="100" text-anchor="end" font-family="monospace" font-size="13" fill="#E3F5EC">${esc(code)}</text></svg>`;
+    const star = (r, attrs) => `<rect x="${130 - r}" y="${130 - r}" width="${2 * r}" height="${2 * r}" rx="10" ${attrs}/><rect x="${130 - r}" y="${130 - r}" width="${2 * r}" height="${2 * r}" rx="10" transform="rotate(45 130 130)" ${attrs}/>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 260" width="260" height="260" direction="ltr" style="direction: ltr" role="img" aria-label="${esc(L(`تم التحقق منه باستخدام مَنبَع، الرقم التسلسلي ${code}`, `Verified with Manba, serial ${code}`))}">
+      ${star(96, 'fill="#0B6E5C"')}
+      ${star(88, 'fill="none" stroke="#E3F5EC" stroke-opacity=".55" stroke-width="1.5"')}
+      <circle cx="130" cy="130" r="84" fill="#0E7F6A"/>
+      <circle cx="130" cy="130" r="78" fill="none" stroke="#E3F5EC" stroke-opacity=".5" stroke-width="1"/>
+      <text x="130" y="84" text-anchor="middle" font-family="IBM Plex Sans Arabic, Tahoma, sans-serif" font-size="12.5" fill="#E3F5EC">تم التحقق منه باستخدام</text>
+      <text x="130" y="136" text-anchor="middle" font-family="Amiri, 'Traditional Arabic', serif" font-size="38" font-weight="700" fill="#FFFFFF">مَنبَع</text>
+      <text x="130" y="153" text-anchor="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="10" letter-spacing="1.2" fill="#E3F5EC">VERIFIED WITH MANBA</text>
+      <line x1="80" y1="160" x2="180" y2="160" stroke="#E3F5EC" stroke-opacity=".45"/>
+      <text x="130" y="176" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9.5" fill="#FFFFFF">${esc(code)}</text>
+      <text x="130" y="191" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#E3F5EC">${esc(date)}</text></svg>`;
   }
   window.ManbaBadge = badgeSvg;  // the How page's tour shows the same seal
-  async function showBadge(text) {
-    const code = await codeOf(text), date = new Date().toISOString().slice(0, 10), link = await shareLink(text, "b");
-    store.badge = { code, date, link, svg: badgeSvg(code, date) };
+  async function showBadge(data) {
+    const b = data.badge, text = data.original_text;
+    store.badge = Object.assign({}, b, { link: await badgeLink(b.code, text), svg: badgeSvg(b.code, b.date) });
     const rv = $("reportView");
     rv.insertAdjacentHTML("afterbegin", `<section class="badgebox" id="badgebox" role="status">
       <div class="seal">${store.badge.svg}</div>
       <div class="badge-txt"><b>${L("نال النص شارة مَنبَع", "The text earned the Manba badge")}</b>
-        <span class="cap">${L("أُعيد فحص النص المصحح فلم يبقَ فيه ما يمنع النشر. رابط الشارة يعيد التحقق من النص نفسه عند فتحه، والرمز يتغيّر إن تغيّر حرف منه.", "The corrected text was checked again and nothing blocks publishing. The badge link re-verifies the same text when opened; the code changes if a single letter changes.")}</span>
-        <div class="actions"><button class="btn primary" id="dlBadge">${L("نزّل الشارة", "Download the badge")}</button><button class="btn" id="copyBadgeLink">${L("انسخ رابط التحقق", "Copy the verification link")}</button><button class="btn" id="copyDraft2">${L("انسخ النص المصحح", "Copy the corrected text")}</button></div></div>
+        <div class="serial"><span class="cap">${L("الرقم التسلسلي", "Serial")}</span><code dir="ltr">${esc(b.code)}</code></div>
+        <span class="cap">${L(`فُحص النص المصحح من جديد بتاريخ ${b.date} فلم يبقَ فيه ما يمنع النشر (${AR_DIGITS(b.items)} من النصوص والأحكام). الرقم موقَّع من خادم مَنبَع: يمكن لأي أحد التحقق منه في صفحة «تحقق من شارة»، ومعه النص يتأكد أنه هو النص نفسه.`, `The corrected text was checked again on ${b.date} and nothing blocks publishing (${b.items} texts and rulings). The serial is signed by the Manba server: anyone can check it on the "Verify a badge" page, and with the text, confirm it is the very same text.`)}${b.mode === "matching" ? L(" هذه المراجعة جرت بالمطابقة المباشرة دون الذكاء الاصطناعي.", " This review used direct matching only, without the AI.") : ""}</span>
+        <div class="actions"><button class="btn primary" id="dlBadge">${L("نزّل الشارة", "Download the badge")}</button><button class="btn" id="copyBadgeLink">${L("انسخ رابط التحقق", "Copy the verification link")}</button><button class="btn" id="copySerial">${L("انسخ الرقم", "Copy the serial")}</button><button class="btn" id="copyDraft2">${L("انسخ النص المصحح", "Copy the corrected text")}</button></div></div>
     </section>`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  // ---------- verifying a badge: the serial's signature, and (optionally) that the text is the one reviewed ----------
+  const VERIFY_WHY = { malformed: ["هذا ليس رقمًا تسلسليًا لمَنبَع. الرقم يبدأ بـ MNB ويتبعه ستة عشر حرفًا ورقمًا.", "This is not a Manba serial. It starts with MNB followed by sixteen letters and digits."],
+    not_issued: ["لم يصدر هذا الرقم عن مَنبَع: التوقيع لا يطابق.", "This serial was not issued by Manba: the signature does not match."] };
+  async function verifyBadge() {
+    const code = $("vCode").value.trim(), text = $("vText").value.trim(), out = $("vOut");
+    if (!code) { $("vCode").focus(); return; }
+    out.hidden = false; out.className = "vout"; out.textContent = L("نتحقق…", "Checking…");
+    try {
+      const res = await fetch("/api/badge/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, text: text || null }) });
+      const r = await res.json();
+      if (!r.valid) { out.className = "vout bad"; out.innerHTML = `<b>${L("رقم غير صالح", "Not a valid serial")}</b><span>${esc(P(VERIFY_WHY[r.reason] || VERIFY_WHY.not_issued))}</span>`; return; }
+      const mode = r.mode === "full" ? L("مراجعة كاملة: الاقتباسات والادعاءات والأحكام، بمساعدة الذكاء الاصطناعي، والحكم للمصادر", "Full review: quotes, claims and rulings, with the AI's help; the sources decide")
+        : L("مراجعة بالمطابقة المباشرة فقط (دون الذكاء الاصطناعي)", "Direct matching only (without the AI)");
+      const match = r.text_matches === true ? `<span class="ok">✓ ${L("النص المرفق هو النص نفسه الذي رُوجع، حرفًا بحرف.", "The text given is the very text that was reviewed, letter for letter.")}</span>`
+        : r.text_matches === false ? `<span class="badtxt">✕ ${L("النص المرفق ليس النص الذي رُوجع: تغيّر فيه شيء بعد المراجعة.", "The text given is not the one reviewed: something changed after the review.")}</span>`
+        : `<span class="cap">${L("أرفق النص للتأكد من أنه النص نفسه الذي رُوجع.", "Add the text to confirm it is the very text that was reviewed.")}</span>`;
+      out.className = "vout " + (r.text_matches === false ? "warn" : "good");
+      out.innerHTML = `<div class="seal">${badgeSvg(r.code, r.date)}</div><div><b>${L("رقم صادر عن مَنبَع", "Issued by Manba")}</b>
+        <span>${L(`رُوجع بتاريخ ${r.date}، ولم يكن فيه ما يمنع النشر.`, `Reviewed on ${r.date}, with nothing blocking publishing.`)}</span><span class="cap">${mode}</span>${match}
+        ${text ? `<button class="btn small" id="vRerun" type="button">${L("أعد مراجعة النص الآن", "Review the text again now")}</button>` : ""}</div>`;
+    } catch (e) { out.className = "vout bad"; out.textContent = L("تعذر الاتصال بالخادم.", "Could not reach the server."); }
+  }
+
+  // ---------- the printable report (PDF) ----------
+  const K_EXPLAIN = { bad: ["لا يُنشر كما هو: لم يثبت، أو نُسب إلى غير قائله", "cannot be published as it is: not established, or misattributed"],
+    fix: ["لفظ محرّف أو إحالة خطأ أو درجة غير مبيّنة", "altered wording, a wrong reference, or no grading"],
+    khl: ["تُنسب الأقوال إلى أصحابها ولا يُقطع بأحدها", "attribute the views to their holders, state none as settled"],
+    ref: ["يُحال إلى مختص", "refer to a scholar"], neu: ["لم نجد ما نحكم به: تحقق منه", "nothing found to judge it by: verify it"], ok: ["ثابت في مصدره كما نُقل", "found in its source as quoted"] };
+  function printableReport() {
+    const data = store.data, counts = {}; store.entries.forEach(e => { counts[e.v.k] = (counts[e.v.k] || 0) + 1; });
+    const needs = (counts.bad || 0) + (counts.fix || 0), byN = [...store.entries].sort((a, b) => a.n - b.n);
+    const today = new Date().toISOString().slice(0, 10), t = typeOf(store.type);
+    const row = e => `<tr class="pk-${e.v.k}"><td class="pn">${N(e.n)}</td><td><div class="${isQuoteish(e.v) ? "pq" : ""}" dir="auto">${esc(isQuoteish(e.v) ? shownQuote(e.it.text) : e.it.text)}</div></td>
+      <td><span class="pchip">${esc(e.v.label)}</span>${store.fixes[e.n] ? `<div class="pfixed">✓ ${store.fixes[e.n] === "applied" ? L("طُبّق التصحيح", "Fix applied") : L("عولج", "Handled")}</div>` : ""}</td>
+      <td>${esc(e.v.why || "")}</td><td>${e.v.next ? esc(e.v.next) : "—"}${(() => { const pl = e.v.k !== "ok" ? fixPlan(e) : null, to = pl ? pl.to : e.v.copy; return to ? `<div class="pcopy" dir="auto">${esc(to.length > 220 ? to.slice(0, 220) + "…" : to)}</div>` : pl ? `<div class="pcopy">${L("يُحذف من النص", "Remove it from the text")}</div>` : ""; })()}</td></tr>`;
+    const table = (rows, title) => rows.length ? `<h2>${title}</h2><table><colgroup><col style="width: 4%"><col style="width: 22%"><col style="width: 14%"><col style="width: 32%"><col style="width: 28%"></colgroup><thead><tr><th>#</th><th>${L("الموضع في النص", "In the text")}</th><th>${L("النتيجة", "Result")}</th><th>${L("السبب والمصدر", "Why, and the source")}</th><th>${L("ما العمل", "What to do")}</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>` : "";
+    const must = store.entries.filter(e => e.v.k === "bad" || e.v.k === "fix"), rest = store.entries.filter(e => !(e.v.k === "bad" || e.v.k === "fix"));
+    let marked = "", pos = 0; const text = data.original_text;
+    for (const e of byN) { if (e.it.start < pos) continue; marked += esc(text.slice(pos, e.it.start)) + `<span class="pm pk-${e.v.k}"><sup>${N(e.n)}</sup>${esc(text.slice(e.it.start, e.it.end))}</span>`; pos = e.it.end; }
+    marked += esc(text.slice(pos));
+    const b = store.badge;
+    return `<header class="ph"><div class="pbrand"><svg width="34" height="34" viewBox="0 0 40 40" fill="none" stroke="#0B6E5C" stroke-width="2.6"><rect x="9" y="9" width="22" height="22" rx="2"/><rect x="9" y="9" width="22" height="22" rx="2" transform="rotate(45 20 20)"/><circle cx="20" cy="20" r="4" fill="#0B6E5C" stroke="none"/></svg>
+        <div><b>${L("مَنبَع", "Manba")}</b><span>${L("تقرير مراجعة المحتوى الشرعي", "Islamic content review report")}</span></div></div>
+        <dl><div><dt>${L("التاريخ", "Date")}</dt><dd>${today}</dd></div><div><dt>${L("نوع النص", "Kind of text")}</dt><dd>${esc(t.label)}</dd></div><div><dt>${L("الكلمات", "Words")}</dt><dd>${N(data.word_count)}</dd></div><div><dt>${L("المواضع المفحوصة", "Places checked")}</dt><dd>${N(store.entries.length)}</dd></div></dl></header>
+      <section class="pverdict ${needs ? "pv-bad" : "pv-ok"}">${b ? `<div class="pseal">${b.svg}</div>` : ""}<div><p class="phead">${esc(headline(needs, counts))}</p>
+        <p class="pcounts">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<span class="pchip pk-${k}">${N(counts[k])} ${P(K_LABEL[k])}</span>`).join(" ")}</p>
+        ${b ? `<p class="pserial">${L("الرقم التسلسلي", "Serial")}: <code dir="ltr">${esc(b.code)}</code> · ${L("للتحقق", "Verify at")}: <span dir="ltr">${esc(location.host)}/#verify</span></p>` : ""}
+        ${data.llm && !data.llm.used ? `<p class="pnote">${L("جرت هذه المراجعة بالمطابقة المباشرة دون الذكاء الاصطناعي، فقد لا تظهر فيها الادعاءات غير المقتبسة.", "This review used direct matching without the AI, so unquoted claims may be missing.")}</p>` : ""}</div></section>
+      <section class="plegend"><h2>${L("كيف تقرأ التقرير", "How to read this report")}</h2><ul>${["bad", "fix", "khl", "ok"].map(k => `<li><span class="pdot pk-${k}"></span><b>${P(K_LABEL[k])}</b>: ${P(K_EXPLAIN[k])}</li>`).join("")}</ul>
+        <p>${L("الأرقام تتبع ترتيب المواضع في النص. كل حكم هنا منقول من مصدره (المصحف، كتب الحديث وأحكام المحدثين، الموسوعة الفقهية الكويتية)، والذكاء الاصطناعي يدل على المواضع ولا يحكم.", "Numbers follow the order of the text. Every verdict comes from its source (the Mushaf, the hadith books and gradings, the Kuwaiti Fiqh Encyclopedia); the AI points at places and does not judge.")}</p></section>
+      ${table(must, L("ما يجب تعديله قبل النشر", "What must change before publishing"))}
+      ${table(rest, L("بقية المواضع", "The other places"))}
+      <h2>${L("النص مع المواضع المرقّمة", "The text, with the places numbered")}</h2><div class="ptext" dir="${data.language && data.language !== "ar" && data.language !== "ur" ? "ltr" : "rtl"}">${marked}</div>
+      ${Object.keys(store.fixes || {}).length ? `<h2>${L("النص المصحح", "The corrected text")}</h2><div class="ptext" dir="auto">${esc(($("draftBox") && $("draftBox").value) || draftNow())}</div>` : ""}
+      <footer class="pf">${L("هذا التقرير يبيّن مواضع النصوص في المصادر وأحكام العلماء كما نقلتها، وليس فتوى ولا ترجيحًا. ما كتبه الذكاء الاصطناعي معلَّم بذلك في الواجهة.", "This report shows where texts are found in the sources and what scholars' rulings they record. It is not a fatwa and prefers no opinion.")} · ${L("المصادر: Tanzil · الكتب التسعة · الدرر السنية · الموسوعة الفقهية الكويتية · QuranEnc", "Sources: Tanzil · the nine hadith books · Dorar · Kuwaiti Fiqh Encyclopedia · QuranEnc")}</footer>`;
+  }
+  function preparePrint() {
+    if (!store.data || $("reportView").hidden || !store.entries.length) { document.body.classList.remove("printing"); return; }
+    $("printDoc").innerHTML = printableReport(); document.body.classList.add("printing");
+  }
+  window.addEventListener("beforeprint", preparePrint);
+  window.addEventListener("afterprint", () => document.body.classList.remove("printing"));
+
 
   // Each school the encyclopedia's ruling paragraph names, with the ruling it gives; the school the text named is marked.
   function schoolsRow(f) {
@@ -850,10 +931,12 @@
     if (t.dataset.unfix) { delete store.fixes[+t.dataset.unfix]; refreshFixes(); return; }
     if (t.id === "copyDraft" || t.id === "copyDraft2") { copy($("draftBox") ? $("draftBox").value : (store.verifiedText || draftNow()), t); return; }
     if (t.id === "recheckBtn") { const text = $("draftBox").value.trim(); store.recheck = true; $("text").value = text; updateCount(); run(); return; }
-    if (t.id === "shareBtn") { shareLink(store.data.original_text, "s").then(link => copy(link, t)); return; }
+    if (t.id === "shareBtn") { shareLink(store.data.original_text).then(link => copy(link, t)); return; }
     if (t.id === "copyBadgeLink") { copy(store.badge.link, t); return; }
     if (t.id === "dlBadge") { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([store.badge.svg], { type: "image/svg+xml" })); a.download = `manba-badge-${store.badge.code}.svg`; a.click(); return; }
-    if (t.id === "printBtn") { document.querySelectorAll(".more").forEach(m => { m.hidden = true; }); window.print(); return; }
+    if (t.id === "printBtn") { preparePrint(); window.print(); return; }
+    if (t.id === "copySerial") { copy(store.badge.code, t); return; }
+    if (t.id === "applyAll") { applyAll(); return; }
     if (t.id === "editBtn" || t.id === "newBtn") { newReview(); return; }
   });
 
@@ -933,7 +1016,7 @@
   fetch("/api/config").then(r => r.json()).then(c => { serverCfg = c; cfgNote(); }).catch(() => {});
 
   // ---------- sections: review, how it works, who it is for ----------
-  const VIEWS = { how: "howView", who: "whoView" };
+  const VIEWS = { how: "howView", who: "whoView", verify: "verifyView" };
   function showView(name, push) {
     const page = VIEWS[name];
     for (const id of Object.values(VIEWS)) $(id).hidden = id !== page;
@@ -959,7 +1042,7 @@
     english: SAMPLES[5][1],
     reviewer: "ومن الأدلة على فضل الرحمة قوله ﷺ: «الراحمون يرحمهم الرحمن، ارحموا من في الأرض يرحمكم من في السماء». وقد أجمع العلماء على أن قراءة الفاتحة خلف الإمام واجبة. وقال تعالى: «وأحل الله البيع وحرم الزنا». ولحديث: «اختلاف أمتي رحمة».",
   };
-  document.querySelectorAll(".persona").forEach(card => card.querySelector("button").addEventListener("click", () => {
+  document.querySelectorAll(".persona[data-scenario]").forEach(card => card.querySelector("button").addEventListener("click", () => {
     showView("review", true); $("text").value = SCENARIOS[card.dataset.scenario] || ""; showTab("paste"); updateCount(); run();
   }));
 
@@ -983,9 +1066,19 @@
   $("langBtn").onclick = () => { LANG = LANG === "en" ? "ar" : "en"; try { localStorage.setItem("manba_lang", LANG); } catch (e) {} applyLang(); };
   if (LANG === "en") applyLang();
   { const h = location.hash.slice(1); if (VIEWS[h]) showView(h, false); }
-  // A shared report (#s=) or a badge link (#b=): the text is unpacked and checked again from the sources.
-  { const m = /^#([sb])=(.+)$/.exec(location.hash);
-    if (m) unpackText(m[2]).then(text => { $("text").value = text; updateCount(); store.verifyLink = m[1] === "b"; showTab("paste"); run(); }).catch(() => alertInline(L("تعذر فتح الرابط المشارَك.", "The shared link could not be opened."))); }
+  // A shared report (#s=): the text is unpacked and checked again from the sources.
+  { const m = /^#s=(.+)$/.exec(location.hash);
+    if (m) unpackText(m[1]).then(text => { $("text").value = text; updateCount(); showTab("paste"); run(); }).catch(() => alertInline(L("تعذر فتح الرابط المشارَك.", "The shared link could not be opened."))); }
+  // A badge link (#v=SERIAL&t=TEXT): the verify page, filled in and checked at once. It needs no access token.
+  { const m = /^#v=([^&]+)(?:&t=(.+))?$/.exec(location.hash);
+    if (m) { showView("verify", false); $("vCode").value = decodeURIComponent(m[1]);
+      (m[2] ? unpackText(m[2]).then(t => { $("vText").value = t; }).catch(() => {}) : Promise.resolve()).then(verifyBadge); } }
+  $("vCode").addEventListener("keydown", e => { if (e.key === "Enter") verifyBadge(); });
+  $("verifyView").addEventListener("click", ev => {
+    const t = ev.target.closest("button"); if (!t) return;
+    if (t.id === "vGo") verifyBadge();
+    if (t.id === "vRerun") { $("text").value = $("vText").value; updateCount(); showView("review", true); showTab("paste"); run(); }
+  });
 
   updateCount();
 })();
