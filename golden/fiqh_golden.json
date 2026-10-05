@@ -1,16 +1,159 @@
 {
-  "description": "Fiqh check (services/fiqh.py). Each item is a sentence that states a fiqh ruling, with the outcome expected from the Kuwaiti Fiqh Encyclopedia passage named in `where` (volume:page). `accept` lists acceptable statuses; `accept_keywords` (optional) is what the keyword-only mode may return instead. Written by the team from the encyclopedia's own wording (agreement: اتفق/أجمع; disagreement: اختلف/ذهب ... وذهب); a scholar must review it before anyone relies on it. The critical error is `false_settled`: a question the encyclopedia reports as disputed shown as agreed.",
-  "items": [
-    {"id": "F01", "claim": "زكاة الحلي المستعمل واجبة بالإجماع", "where": "حلي 18:113", "disputed": true, "accept": ["consensus_claim_disputed"]},
-    {"id": "F02", "claim": "أجمع العلماء على أن قراءة الفاتحة خلف الإمام واجبة", "where": "قراءة 33:52", "disputed": true, "accept": ["consensus_claim_disputed"]},
-    {"id": "F03", "claim": "التسمية عند الوضوء واجبة", "where": "بسملة 8:89", "disputed": true, "accept": ["stated_as_certain_disputed", "partly_disputed"]},
-    {"id": "F04", "claim": "أكل لحم الإبل ينقض الوضوء", "where": "حدث 17:121", "disputed": true, "accept": ["stated_as_certain_disputed", "partly_disputed"]},
-    {"id": "F05", "claim": "مس المرأة ينقض الوضوء", "where": "حدث 17:117", "disputed": true, "accept": ["stated_as_certain_disputed", "partly_disputed"]},
-    {"id": "F06", "claim": "تارك الصلاة كسلا كافر بالإجماع", "where": "صلاة 27:53", "disputed": true, "accept": ["consensus_claim_disputed"]},
-    {"id": "F07", "claim": "الوتر واجب عند الحنفية", "where": "صلاة الوتر 27:292", "disputed": true, "accept": ["disagreement_acknowledged"]},
-    {"id": "F08", "claim": "صلاة العيد فرض عين", "where": "عيد 31:114", "disputed": true, "accept": ["stated_as_certain_disputed", "partly_disputed"]},
-    {"id": "F09", "claim": "يجوز للمرأة لبس الذهب", "where": "حلي 18:111", "disputed": false, "accept": ["agreement_reported"], "accept_keywords": ["agreement_reported", "partly_disputed"]},
-    {"id": "F10", "claim": "كيف حالك اليوم", "where": "", "disputed": false, "accept": ["not_fiqh"]},
-    {"id": "F11", "claim": "سنة 1400 كانت سنة جيدة للتجارة", "where": "", "disputed": false, "accept": ["not_fiqh"]}
-  ]
+ "description": "Fiqh check (services/fiqh.py). Each item is a sentence that states a fiqh ruling, with the outcome expected from the Kuwaiti Fiqh Encyclopedia passage named in `where` (volume:page). `accept` lists acceptable statuses; `accept_keywords` (optional) is what the keyword-only mode may return instead. Written by the team from the encyclopedia's own wording (agreement: اتفق/أجمع; disagreement: اختلف/ذهب ... وذهب); a scholar must review it before anyone relies on it. The critical error is `false_settled`: a question the encyclopedia reports as disputed shown as agreed.",
+ "items": [
+  {
+   "id": "F01",
+   "claim": "زكاة الحلي المستعمل واجبة بالإجماع",
+   "where": "حلي 18:113",
+   "disputed": true,
+   "accept": [
+    "consensus_claim_disputed"
+   ]
+  },
+  {
+   "id": "F02",
+   "claim": "أجمع العلماء على أن قراءة الفاتحة خلف الإمام واجبة",
+   "where": "قراءة 33:52",
+   "disputed": true,
+   "accept": [
+    "consensus_claim_disputed"
+   ]
+  },
+  {
+   "id": "F03",
+   "claim": "التسمية عند الوضوء واجبة",
+   "where": "بسملة 8:89",
+   "disputed": true,
+   "accept": [
+    "stated_as_certain_disputed",
+    "partly_disputed"
+   ]
+  },
+  {
+   "id": "F04",
+   "claim": "أكل لحم الإبل ينقض الوضوء",
+   "where": "حدث 17:121",
+   "disputed": true,
+   "accept": [
+    "stated_as_certain_disputed",
+    "partly_disputed"
+   ]
+  },
+  {
+   "id": "F05",
+   "claim": "مس المرأة ينقض الوضوء",
+   "where": "حدث 17:117",
+   "disputed": true,
+   "accept": [
+    "stated_as_certain_disputed",
+    "partly_disputed"
+   ]
+  },
+  {
+   "id": "F06",
+   "claim": "تارك الصلاة كسلا كافر بالإجماع",
+   "where": "صلاة 27:53",
+   "disputed": true,
+   "accept": [
+    "consensus_claim_disputed"
+   ]
+  },
+  {
+   "id": "F07",
+   "claim": "الوتر واجب عند الحنفية",
+   "where": "صلاة الوتر 27:292",
+   "disputed": true,
+   "accept": [
+    "disagreement_acknowledged",
+    "school_matches"
+   ]
+  },
+  {
+   "id": "F08",
+   "claim": "صلاة العيد فرض عين",
+   "where": "عيد 31:114",
+   "disputed": true,
+   "accept": [
+    "stated_as_certain_disputed",
+    "partly_disputed"
+   ]
+  },
+  {
+   "id": "F09",
+   "claim": "يجوز للمرأة لبس الذهب",
+   "where": "حلي 18:111",
+   "disputed": false,
+   "accept": [
+    "agreement_reported"
+   ],
+   "accept_keywords": [
+    "agreement_reported",
+    "partly_disputed"
+   ]
+  },
+  {
+   "id": "F10",
+   "claim": "كيف حالك اليوم",
+   "where": "",
+   "disputed": false,
+   "accept": [
+    "not_fiqh"
+   ]
+  },
+  {
+   "id": "F11",
+   "claim": "سنة 1400 كانت سنة جيدة للتجارة",
+   "where": "",
+   "disputed": false,
+   "accept": [
+    "not_fiqh"
+   ]
+  },
+  {
+   "id": "F12",
+   "claim": "التسمية عند الوضوء واجبة عند الحنفية",
+   "where": "بسملة 8:89",
+   "disputed": true,
+   "accept": [
+    "school_differs"
+   ],
+   "note": "the Hanafis hold it is sunnah"
+  },
+  {
+   "id": "F13",
+   "claim": "التسمية عند الوضوء واجبة عند الحنابلة",
+   "where": "بسملة 8:89",
+   "disputed": true,
+   "accept": [
+    "school_matches"
+   ]
+  },
+  {
+   "id": "F14",
+   "claim": "أكل لحم الإبل ينقض الوضوء عند الحنابلة",
+   "where": "حدث 17:121",
+   "disputed": true,
+   "accept": [
+    "school_matches"
+   ]
+  },
+  {
+   "id": "F15",
+   "claim": "أكل لحم الإبل لا ينقض الوضوء عند الجمهور",
+   "where": "حدث 17:121",
+   "disputed": true,
+   "accept": [
+    "school_matches"
+   ]
+  },
+  {
+   "id": "F16",
+   "claim": "الوتر سنة عند الجمهور",
+   "where": "صلاة الوتر 27:289",
+   "disputed": true,
+   "accept": [
+    "school_matches"
+   ]
+  }
+ ]
 }
