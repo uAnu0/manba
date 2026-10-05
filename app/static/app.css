@@ -669,3 +669,4 @@ html[lang="en"] .what .peek::after { content: " →"; }
 .llm-why { margin-top: 6px; font-size: 13px; } .llm-why summary { cursor: pointer; }
 .llm-why code { display: block; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
 .mk .num { vertical-align: 0.35em; margin-inline: 0 4px; }
+.llm-test { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; } .llm-test .cap { overflow-wrap: anywhere; line-height: 1.7; }

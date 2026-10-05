@@ -1021,6 +1021,23 @@
     d.addEventListener("pointerdown", ev => { downOutside = outside(ev); });
     d.addEventListener("click", ev => { if (downOutside && outside(ev)) closeDialog(d); downOutside = false; });
   });
+  // One tiny model call with the values now in the fields (saved or not): says whether reviews will use the AI, and if not, why.
+  $("llmTest").onclick = async () => {
+    const out = $("llmTestOut"), h = {};
+    if ($("token").value.trim()) h["X-Access-Token"] = $("token").value.trim();
+    if ($("orkey").value.trim()) h["X-OpenRouter-Key"] = $("orkey").value.trim();
+    if ($("gkey").value.trim()) h["X-Gemini-Key"] = $("gkey").value.trim();
+    if ($("provider").value) h["X-LLM-Provider"] = $("provider").value;
+    out.textContent = L("نختبر…", "Testing…"); out.style.color = "";
+    try {
+      const res = await fetch("/api/llm-check", { headers: h });
+      if (res.status === 401) { out.textContent = L("رمز الدخول غير صحيح أو مفقود.", "The access code is missing or wrong."); out.style.color = "var(--bad)"; return; }
+      const r = await res.json();
+      out.textContent = r.ok ? L(`يعمل (${r.models[0]}، ${r.seconds} ث).`, `Working (${r.models[0]}, ${r.seconds}s).`) : L(`لا يعمل: ${r.error}`, `Not working: ${r.error}`);
+      out.style.color = r.ok ? "var(--ok)" : "var(--bad)";
+    } catch (e) { out.textContent = L("تعذر الاتصال بالخادم.", "Could not reach the server."); out.style.color = "var(--bad)"; }
+  };
+  settingsDlg.addEventListener("close", () => { $("llmTestOut").textContent = ""; });
   settingsDlg.addEventListener("close", loadSettings);   // after Save this shows the saved values; after any other way of closing it drops the edits
   // The parts of the home page pop in one after another (the CSS does the staggering); it is also replayed when a new review starts.
   function popIn() {
