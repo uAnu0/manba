@@ -2,7 +2,7 @@
 
 Verification service for Islamic text. It takes raw text (a sentence or a whole sermon), finds the Quran verses and hadith in it,
 and checks each against local corpora: word for word, with the source, and an exact account of what differs when a quote is altered.
-A language model is optional and only *finds* candidate quotes; it never decides a verdict.
+Quote matching is deterministic. Models find claims and assess evidence relevance; those assessments require human review and cannot certify a claim. See [HACKATHON_REVIEW.md](HACKATHON_REVIEW.md) for receipt rules and deployment steps.
 
 Code: MIT (`LICENSE`). Data: each file keeps its source's terms; the register of sources, tools and licences, with what is not yet verified, is `SOURCES.md` (سجل المصادر والتراخيص).
 What existed before the challenge days is declared in `BASELINE.md` (tag `v0-baseline`); what was built from 4 October is in `CHANGELOG.md`.
@@ -90,7 +90,7 @@ behaviour, and a check. Cases for a conversational or translation product are li
 ## Transparency and privacy
 
 The claim page states that Manba is an AI-assisted tool, not a scholar; that it issues no fatwa and prefers no opinion; that AI-written explanations are
-labelled and kept apart from source texts; and what happens to the text a person enters (sent for checking, not stored; keys stay in the browser; the Dorar
+labelled and kept apart from source texts; and what happens to the text a person enters (sent for checking, cached temporarily in process memory, and passed to model providers when enabled; keys stay in the browser; the Dorar
 tab contacts dorar.net from the browser).
 
 ## Paragraph check (version 0)
@@ -200,7 +200,7 @@ server holds a key for. The cache keeps answers of different providers apart.
 Set `GEMINI_API_KEY` and `LLM_PROVIDER=google` in `.env` to run every model step and the embeddings on Google's free Gemini tier
 (no OpenRouter credit). Defaults on Google: router, recall and triage `gemini-3.5-flash-lite`, claim judge `gemini-3.1-flash-lite`,
 explanation writer `gemini-flash-lite-latest`. The judge benchmark (10 overreach and control cases, 3 runs each) gave 30/30 for
-`gemini-3.1-flash-lite` and 29/30 for `gemini-3.5-flash-lite` (Haiku 4.5: 30/30, gpt-4o-mini: 23/30). The free tier allows about 15
+`gemini-3.1-flash-lite` and 29/30 for `gemini-3.5-flash-lite` (gpt-4o-mini: 23/30). The free tier allows about 15
 requests per minute per Flash-Lite model and 5 per Flash model, so the client spaces calls and retries after a 429; a golden run
 takes about 20 minutes. Production stays on OpenRouter unless `LLM_PROVIDER` is set on the host.
 
@@ -273,6 +273,11 @@ golden/           the test sets (quotes, claims, paragraphs, evidence, fiqh, org
 tests/fixtures/   saved real responses used by tests (Dorar)
 BASELINE.md       what existed before the challenge days; CHANGELOG.md: what was built during them
 ```
+
+## Contributors
+
+- [uAnu0](https://github.com/uAnu0)
+- [Hssan-kms](https://github.com/Hssan-kms)
 
 ## Data sources
 
