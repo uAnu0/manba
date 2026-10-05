@@ -621,17 +621,17 @@
   // The badge is the Manba mark itself: the eight-pointed star, with the statement and the serial written inside it.
   function badgeSvg(code, date) {
     const star = (r, attrs) => `<rect x="${130 - r}" y="${130 - r}" width="${2 * r}" height="${2 * r}" rx="10" ${attrs}/><rect x="${130 - r}" y="${130 - r}" width="${2 * r}" height="${2 * r}" rx="10" transform="rotate(45 130 130)" ${attrs}/>`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 260" width="260" height="260" direction="ltr" style="direction: ltr" role="img" aria-label="${esc(L(`تم التحقق منه باستخدام مَنبَع، الرقم التسلسلي ${code}`, `Verified with Manba, serial ${code}`))}">
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-12 -12 284 284" width="284" height="284" direction="ltr" style="direction: ltr" role="img" aria-label="${esc(L(`تم التحقق منه باستخدام مَنبَع، الرقم التسلسلي ${code}`, `Verified with Manba, serial ${code}`))}">
       ${star(96, 'fill="#0B6E5C"')}
       ${star(88, 'fill="none" stroke="#E3F5EC" stroke-opacity=".55" stroke-width="1.5"')}
       <circle cx="130" cy="130" r="84" fill="#0E7F6A"/>
       <circle cx="130" cy="130" r="78" fill="none" stroke="#E3F5EC" stroke-opacity=".5" stroke-width="1"/>
-      <text x="130" y="84" text-anchor="middle" font-family="IBM Plex Sans Arabic, Tahoma, sans-serif" font-size="12.5" fill="#E3F5EC">تم التحقق منه باستخدام</text>
-      <text x="130" y="136" text-anchor="middle" font-family="Amiri, 'Traditional Arabic', serif" font-size="38" font-weight="700" fill="#FFFFFF">مَنبَع</text>
-      <text x="130" y="153" text-anchor="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="10" letter-spacing="1.2" fill="#E3F5EC">VERIFIED WITH MANBA</text>
-      <line x1="80" y1="160" x2="180" y2="160" stroke="#E3F5EC" stroke-opacity=".45"/>
-      <text x="130" y="176" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9.5" fill="#FFFFFF">${esc(code)}</text>
-      <text x="130" y="191" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#E3F5EC">${esc(date)}</text></svg>`;
+      <text x="130" y="88" text-anchor="middle" font-family="IBM Plex Sans Arabic, Tahoma, sans-serif" font-size="12.5" fill="#E3F5EC">تم التحقق منه باستخدام</text>
+      <text x="130" y="127" text-anchor="middle" font-family="Amiri, 'Traditional Arabic', serif" font-size="34" font-weight="700" fill="#FFFFFF">مَنبَع</text>
+      <text x="130" y="159" text-anchor="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="10" letter-spacing="1.2" fill="#E3F5EC">VERIFIED WITH MANBA</text>
+      <line x1="88" y1="167" x2="172" y2="167" stroke="#E3F5EC" stroke-opacity=".45"/>
+      <text x="130" y="181" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#FFFFFF">${esc(code)}</text>
+      <text x="130" y="195" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#E3F5EC">${esc(date)}</text></svg>`;
   }
   window.ManbaBadge = badgeSvg;  // the How page's tour shows the same seal
   async function showBadge(data) {
