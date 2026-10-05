@@ -69,7 +69,7 @@ textarea#text { width: 100%; min-height: 230px; resize: vertical; border: 1px so
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .samples { display: flex; gap: 8px; flex-wrap: wrap; }
 .sample { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line2); background: var(--surface); font-size: 14px; cursor: pointer; }
-.what { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.what { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .what div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 4px; }
 .what span { font-size: 14px; line-height: 1.7; color: var(--muted); }
 .fine { text-align: center; font-size: 13px; line-height: 1.8; color: var(--faint); margin: 0; }
@@ -367,8 +367,8 @@ body::after {
 #themeBtn.spin svg { animation: theme-spin .6s cubic-bezier(.3, 1.4, .5, 1); }
 #themeBtn:hover svg { color: var(--brand); }
 @keyframes theme-spin { from { transform: rotate(-120deg) scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
-html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after { transition: background-color .4s ease, color .4s ease, border-color .4s ease, box-shadow .4s ease, fill .4s ease, stroke .4s ease !important; }
-@media (prefers-reduced-motion: reduce) { #themeBtn.spin svg { animation: none; } html.theme-anim, html.theme-anim *, html.theme-anim *::before, html.theme-anim *::after { transition: none !important; } }
+html.theme-anim body, html.theme-anim :is(.top, .composer, .what div, .loading, .summary, .doc, .card, .empty, .btn, .chip, textarea, dialog) { transition: background-color .4s ease, color .4s ease, border-color .4s ease, box-shadow .4s ease, fill .4s ease, stroke .4s ease !important; }
+@media (prefers-reduced-motion: reduce) { #themeBtn.spin svg { animation: none; } html.theme-anim body, html.theme-anim :is(.top, .composer, .what div, .loading, .summary, .doc, .card, .empty, .btn, .chip, textarea, dialog) { transition: none !important; } }
 
 /* dialogs (settings, about): they grow in when opened and shrink away when closed */
 dialog[open] { animation: dlg-in .3s cubic-bezier(.2, .9, .3, 1.15); }
@@ -380,3 +380,42 @@ dialog.closing::backdrop { animation: fade-out .22s ease-in forwards; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-out { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { dialog[open], dialog[open]::backdrop, dialog.closing, dialog.closing::backdrop { animation: none; } }
+
+/* ---------- header: logo in the middle ---------- */
+.top .wrap { position: relative; justify-content: flex-end; min-height: 62px; }
+.top .logo { position: absolute; inset-inline-start: 50%; transform: translateX(50%); }
+@media (max-width: 600px) {
+  .top .wrap { flex-direction: column; justify-content: center; gap: 8px; }
+  .top .logo { position: static; transform: none; }
+  .top nav { justify-content: center; }
+}
+
+/* ---------- report: kind of text, translations ---------- */
+.typeline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: -6px; }
+.typeline select { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line2); border-radius: 8px; padding: 4px 8px; }
+.type-tip { margin: -4px 0 0; line-height: 1.8; }
+.tr-ar { line-height: 1.8; margin: 0; }
+.tr-copy { font-family: var(--ui); unicode-bidi: plaintext; }
+.summary .headline:focus { outline: none; }
+
+/* ---------- "what we check" boxes open an example ---------- */
+.what [data-preview] { cursor: pointer; text-align: start; transition: transform .2s, border-color .2s; }
+.what [data-preview]:hover, .what [data-preview]:focus-visible { border-color: var(--brand); transform: translateY(-2px); }
+.what .peek { font-style: normal; font-size: 13px; font-weight: 600; color: var(--brand); margin-top: auto; padding-top: 6px; }
+.what .peek::after { content: " ←"; }
+.hero.pop .what > div:nth-child(4) { animation-delay: 1.2s; }
+dialog.preview { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; }
+.pv-in { border: 1px dashed var(--line2); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.pv-in > div { font-family: var(--q); font-size: 18px; line-height: 1.9; unicode-bidi: plaintext; }
+.pv-arrow { text-align: center; color: var(--muted); font-size: 20px; margin: 6px 0; }
+.pv-out { display: flex; flex-direction: column; gap: 10px; }
+.pv-tag { display: block; margin-bottom: 2px; }
+@media (prefers-reduced-motion: reduce) { .what [data-preview]:hover { transform: none; } }
+
+/* ---------- phones: the moving lights re-blur every glass panel on each frame ---------- */
+@media (max-width: 760px) {
+  body::before, body::after { animation: none; }
+  .top, .composer, .what div, .loading, .summary, .doc, .card, .empty { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+}
+.report.foreign .card .quote, .report.foreign .doc p { font-family: var(--ui); font-size: 17px; }
+.report.foreign .doc p { text-align: left; }

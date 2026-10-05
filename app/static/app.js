@@ -30,7 +30,28 @@
   const where = s => !s ? "" : isQuran(s) ? surahRef(s) : [s.book, s.number].filter(Boolean).join(" · ");
   const HADITH_CUE = /قال رسول الله|قال النبي|ﷺ|صلى الله عليه وسلم|رواه|حديث/;
 
+  // A quote in another language: compared with the official translations (QuranEnc for the Quran), which lead to the Arabic.
+  const NOT_IN_TR = "not found in the official translations searched";
+  function trVerdict(sg, text) {
+    const t = sg.translation, s = sg.source, quran = sg.classification === "quran" || isQuran(s);
+    const type = quran ? "آية" : sg.classification === "hadith" ? "حديث" : "اقتباس";
+    const used = ((store.data && store.data.translations_used) || []).join("، ");
+    if (!t) return { k: "bad", label: quran ? "لم نجده في الترجمات المعتمدة" : sg.classification === "hadith" ? "لم نجده في الأحاديث المترجمة" : "لم نجده في الترجمات المعتمدة",
+      type, why: `بحثنا عنه في: ${used || "الترجمات المعتمدة"}.`, next: "لا يُنسب إلى الله أو إلى النبي ﷺ حتى يُعرف مصدره" };
+    const at = quran ? surahRef(s) : where(s);
+    if (sg.status === "verified") {
+      const base = segVerdict(Object.assign({}, sg, { translation: null }), text);
+      return Object.assign({}, base, { label: quran ? "ترجمة معتمدة لآية" : base.label, why: `${at} · مطابق للترجمة المعتمدة: ${t.title}`, trans: t });
+    }
+    const ref = (sg.differences || []).find(d => /^the reference given/.test(d));
+    const miss = ((sg.differences || []).find(d => /^words not in/.test(d)) || "").replace(/^words not in the official translation: /, "");
+    return { k: "fix", label: ref ? "عُزي إلى غير موضعه" : "ترجمة بلفظ يخالف المعتمدة", type, trans: t,
+      why: ref ? `الكلمات من ${at}، لا من الموضع المذكور في النص.` : `أقرب نص: ${at}.${miss ? ` كلمات ليست في الترجمة المعتمدة: ${miss}.` : ""}`,
+      next: ref ? "صحّح الإحالة" : "انقل الترجمة المعتمدة بلفظها", copy: t.text, copyLtr: true, dorar: false };
+  }
+
   function segVerdict(sg, text) {
+    if (sg.translation || (sg.differences || []).includes(NOT_IN_TR)) return trVerdict(sg, text);
     const s = sg.source, quran = sg.classification === "quran" || isQuran(s);
     if (sg.status === "verified" && s) {
       if (quran) return { k: "ok", label: "آية موثّقة", type: "آية", why: surahRef(s) };
@@ -238,19 +259,88 @@
   }
   $("go").onclick = run;
   // "New review" is a button in the report's summary card (next to copy and print); the report is its only place, so there is nothing to show or hide.
-  function newReview() { $("reportView").hidden = true; $("inputView").hidden = false; history.pushState({}, "", "#"); $("text").focus(); popIn(); }
-  window.addEventListener("popstate", () => { if (!location.hash.includes("report")) newReview(); });
+  function newReview(fromHistory) { $("reportView").hidden = true; $("inputView").hidden = false; if (!fromHistory) history.pushState({}, "", "#"); $("text").focus(); popIn(); }
+  window.addEventListener("popstate", () => { if (!location.hash.includes("report")) newReview(true); });
+
+  // ---------- "what we check" boxes: each opens an example of the report it produces ----------
+  // Built from the same card markup as the real report, so the preview is what the reviewer will get.
+  function pvCard(c) {
+    return `<article class="card ${c.k === "bad" ? "k-bad-b" : ""}" style="animation: none">
+      <div class="head"><div><span class="num">${AR_DIGITS(c.n || 1)}</span><span class="chip k-${c.k}">${esc(c.label)}</span>${c.lvl ? `<span class="lv">مستوى ${c.lvl}</span>` : ""}</div><span class="cap">${esc(c.type)}</span></div>
+      <div class="quote" dir="auto">${esc(c.quote)}</div>
+      ${c.why ? `<p class="why">${esc(c.why)}</p>` : ""}${c.extra || ""}
+      ${c.next ? `<div class="next"><b>الخطوة التالية: ${esc(c.next)}</b>${c.copy ? `<div class="${c.ltr ? "tr-copy" : "q"}" dir="auto" style="font-size: ${c.ltr ? 16 : 19}px; line-height: 2">${esc(c.copy)}</div>` : ""}</div>` : ""}
+    </article>`;
+  }
+  const PREVIEWS = {
+    quran: { title: "الآيات", lead: "كل آية تُطابَق حرفًا بحرف مع نص المصحف (Tanzil). إن تغيّرت كلمة بيّنّاها، وأعطيناك الآية الصحيحة لتنسخها.",
+      input: "قال تعالى: «وأحل الله البيع وحرم الزنا»",
+      out: () => pvCard({ k: "fix", label: "آية بلفظ محرّف", lvl: "أ", type: "آية", quote: "«وأحل الله البيع وحرم الزنا»", why: "يختلف عن نص المصحف في سورة البقرة، الآية ٢٧٥: «الزنا» مكان «الربا».", next: "استبدل بالنص الصحيح", copy: "وَأَحَلَّ ٱللَّهُ ٱلْبَيْعَ وَحَرَّمَ ٱلرِّبَوٰا۟" }) },
+    hadith: { title: "الأحاديث", lead: "نبحث عن الحديث في الكتب التسعة، ونذكر كتابه ورقمه وأحكام المحدثين عليه. ما لا يوجد فيها نعرض أحكام العلماء عليه من الدرر السنية.",
+      input: "قال رسول الله ﷺ: «اطلبوا العلم ولو في الصين». وقال ﷺ: «الراحمون يرحمهم الرحمن»",
+      out: () => pvCard({ n: 1, k: "bad", label: "لم يوجد في كتب الحديث", lvl: "ج", type: "حديث", quote: "«اطلبوا العلم ولو في الصين»", why: "أحكام المحدثين على هذا اللفظ في الدرر السنية: ١١ ضعيف أو فيه علة، ٤ موضوع أو لا أصل له.", next: "لا يُنسب إلى النبي ﷺ حتى يثبت: احذفه أو تحقق منه" })
+        + pvCard({ n: 2, k: "ok", label: "حديث صحيح", lvl: "أ", type: "حديث", quote: "«الراحمون يرحمهم الرحمن»", why: "جامع الترمذي · 1924",
+          extra: `<div class="counts"><span class="chip k-ok">صحيح · الألباني</span><span class="chip k-ok">حسن صحيح · بشار عواد معروف</span></div>` }) },
+    fiqh: { title: "الأحكام الفقهية", lead: "كل جملة فيها حكم (واجب، حرام، يجوز، بالإجماع…) نبحث عنها في الموسوعة الفقهية الكويتية، ونقرأ منها: هل نُقل فيها اتفاق أم خلاف؟ مع المجلد والصفحة وأقوال المذاهب بنصها.",
+      input: "وزكاة الحلي المستعمل واجبة بالإجماع.",
+      out: () => pvCard({ k: "bad", label: "إجماع مدّعى غير ثابت", lvl: "ج", type: "حكم فقهي", quote: "زكاة الحلي المستعمل واجبة بالإجماع", why: "النص يدّعي الإجماع، والموسوعة الفقهية تنقل في المسألة خلافًا (ج18، ص113، مادة «حلي»).",
+        extra: `<p class="why">في التقرير الفعلي تظهر فقرة الموسوعة بنصها وأقوال المذاهب كما وردت فيها: الوجوب عند الحنفية، وعدمه عند الجمهور.</p>`,
+        next: "احذف ادعاء الإجماع، واذكر الخلاف أو انسب القول إلى قائله" }) },
+    lang: { title: "بلغات أخرى", lead: "اقتباس الآية بالإنجليزية أو الفرنسية أو الأردية أو غيرها لا يُقارن بنص كتبه أحد من ذاكرته: نبحث عنه في الترجمات المعتمدة من موسوعة القرآن الكريم المترجمة (QuranEnc)، ثم نعرض الأصل العربي من المصحف. والادعاء بلغة أخرى يُترجم إلى العربية ويُفحص كأي ادعاء.",
+      input: "Allah says: \"Allah has permitted trade and forbidden adultery\" (2:275).",
+      out: () => pvCard({ k: "fix", label: "ترجمة بلفظ يخالف المعتمدة", lvl: "أ", type: "آية", quote: "\"Allah has permitted trade and forbidden adultery\"", why: "أقرب نص: سورة البقرة، الآية ٢٧٥. كلمات ليست في الترجمة المعتمدة: adultery.",
+        next: "انقل الترجمة المعتمدة بلفظها", copy: "Allah has permitted trade and has forbidden interest.", ltr: true }) },
+  };
+  let previewKey = null;
+  function openPreview(key) {
+    const pv = PREVIEWS[key]; if (!pv) return;
+    previewKey = key;
+    $("previewTitle").textContent = pv.title; $("previewLead").textContent = pv.lead;
+    $("previewInput").textContent = pv.input; $("previewOut").innerHTML = `<span class="cap pv-tag">مثال توضيحي لما يظهر في التقرير</span>` + pv.out();
+    const d = $("previewDlg"); d.showModal ? d.showModal() : d.setAttribute("open", "");
+  }
+  document.querySelectorAll("[data-preview]").forEach(el => {
+    el.addEventListener("click", () => openPreview(el.dataset.preview));
+    el.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openPreview(el.dataset.preview); } });
+  });
+  $("previewTry").onclick = () => {
+    const pv = PREVIEWS[previewKey]; if (!pv) return;
+    $("previewDlg").close(); $("text").value = pv.input; updateCount(); run();
+  };
 
   // ---------- report ----------
   // The first thing the reviewer reads: what stops publication, in one sentence.
+  // The verdict speaks about the kind of text entered: a sermon is delivered, a post is published (services/genre.py).
+  function trNote(data) {
+    const used = data.translations_used || [], quran = used.filter(t => !/hadith/i.test(t)).length, hadith = used.some(t => /hadith/i.test(t));
+    if (!used.length) return "لا توجد عندنا ترجمة معتمدة لهذه اللغة، فلم تُفحص إلا الاقتباسات العربية فيه.";
+    return `قُورنت الاقتباسات بـ${AR_DIGITS(quran)} ${quran > 2 ? "ترجمات" : "ترجمة"} معتمدة للقرآن من موسوعة القرآن الكريم المترجمة (QuranEnc)${hadith ? " وبالترجمة الإنجليزية لسبعة من كتب الحديث" : ""}، ثم بأصلها العربي. اسم الترجمة يظهر في تفاصيل كل نتيجة.`;
+  }
+  const LANG_AR = { en: "بالإنجليزية", fr: "بالفرنسية", ur: "بالأردية", id: "بالإندونيسية", tr: "بالتركية", es: "بالإسبانية", other: "بلغة أخرى" };
+  const TYPES = {
+    khutbah: { label: "خطبة", the: "هذه الخطبة", f: true, act: "للإلقاء", tip: "صحّح المواضع المظللة قبل صعود المنبر؛ ما يُقال على المنبر يُنقل عن الخطيب." },
+    post: { label: "منشور", the: "هذا المنشور", act: "للنشر", tip: "المنشور يُعاد نشره بلا ضابط؛ تصحيحه قبل النشر أيسر من تتبّعه بعده." },
+    article: { label: "مقال", the: "هذا المقال", act: "للنشر" },
+    lesson: { label: "درس", the: "هذا الدرس", act: "للإلقاء" },
+    question: { label: "سؤال", the: "هذا النص", act: "للنشر", tip: "إن كان سؤالًا عن حالة بعينها فجوابه عند عالم يسمع تفاصيلها." },
+    text: { label: "نص", the: "هذا النص", act: "للنشر" },
+  };
   function headline(needs, counts) {
-    if (needs) return `${AR_DIGITS(needs)} ${needs === 1 ? "موضع يمنع النشر حتى يُعدَّل" : needs === 2 ? "موضعان يمنعان النشر حتى يُعدَّلا" : "مواضع تمنع النشر حتى تُعدَّل"}`;
-    if (counts.khl) return "لا شيء يمنع النشر، وفيه مسائل خلافية تُنسب إلى قائليها";
-    if (counts.ref) return "لا شيء يمنع النشر، وفيه ما يُحال إلى مختص";
-    return "لا شيء يمنع النشر";
+    const t = TYPES[store.type] || TYPES.text, ready = t.f ? "جاهزة" : "جاهز", inIt = t.f ? "فيها" : "فيه";
+    if (needs) return `${t.the} غير ${ready} ${t.act}: ${AR_DIGITS(needs)} ${needs === 1 ? "موضع يحتاج" : needs === 2 ? "موضعان يحتاجان" : "مواضع تحتاج"} تعديلًا`;
+    if (counts.khl) return `${t.the} ${ready} ${t.act}، و${inIt} مسائل خلافية تُنسب إلى قائليها`;
+    if (counts.ref) return `${t.the} ${ready} ${t.act}، و${inIt} ما يُحال إلى مختص`;
+    return `${t.the} ${ready} ${t.act} من جهة النصوص والأحكام التي ${inIt}`;
+  }
+  function typeLine(data) {
+    const cues = (data.content_type_cues || []).map(c => `«${esc(c)}»`).join("، ");
+    return `<div class="typeline no-print"><label for="typeSel" class="cap">نوع النص:</label>
+      <select id="typeSel">${Object.keys(TYPES).map(k => `<option value="${k}" ${k === store.type ? "selected" : ""}>${TYPES[k].label}</option>`).join("")}</select>
+      ${cues ? `<span class="cap">عرفناه من: ${cues}</span>` : ""}</div>`;
   }
   function renderReport(data) {
     store.data = data;
+    store.type = data.content_type || "text";
     const items = (data.items || []).filter(it => !it.fragment && !(it.kind === "claim" && it.result && it.result.outcome === "out_of_scope"));
     store.entries = items.map((it, i) => ({ it, v: verdictOf(it), i }))
       .sort((a, b) => RANK[a.v.k] - RANK[b.v.k] || a.it.start - b.it.start);
@@ -272,10 +362,11 @@
           <button class="btn primary" id="newBtn">مراجعة نص جديد</button>
         </div>
       </div>
-      ${store.entries.length ? `<p class="headline">${headline(needs, counts)}</p><div class="seg" aria-hidden="true">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<i class="s-${k}" style="flex: ${counts[k]}"></i>`).join("")}</div>
+      ${store.entries.length ? `<p class="headline" id="headline" tabindex="-1">${headline(needs, counts)}</p>${typeLine(data)}${needs && (TYPES[store.type] || {}).tip ? `<p class="cap type-tip" id="typeTip">${TYPES[store.type].tip}</p>` : `<p class="cap type-tip" id="typeTip" hidden></p>`}<div class="seg" aria-hidden="true">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<i class="s-${k}" style="flex: ${counts[k]}"></i>`).join("")}</div>
       <div class="counts">
         ${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<span class="chip k-${k}">${AR_DIGITS(counts[k])} ${K_LABEL[k]}</span>`).join("")}</div>` : ""}
-      ${llmOff ? `<div class="notice" role="status">خدمة الذكاء الاصطناعي غير متاحة الآن، فتحققنا من الاقتباسات والأحكام الفقهية الصريحة بالمطابقة المباشرة فقط. قد لا تظهر الادعاءات غير المقتبسة.</div>` : ""}
+      ${data.language && data.language !== "ar" ? `<div class="notice" role="status">النص ${esc(LANG_AR[data.language] || "بلغة أخرى")}: ${trNote(data)}${llmOff ? " ترجمة الادعاءات غير المقتبسة إلى العربية تحتاج الذكاء الاصطناعي، وهو غير متاح الآن." : ""}</div>` : ""}
+      ${llmOff && !(data.language && data.language !== "ar") ? `<div class="notice" role="status">خدمة الذكاء الاصطناعي غير متاحة الآن، فتحققنا من الاقتباسات والأحكام الفقهية الصريحة بالمطابقة المباشرة فقط. قد لا تظهر الادعاءات غير المقتبسة.</div>` : ""}
       ${data.truncated ? `<div class="notice">النص أطول من الحد، فُحص الجزء الأول منه فقط.</div>` : ""}
     </section>`;
 
@@ -288,7 +379,7 @@
       body = `<div class="cols">
         <section class="doc" aria-label="النص كما أُدخل">
           <div class="row-between"><b class="cap" style="font-size: 14px">النص كما أُدخل</b><span class="cap">اضغط موضعًا مظلَّلًا لفتح نتيجته</span></div>
-          <p>${markedText(data.original_text)}</p>
+          <p dir="${data.language && data.language !== "ar" && data.language !== "ur" ? "ltr" : "rtl"}">${markedText(data.original_text)}</p>
         </section>
         <section class="list" aria-label="النتائج">
           <div class="row-between"><b class="cap" style="font-size: 14px">النتائج، الأهم أولًا</b>
@@ -303,10 +394,19 @@
     const rv = $("reportView");
     rv.innerHTML = head + body + `<p class="cap" style="line-height: 1.8">هذا التقرير يبيّن مواضع النصوص في المصادر وأحكام العلماء كما نقلتها، وليس فتوى ولا ترجيحًا. ما كتبه الذكاء الاصطناعي معلَّم بذلك.</p>`;
     if (typeof Ocr !== "undefined" && Ocr.active()) rv.insertAdjacentHTML("afterbegin", Ocr.warningHtml());  // the text was read from a scan: say so on the report too
+    rv.classList.toggle("foreign", !!(data.language && data.language !== "ar" && data.language !== "ur"));
     rv.hidden = false;
     applyFilter();
     window.scrollTo({ top: 0 });
     // Details stay closed until the reviewer opens a card; the card itself already says what is wrong and what to do.
+    const sel = $("typeSel");
+    if (sel) sel.onchange = () => {
+      store.type = sel.value;
+      $("headline").textContent = headline(needs, counts);
+      const tip = $("typeTip"), tp = (TYPES[store.type] || {}).tip;
+      tip.hidden = !(needs && tp); tip.textContent = tp || "";
+    };
+    const hl = $("headline"); if (hl) hl.focus({ preventScroll: true });  // keyboard and screen-reader users land on the verdict
     dorarSummaries();
   }
 
@@ -331,9 +431,10 @@
         <div><span class="num" style="vertical-align: baseline">${AR_DIGITS(e.n)}</span><span class="chip k-${v.k}">${esc(v.label)}</span>${lvl ? `<span class="lv" title="${esc(LEVEL_TITLE[lvl] || "")}">مستوى ${esc(lvl)}</span>` : ""}</div>
         <span class="cap">${esc(v.type)}</span>
       </div>
-      <div class="${isScripture ? "quote" : ""}" style="${isScripture ? "" : "font-size: 16px; line-height: 1.8"}">${esc(quoteText)}</div>
+      <div class="${isScripture ? "quote" : ""}" dir="auto" style="${isScripture ? "" : "font-size: 16px; line-height: 1.8"}">${esc(quoteText)}</div>
+      ${it.translated_ar ? `<p class="cap tr-ar">ترجمة آلية بُحث بها في المصادر <span class="gen">مولَّد بالذكاء الاصطناعي</span>: ${esc(it.translated_ar)}</p>` : ""}
       ${v.why ? `<p class="why">${esc(v.why)}</p>` : ""}
-      ${v.next ? `<div class="next"><b>الخطوة التالية: ${esc(v.next)}</b>${v.copy ? `<div class="q" style="font-size: 19px; line-height: 2">${esc(v.copy)}</div>` : ""}</div>` : ""}
+      ${v.next ? `<div class="next"><b>الخطوة التالية: ${esc(v.next)}</b>${v.copy ? `<div class="${v.copyLtr ? "tr-copy" : "q"}" dir="auto" style="font-size: ${v.copyLtr ? 16 : 19}px; line-height: 2">${esc(v.copy)}</div>` : ""}</div>` : ""}
       <div class="actions no-print">
         <button class="btn small" data-open="${e.n}" aria-expanded="false">التفاصيل والمصادر</button>
         ${v.copy ? `<button class="btn small" data-copy="${e.n}">نسخ النص الصحيح</button>` : ""}
@@ -388,7 +489,8 @@
     const v = e.v, it = e.it;
     let h = "";
     const sg = v.seg;
-    if (sg && sg.source) h += sourceBlock(sg.source, sg.status === "verified" ? where(sg.source) : `النص في المصدر: ${where(sg.source)}`) + diffBlock(sg);
+    if (v.trans) h += `<div class="src"><span class="cap">الترجمة المعتمدة: ${esc(v.trans.title)}${v.trans.version ? ` · الإصدار ${esc(v.trans.version)}` : ""}${v.trans.source_url ? ` · <a href="${esc(v.trans.source_url)}" target="_blank" rel="noopener">${v.trans.kind === "quran" ? "QuranEnc" : "المصدر"}</a>` : ""}</span><div dir="auto" style="line-height: 1.9">${esc(v.trans.text)}</div></div>`;
+    if (sg && sg.source) h += sourceBlock(sg.source, v.trans ? `الأصل العربي: ${where(sg.source)}` : sg.status === "verified" ? where(sg.source) : `النص في المصدر: ${where(sg.source)}`) + (v.trans ? "" : diffBlock(sg));
     if (v.simItem) h += sourceBlock(v.simItem.source);
     if (v.fiqh) h += fiqhBlock(v.fiqh);
     if (it.kind === "claim" && !v.fiqh && it.result.outcome !== "quote_checked") h += evidenceBlock(it.result);
@@ -498,7 +600,8 @@
   }
 
   function summaryText() {
-    const lines = ["تقرير مراجعة مَنبَع", ""];
+    const hl = document.getElementById("headline");
+    const lines = ["تقرير مراجعة مَنبَع", hl ? hl.textContent : "", ""];
     for (const e of store.entries) {
       lines.push(`${e.n}. [${e.v.label}] ${e.it.text}`);
       if (e.v.why) lines.push(`   ${e.v.why}`);
@@ -603,7 +706,10 @@
   // cover fades away. A click or a key skips it; with reduced motion it is not shown. (The CSS also hides it after 9 s whatever happens.)
   (function intro() {
     const cover = $("intro"), logo = $("introLogo"); if (!cover) return;
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); $("inputView").classList.remove("wait"); return; }
+    let seen = false;
+    try { seen = sessionStorage.getItem("manba_intro") === "1"; sessionStorage.setItem("manba_intro", "1"); } catch (e) {}
+    // Once per visit: a reload during a demo goes straight to the page.
+    if (seen || matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); $("inputView").classList.remove("wait"); return; }
     let done = false, hold = null;
     const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; placePill(); cover.classList.add("out"); popIn(); setTimeout(() => cover.remove(), 700); };
     document.documentElement.style.overflow = "hidden";
