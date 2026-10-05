@@ -380,7 +380,7 @@
       return `No changes found in the completed review of ${t.the.toLowerCase()}`;
     }
     const ready = t.f ? "جاهزة" : "جاهز", inIt = t.f ? "فيها" : "فيه";
-    if (needs) return `${t.the} غير ${ready} ${t.act}: ${AR_DIGITS(needs)} ${needs === 1 ? "موضع يحتاج" : needs === 2 ? "موضعان يحتاجان" : "مواضع تحتاج"} تعديلًا`;
+    if (needs) return `${t.the} غير ${ready} ${t.act}: ${needs === 1 ? "موضع واحد يحتاج" : needs === 2 ? "موضعان يحتاجان" : needs <= 10 ? `${AR_DIGITS(needs)} مواضع تحتاج` : `${AR_DIGITS(needs)} موضعًا يحتاج`} تعديلًا`;
     return `لم نجد مواضع تحتاج تعديلًا في المراجعة المكتملة لـ${t.the}`;
   }
   function typeLine(data) {
@@ -481,7 +481,8 @@
     for (const sp of spans) {
       if (sp.s < pos) continue;
       out += esc(text.slice(pos, sp.s));
-      out += `<span class="num" aria-hidden="true">${N(sp.en.n)}</span><button class="mk k-${sp.en.v.k}" data-goto="${sp.en.n}" aria-label="${L("النتيجة", "Result")} ${sp.en.n}: ${esc(sp.en.v.label)}">${esc(text.slice(sp.s, sp.e))}</button>`;
+      // The number sits inside the mark, so it never ends up alone at the end of the previous line.
+      out += `<button class="mk k-${sp.en.v.k}" data-goto="${sp.en.n}" aria-label="${L("النتيجة", "Result")} ${sp.en.n}: ${esc(sp.en.v.label)}"><span class="num" aria-hidden="true">${N(sp.en.n)}</span>${esc(text.slice(sp.s, sp.e))}</button>`;
       pos = sp.e;
     }
     return out + esc(text.slice(pos));

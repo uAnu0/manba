@@ -668,3 +668,4 @@ html[lang="en"] .what .peek::after { content: " →"; }
 .tour-nav .btn { min-height: 44px; }
 .llm-why { margin-top: 6px; font-size: 13px; } .llm-why summary { cursor: pointer; }
 .llm-why code { display: block; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.mk .num { vertical-align: 0.35em; margin-inline: 0 4px; }
