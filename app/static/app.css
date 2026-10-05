@@ -660,3 +660,9 @@ html[lang="en"] .what .peek::after { content: " →"; }
 .principle h3 { margin: 4px 18px 0; font-size: 17px; }
 .principle .p-does { margin: 0 18px 18px; flex: 0; }
 .principle:hover { transform: none; border-color: var(--line); }
+
+/* Long, strong receipt codes wrap on phones and in the report. */
+.serial code, .pserial code { overflow-wrap: anywhere; word-break: break-all; }
+#vCode { width: 100%; min-width: 0; box-sizing: border-box; }
+.tour-nav { flex-wrap: wrap; }
+.tour-nav .btn { min-height: 44px; }

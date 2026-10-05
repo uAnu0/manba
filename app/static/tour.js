@@ -22,16 +22,16 @@
   const STEPS = [
     {
       t: ["الصق نصك", "Paste your text"],
-      d: ["خطبة أو مقال أو منشور أو درس: تكتبه، أو ترفع ملفًا، أو صورة وPDF. بالعربية أو بالإنجليزية أو بلغات أخرى. النص يُفحص ولا يُحفظ.",
-        "A khutbah, article, post or lesson: type it, upload a file, or a photo or PDF. Arabic, English or other languages. Your text is checked, never stored."],
+      d: ["خطبة أو مقال أو منشور أو درس: تكتبه، أو ترفع ملفًا، أو صورة وPDF. بالعربية أو بالإنجليزية أو بلغات أخرى. قد تعالج النص ذاكرة مؤقتة ومزوّدو الذكاء الاصطناعي؛ اقرأ تفاصيل الخصوصية أدناه.",
+        "A khutbah, article, post or lesson: type it, upload a file, or a photo or PDF. Arabic, English or other languages. Temporary caches and AI providers may process your text; see the privacy details below."],
       scene: () => `<div class="ts-compose"><div class="ts-tabs"><span class="on">${L("كتابة", "Type")}</span><span>${L("ملف", "File")}</span><span>${L("صورة أو PDF", "Image or PDF")}</span></div>
         <div class="ts-area">${khutbah(false)}<span class="caret" aria-hidden="true"></span></div>
         <div class="ts-row"><span class="cap">${L(`${D(WORDS)} كلمة`, `${WORDS} words`)}</span><span class="btn small primary ts-pulse">${L("راجع النص", "Review the text")}</span></div></div>`,
     },
     {
       t: ["نعلّم كل ما يحتاج تحققًا", "Everything to check is marked"],
-      d: ["كل آية وحديث مقتبس، وكل جملة فيها حكم شرعي ولو بلا علامات تنصيص. الذكاء الاصطناعي يدلّ على المواضع فقط، ولا يحكم عليها.",
-        "Every quoted verse and hadith, and every sentence that states a ruling, even without quotation marks. The AI only points at them; it does not judge them."],
+      d: ["نبحث عن الآيات والأحاديث والادعاءات الشرعية، ولو بلا علامات تنصيص. يساعد النموذج في العثور على الادعاءات وتقدير صلة الأدلة؛ وقد تفوت المراجعة بعض المواضع.",
+        "We look for verses, hadith and religious claims, including unquoted wording. AI helps find claims and assess evidence relevance; the review may miss some passages."],
       scene: () => `<div class="ts-doc"><div class="ts-head"><b>${L("النص كما أُدخل", "The text as entered")}</b><span class="cap">${L("٣ مواضع", "3 places")}</span></div>${khutbah(true)}
         <div class="ts-legend">${chip("bad", L("١ حديث و١ حكم فقهي", "1 hadith, 1 fiqh ruling"))}${chip("fix", L("١ آية", "1 verse"))}<span class="cap">${L("اللون من نتيجة الفحص، والرقم يفتح تفاصيله", "The colour is the result; the number opens its details")}</span></div></div>`,
     },
@@ -69,16 +69,16 @@
     },
     {
       t: ["أعد الفحص وانل الشارة", "Re-check and earn the badge"],
-      d: ["يُفحص النص المصحح من جديد، ولا تُمنح الشارة إلا إذا جاء نظيفًا. رابط الشارة يعيد التحقق من النص نفسه عند فتحه، ورمزها يتغيّر إن تغيّر حرف منه. ويمكنك مشاركة التقرير برابط واحد.",
-        "The corrected text is checked again, and the badge is given only if it comes back clean. The badge link re-verifies the same text when opened, and its code changes if a single letter changes. The report can be shared with one link."],
-      scene: () => `<div class="ts-badge"><div class="seal">${window.ManbaBadge ? window.ManbaBadge("MNB-AEKS-NHUU-3N76-IY7U", "2026-10-05") : ""}</div>
-        <b>${L("نال النص شارة مَنبَع", "The text earned the Manba badge")}</b>
+      d: ["يُفحص النص المصحح من جديد. تتطلب الشارة مراجعة مكتملة بلا نتائج عالقة، ومفتاح توقيع مهيّأ. صفحة التحقق تفحص توقيع الرقم ومطابقة النص حرفيًا؛ ولا تعيد الحكم على مضمونه. الشارة هنا مثال توضيحي.",
+        "The corrected text is checked again. A badge requires a complete review with no unresolved findings and configured signing. Verification checks the receipt's signature and exact text match; it does not review the content again. This badge is an illustration."],
+      scene: () => `<div class="ts-badge"><div class="seal">${window.ManbaBadge ? window.ManbaBadge("MNB2-" + Array(13).fill("AAAA").concat("AAA").join("-"), "2026-10-05") : ""}</div>
+        <b>${L("مثال توضيحي لشارة مَنبَع", "Illustration of a Manba badge")}</b>
         <div class="ts-row"><span class="btn small primary">${L("نزّل الشارة", "Download the badge")}</span><span class="btn small">${L("انسخ رابط التحقق", "Copy the verification link")}</span><span class="btn small">${L("مشاركة التقرير", "Share the report")}</span></div></div>`,
     },
   ];
 
   // The tour plays by itself, one step every few seconds, and loops; Back and Next move it by hand and the clock restarts.
-  let at = 0, timer = null;
+  let at = 0, timer = null, paused = reduced;
   const DWELL = 6500, active = () => !$("howView").hidden && !document.hidden;
 
   function renderSteps() {
@@ -97,7 +97,7 @@
   }
   function restart() {
     clearInterval(timer); timer = null;
-    if (reduced) return;  // no motion asked for: the steps change only by hand
+    if (reduced || paused) return;  // no motion asked for: the steps change only by hand
     timer = setInterval(() => { if (active()) go((at + 1) % STEPS.length); }, DWELL);
   }
   function go(i, animate = true) { at = (i + STEPS.length) % STEPS.length; render(animate); }
@@ -106,6 +106,11 @@
     const b = ev.target.closest("[data-step]");
     if (b) { go(+b.dataset.step); restart(); }
   });
+  const pause = $("tourPause");
+  const pauseLabel = () => { pause.textContent = paused ? L("شغّل الجولة", "Play tour") : L("أوقف الجولة", "Pause tour"); pause.setAttribute("aria-pressed", String(paused)); };
+  pause.onclick = () => { paused = !paused; pauseLabel(); restart(); };
+  pauseLabel();
+  $("tour").addEventListener("focusin", () => { paused = true; pauseLabel(); restart(); });
   $("tourBack").onclick = () => { go(at - 1); restart(); };
   $("tourNext").onclick = () => {
     if (at === STEPS.length - 1) { const a = document.querySelector('[data-view="review"]'); if (a) a.click(); return; }
@@ -117,7 +122,7 @@
     if (ev.key === back) { go(at - 1); restart(); ev.preventDefault(); }
   });
 
-  document.addEventListener("manba:lang", () => render(false));
+  document.addEventListener("manba:lang", () => { render(false); pauseLabel(); });
   document.addEventListener("manba:view", ev => { if (ev.detail === "how") { go(0, false); restart(); } else { clearInterval(timer); timer = null; } });
   render(false);
   if (!$("howView").hidden) restart();
