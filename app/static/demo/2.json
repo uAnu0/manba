@@ -1,0 +1,134 @@
+{
+  "original_text": "انشرها تؤجر! قال رسول الله ﷺ: «النظافة من الإيمان». وقال ﷺ: «اختلاف أمتي رحمة». وقال ﷺ: «الراحمون يرحمهم الرحمن، ارحموا من في الأرض يرحمكم من في السماء».",
+  "word_count": 27,
+  "items": [
+    {
+      "kind": "quote",
+      "text": "قال رسول الله ﷺ: «النظافة من الإيمان»",
+      "start": 13,
+      "end": 50,
+      "quote": {
+        "segment_text": "قال رسول الله ﷺ: «النظافة من الإيمان».",
+        "classification": "unverified",
+        "status": "baseless",
+        "match_type": "full",
+        "confidence": 0.55,
+        "source": null,
+        "differences": [],
+        "is_claim": true,
+        "content_level": null,
+        "translation": null
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": null,
+      "translated_ar": null,
+      "verdict_kind": "bad",
+      "needs_action": true
+    },
+    {
+      "kind": "quote",
+      "text": "ﷺ: «اختلاف أمتي رحمة»",
+      "start": 57,
+      "end": 78,
+      "quote": {
+        "segment_text": "وقال ﷺ: «اختلاف أمتي رحمة».",
+        "classification": "unverified",
+        "status": "baseless",
+        "match_type": "full",
+        "confidence": 0.6,
+        "source": null,
+        "differences": [],
+        "is_claim": true,
+        "content_level": null,
+        "translation": null
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": null,
+      "translated_ar": null,
+      "verdict_kind": "bad",
+      "needs_action": true
+    },
+    {
+      "kind": "quote",
+      "text": "«الراحمون يرحمهم الرحمن، ارحموا من في الأرض يرحمكم من في السماء»",
+      "start": 88,
+      "end": 152,
+      "quote": {
+        "segment_text": "الراحمون يرحمهم الرحمن، ارحموا من في الأرض يرحمكم من في السماء",
+        "classification": "hadith",
+        "status": "verified",
+        "match_type": "partial",
+        "confidence": 1.0,
+        "source": {
+          "book": "جامع الترمذي",
+          "chapter": "كتاب البر والصلة عن رسول الله صلى الله عليه وسلم",
+          "number": "1924",
+          "matched_text": "حَدَّثَنَا ابْنُ أَبِي عُمَرَ، حَدَّثَنَا سُفْيَانُ، عَنْ عَمْرِو بْنِ دِينَارٍ، عَنْ أَبِي قَابُوسَ، عَنْ عَبْدِ اللَّهِ بْنِ عَمْرٍو، قَالَ قَالَ رَسُولُ اللَّهِ صلى الله عليه وسلم \" الرَّاحِمُونَ يَرْحَمُهُمُ الرَّحْمَنُ ارْحَمُوا مَنْ فِي الأَرْضِ يَرْحَمْكُمْ مَنْ فِي السَّمَاءِ الرَّحِمُ شُجْنَةٌ مِنَ الرَّحْمَنِ فَمَنْ وَصَلَهَا وَصَلَهُ اللَّهُ وَمَنْ قَطَعَهَا قَطَعَهُ اللَّهُ \" . قَالَ أَبُو عِيسَى هَذَا حَدِيثٌ حَسَنٌ صَحِيحٌ .",
+          "other_matches_count": 0,
+          "grades": [
+            {
+              "name": "Ahmad Muhammad Shakir",
+              "grade": "Sahih"
+            },
+            {
+              "name": "Al-Albani",
+              "grade": "Sahih"
+            },
+            {
+              "name": "Bashar Awad Maarouf",
+              "grade": "Hasan Sahih"
+            },
+            {
+              "name": "Zubair Ali Zai",
+              "grade": "Isnaad Hasan"
+            }
+          ],
+          "level": 3,
+          "strength": "sahih"
+        },
+        "differences": [],
+        "is_claim": true,
+        "content_level": "أ",
+        "translation": null
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": "أ",
+      "translated_ar": null,
+      "verdict_kind": "ok",
+      "needs_action": false
+    }
+  ],
+  "sentences": 4,
+  "commentary_sentences": 1,
+  "skipped_claims": 0,
+  "truncated": false,
+  "summary": {
+    "baseless": 2,
+    "verified": 1,
+    "level_أ": 1
+  },
+  "llm": {
+    "used": false,
+    "error": null,
+    "recited": 0,
+    "recited_found": 0
+  },
+  "language": "ar",
+  "translations_used": [],
+  "content_type": "post",
+  "content_type_ar": "المنشور",
+  "content_type_cues": [
+    "انشرها",
+    "تؤجر"
+  ],
+  "blocking": 2,
+  "badge": null,
+  "review_complete": false,
+  "badge_unavailable": "incomplete_review"
+}
