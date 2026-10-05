@@ -105,13 +105,14 @@ class Entry:
     forms: tuple[str, ...]  # normalized spellings to match against; forms[0] is the primary one
     verses: int = 1  # number of consecutive ayahs this entry spans (>1 for multi-verse windows)
     grades: tuple[tuple[str, str], ...] = ()  # (scholar, grade) pairs, hadith only
+    strict_forms: tuple[str, ...] = ()  # retain ة / ه for the final exact-match check
 
     @property
     def normalized(self) -> str:
         return self.forms[0]
 
 
-def normalize_arabic_text(text: str) -> str:
+def normalize_arabic_text(text: str, preserve_taa: bool = False) -> str:
     """Convert dagger alef to alef, strip tashkeel and tatweel, unify Alef forms to bare Alef and Taa Marbuta to Haa."""
     # Uthmani shorthand -> Imlaei spelling (e.g. العٰلمين -> العالمين); must run before diacritics are stripped.
     text = _DAGGER_AFTER_MAQSURA.sub(r"\1", text)
@@ -122,12 +123,12 @@ def normalize_arabic_text(text: str) -> str:
     text = _ALEF_FORMS.sub("\u0627", text)
     # Uthmani writes alef madda as hamza + alef (ءاتوا -> اتوا, matching آتوا after normalization).
     text = text.replace("\u0621\u0627", "\u0627")
-    return text.replace("\u0629", "\u0647")
+    return text if preserve_taa else text.replace("\u0629", "\u0647")
 
 
-def normalize(text: str) -> str:
+def normalize(text: str, preserve_taa: bool = False) -> str:
     """Arabic normalization, Imlaei spelling exceptions, and case/punctuation/whitespace folding."""
-    text = normalize_arabic_text(text).lower()
+    text = normalize_arabic_text(text, preserve_taa=preserve_taa).lower()
     words = re.sub(r"[^\w\s]", "", text).split()
     return " ".join(_apply_imlaei_exceptions(w) for w in words)
 
@@ -159,6 +160,8 @@ def load_corpus() -> tuple[Entry, ...]:
                 text=item["text"],
                 forms=forms,
                 grades=tuple((g["name"], g["grade"]) for g in item.get("grades", [])),
+                strict_forms=tuple(dict.fromkeys(normalize(t, preserve_taa=True) for t in
+                                   (item.get("match_text"), item["text"]) if t)) if book == "القرآن الكريم" else (),
             )
         )
     return tuple(entries)
@@ -254,6 +257,8 @@ def _merge_verses(members: list[Entry]) -> Entry:
         text=" ".join(m.text for m in members),
         forms=forms,
         verses=len(members),
+        strict_forms=tuple(dict.fromkeys(" ".join((m.strict_forms or (normalize(m.text, preserve_taa=True),))[
+            min(k, len(m.strict_forms or (m.text,)) - 1)] for m in members) for k in range(2))),
     )
 
 
@@ -369,7 +374,55 @@ def _source(entry: Entry, other_matches: int = 0) -> Source:
     )
 
 
+def _short_vowels(word: str) -> dict[int, set[str]]:
+    # Compare only ordinary aligned letters; Uthmani shorthand with a different
+    # number of written letters needs its separate matching form.
+    letters = [c for c in word if c.isalpha()]
+    if "".join(normalize(c, preserve_taa=True) for c in letters) != normalize(word, preserve_taa=True):
+        return {}
+    out: dict[int, set[str]] = defaultdict(set)
+    pos = -1
+    for c in word:
+        if c.isalpha():
+            pos += 1
+        elif "\u064b" <= c <= "\u0650" and pos >= 0:
+            out[pos].add(c)
+    return dict(out)
+
+
+def _vowel_conflict(segment: str, entry: Entry) -> bool:
+    if entry.classification != "quran":
+        return False
+    wanted = [w for w in segment.split() if normalize(w)]
+    words = [w for w in entry.text.split() if normalize(w)]
+    norms = [normalize(w) for w in words]
+    target = [normalize(w) for w in wanted]
+    for at in range(len(words) - len(wanted) + 1):
+        if norms[at:at + len(wanted)] != target:
+            continue
+        for left, right in zip(wanted, words[at:at + len(wanted)]):
+            left_letters = [c for c in left if c.isalpha()]
+            right_letters = [c for c in right if c.isalpha()]
+            if len(left_letters) == len(right_letters) and any(
+                a in "أإ" and b in "أإ" and a != b for a, b in zip(left_letters, right_letters)
+            ):
+                return True
+            source_vowels = _short_vowels(right)
+            if any(pos in source_vowels and marks != source_vowels[pos] for pos, marks in _short_vowels(left).items()):
+                return True
+        return False
+    return False
+
+
 def _verified(segment: str, entry: Entry, match_type: str, others: int) -> Segment:
+    strict = normalize(segment, preserve_taa=True)
+    forms = entry.strict_forms or (normalize(entry.text, preserve_taa=True),)
+    changed_letters = not any(f" {strict} " in f" {form} " for form in forms)
+    if changed_letters or _vowel_conflict(segment, entry):
+        return Segment(segment_text=segment, classification=entry.classification, status="semantic_variant",
+                       match_type=match_type, confidence=1.0, source=_source(entry, others),
+                       differences=["letter spelling differs from the source (ة / ه)" if changed_letters else
+                                    "explicit vowels or hamza differ from the Mushaf"])
     return Segment(
         segment_text=segment,
         classification=entry.classification,

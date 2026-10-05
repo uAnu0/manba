@@ -69,7 +69,6 @@ SUMMARIES = {
 
 
 WEIGHT = {"quran": 3.0, "sahihayn": 3.0, "sahih": 2.0, "hasan": 1.5, "disputed": 1.0, "daif": 0.5, "ungraded": 0.5}
-MINORITY_SHARE = 0.25  # a side holding less than this share of the other side's weight does not make the claim "mixed"
 
 
 def weight(items: list[EvidenceItem]) -> float:
@@ -78,13 +77,12 @@ def weight(items: list[EvidenceItem]) -> float:
 
 
 def outcome_of(supporting: list[EvidenceItem], contradicting: list[EvidenceItem]) -> str:
-    """Weigh the two sides by source strength. One stray text judged to point the other way (the judge is a model and
-    sometimes misreads a verse) does not turn a clear case into "mixed"; it is still shown, with a note."""
+    """Keep opposing evidence visible as mixed; do not automatically prefer one side."""
     def strong(items: list[EvidenceItem]) -> bool:
         return any(i.source.strength in STRONG for i in items)
 
     s, c = weight(supporting), weight(contradicting)
-    if s and c and min(s, c) / max(s, c) >= MINORITY_SHARE:
+    if s and c:
         return "mixed"
     if s and s >= c:
         return "supported" if strong(supporting) else "supported_weakly"

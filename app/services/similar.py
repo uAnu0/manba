@@ -36,11 +36,15 @@ def _accept(share: float, matched: int, cosine: float, n_terms: int = 0) -> bool
     )
 
 
-async def nearest_text(sentence: str, api_key: str | None = None) -> SimilarText | None:
+async def nearest_text(sentence: str, api_key: str | None = None, strict: bool = False) -> SimilarText | None:
     """The closest corpus text to `sentence` if it is close enough to point out, else None. Never raises."""
     wanted = set(terms(sentence))
     dense = dense_index()
-    if len(wanted) < MIN_TERMS or dense is None:
+    if len(wanted) < MIN_TERMS:
+        return None
+    if dense is None:
+        if strict:
+            raise RuntimeError("meaning search index unavailable")
         return None
     idf = index().idf
     if sum(idf.get(w, 0.0) for w in wanted) / len(wanted) < MIN_MEAN_IDF:
@@ -48,6 +52,8 @@ async def nearest_text(sentence: str, api_key: str | None = None) -> SimilarText
     try:
         vector = await embed_query(sentence, api_key)
     except Exception:  # no embedding available: simply no pointer
+        if strict:
+            raise
         return None
     entries = load_corpus()
     candidates: dict[int, float] = {}
