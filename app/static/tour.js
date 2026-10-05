@@ -71,62 +71,54 @@
       t: ["أعد الفحص وانل الشارة", "Re-check and earn the badge"],
       d: ["يُفحص النص المصحح من جديد، ولا تُمنح الشارة إلا إذا جاء نظيفًا. رابط الشارة يعيد التحقق من النص نفسه عند فتحه، ورمزها يتغيّر إن تغيّر حرف منه. ويمكنك مشاركة التقرير برابط واحد.",
         "The corrected text is checked again, and the badge is given only if it comes back clean. The badge link re-verifies the same text when opened, and its code changes if a single letter changes. The report can be shared with one link."],
-      scene: () => `<div class="ts-badge"><div class="seal">${window.ManbaBadge ? window.ManbaBadge("6C1F0A93D2", "2026-10-05") : ""}</div>
+      scene: () => `<div class="ts-badge"><div class="seal">${window.ManbaBadge ? window.ManbaBadge("MNB-AEKS-NHUU-3N76-IY7U", "2026-10-05") : ""}</div>
         <b>${L("نال النص شارة مَنبَع", "The text earned the Manba badge")}</b>
         <div class="ts-row"><span class="btn small primary">${L("نزّل الشارة", "Download the badge")}</span><span class="btn small">${L("انسخ رابط التحقق", "Copy the verification link")}</span><span class="btn small">${L("مشاركة التقرير", "Share the report")}</span></div></div>`,
     },
   ];
 
-  let at = 0, timer = null, playing = false;
-  const DWELL = 7000;
+  // The tour plays by itself, one step every few seconds, and loops; Back and Next move it by hand and the clock restarts.
+  let at = 0, timer = null;
+  const DWELL = 6500, active = () => !$("howView").hidden && !document.hidden;
 
   function renderSteps() {
     $("tourSteps").innerHTML = STEPS.map((s, i) => `<li class="${i === at ? "on" : i < at ? "past" : ""}">
       <button type="button" data-step="${i}" aria-current="${i === at ? "step" : "false"}"><span class="fi">${D(i + 1)}</span><b>${L(...s.t)}</b></button>
       ${i === at ? `<p>${L(...s.d)}</p>` : ""}</li>`).join("");
-    $("tourDots").innerHTML = STEPS.map((s, i) => `<button type="button" class="dot${i === at ? " on" : ""}" data-step="${i}" aria-label="${L(`الخطوة ${D(i + 1)}: `, `Step ${i + 1}: `)}${L(...s.t)}" aria-current="${i === at ? "step" : "false"}"></button>`).join("");
+    $("tourDots").innerHTML = STEPS.map((s, i) => `<button type="button" class="dot${i === at ? " on" : ""}" data-step="${i}" aria-label="${L(`الخطوة ${D(i + 1)}: `, `Step ${i + 1}: `)}${L(...s.t)}" aria-current="${i === at ? "step" : "false"}"><i style="animation-duration: ${DWELL}ms"></i></button>`).join("");
   }
   function render(animate) {
     const sc = $("tourScene");
     sc.innerHTML = `<div class="ts-step${animate && !reduced ? " enter" : ""}"><span class="ts-n">${L(`الخطوة ${D(at + 1)} من ${D(STEPS.length)}`, `Step ${at + 1} of ${STEPS.length}`)}</span>${STEPS[at].scene()}</div>`;
     renderSteps();
-    $("tourBack").disabled = at === 0;
     const last = at === STEPS.length - 1;
     $("tourNext").textContent = last ? L("جرّبه على نصك", "Try it on your text") : L("التالي", "Next");
-    $("tourPlay").textContent = playing ? L("إيقاف", "Pause") : L("تشغيل تلقائي", "Autoplay");
-    $("tourPlay").setAttribute("aria-pressed", String(playing));
+    $("tourBack").textContent = at === 0 ? L("الخطوة الأخيرة", "Last step") : L("السابق", "Back");
   }
-  function go(i, animate = true) { at = Math.max(0, Math.min(STEPS.length - 1, i)); render(animate); }
-  function stop() { playing = false; clearInterval(timer); timer = null; render(false); }
-  function play() {
-    playing = true; clearInterval(timer);
-    timer = setInterval(() => { if (at === STEPS.length - 1) { stop(); return; } go(at + 1); }, DWELL);
-    render(false);
+  function restart() {
+    clearInterval(timer); timer = null;
+    if (reduced) return;  // no motion asked for: the steps change only by hand
+    timer = setInterval(() => { if (active()) go((at + 1) % STEPS.length); }, DWELL);
   }
+  function go(i, animate = true) { at = (i + STEPS.length) % STEPS.length; render(animate); }
 
   $("tour").addEventListener("click", ev => {
     const b = ev.target.closest("[data-step]");
-    if (b) { if (playing) stop(); go(+b.dataset.step); }
+    if (b) { go(+b.dataset.step); restart(); }
   });
-  $("tourBack").onclick = () => { if (playing) stop(); go(at - 1); };
+  $("tourBack").onclick = () => { go(at - 1); restart(); };
   $("tourNext").onclick = () => {
-    if (playing) stop();
     if (at === STEPS.length - 1) { const a = document.querySelector('[data-view="review"]'); if (a) a.click(); return; }
-    go(at + 1);
+    go(at + 1); restart();
   };
-  $("tourPlay").onclick = () => (playing ? stop() : play());
   $("tour").addEventListener("keydown", ev => {
-    if (ev.target.closest("textarea, input")) return;
     const fwd = en() ? "ArrowRight" : "ArrowLeft", back = en() ? "ArrowLeft" : "ArrowRight";
-    if (ev.key === fwd) { if (playing) stop(); go(at + 1); ev.preventDefault(); }
-    if (ev.key === back) { if (playing) stop(); go(at - 1); ev.preventDefault(); }
+    if (ev.key === fwd) { go(at + 1); restart(); ev.preventDefault(); }
+    if (ev.key === back) { go(at - 1); restart(); ev.preventDefault(); }
   });
 
   document.addEventListener("manba:lang", () => render(false));
-  document.addEventListener("manba:view", ev => {
-    if (ev.detail === "how") { go(0, false); if (!reduced) play(); }
-    else if (playing) stop();
-  });
+  document.addEventListener("manba:view", ev => { if (ev.detail === "how") { go(0, false); restart(); } else { clearInterval(timer); timer = null; } });
   render(false);
-  if (!$("howView").hidden && !reduced) play();
+  if (!$("howView").hidden) restart();
 })();

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header
 
 from app.schemas import TextCheckRequest, TextCheckResponse
 from app.security import apply_llm_choice, require_access
+from app.services.badge import assess
 from app.services.genre import label
 from app.services.text_claims import check_text
 
@@ -16,4 +17,8 @@ async def check(payload: TextCheckRequest, x_openrouter_key: Optional[str] = Hea
     result = await check_text(
         payload.text, use_llm=payload.use_llm, api_key=x_openrouter_key, use_meaning=payload.use_meaning
     )
-    return label(result, payload.text)
+    # A badge serial only for the full review the page runs (a lighter request cannot earn one).
+    result = assess(label(result, payload.text), payload.text)
+    if not (payload.use_llm and payload.use_meaning):
+        result.badge = None
+    return result
