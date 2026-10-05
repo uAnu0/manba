@@ -95,6 +95,7 @@ def _response(text: str, located: list[Located], extraction: ExtractionInfo | No
 
 def _redact(message: str) -> str:
     """Provider error messages can quote part of the API key that was used: never pass those on."""
+    message = re.sub(r"https?://openrouter\.ai/\S*keys/[0-9a-f]{16,}", "OpenRouter key settings", message)
     return re.sub(r"(sk-[A-Za-z0-9_-]{6,}|AIza[0-9A-Za-z_-]{16,}|AQ\.[0-9A-Za-z_-]{16,})", "[redacted]", message)
 
 
