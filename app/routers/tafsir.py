@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas import TafsirResponse
-from app.security import require_access
+from app.security import public_rate_limit
 from app.services.tafsir import lookup
 
-router = APIRouter(prefix="/api", tags=["tafsir"], dependencies=[Depends(require_access)])
+router = APIRouter(prefix="/api", tags=["tafsir"], dependencies=[Depends(public_rate_limit)])  # model-free: open to everyone, rate-limited
 
 
 @router.get("/tafsir/{ref}", response_model=TafsirResponse)

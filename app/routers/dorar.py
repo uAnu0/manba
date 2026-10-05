@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.schemas import DorarResult
-from app.security import require_access
+from app.security import public_rate_limit
 from app.services.dorar import search
 
-router = APIRouter(prefix="/api", tags=["dorar"], dependencies=[Depends(require_access)])
+router = APIRouter(prefix="/api", tags=["dorar"], dependencies=[Depends(public_rate_limit)])  # model-free: open to everyone, rate-limited
 
 
 @router.get("/dorar", response_model=DorarResult)
