@@ -2,7 +2,7 @@
 
 Verification service for Islamic text. It takes raw text (a sentence or a whole sermon), finds the Quran verses and hadith in it,
 and checks each against local corpora: word for word, with the source, and an exact account of what differs when a quote is altered.
-Quote matching is deterministic. Models find claims and assess evidence relevance; those assessments require human review and cannot certify a claim. See [HACKATHON_REVIEW.md](HACKATHON_REVIEW.md) for receipt rules and deployment steps.
+Quote matching is deterministic. Models find claims and assess evidence relevance; those assessments require human review and cannot certify a claim. Badge and deployment rules are under **Deployment and the badge** below.
 
 Code: MIT (`LICENSE`). Data: each file keeps its source's terms; the register of sources, tools and licences, with what is not yet verified, is `SOURCES.md` (سجل المصادر والتراخيص).
 What existed before the challenge days is declared in `BASELINE.md` (tag `v0-baseline`); what was built from 4 October is in `CHANGELOG.md`.
@@ -43,6 +43,14 @@ LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provid
 
 Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
 On Vercel give the function enough memory and duration, and expect a slow first request after a cold start.
+
+## Deployment and the badge
+
+- Set `OPENROUTER_API_KEY`, `API_ACCESS_TOKEN` and `BADGE_SECRET` in the hosting environment, then redeploy. `BADGE_SECRET` is at least 32 random bytes, used for nothing else, and must stay stable: changing it invalidates every badge already issued.
+- A badge (`MNB2-…` serial) is issued only by the server, only after a full review (AI step working, nothing skipped or truncated) in which nothing blocks publication. The serial holds the date and a 128-bit fingerprint of the exact text, signed with a 128-bit HMAC; nothing is stored. Anyone can check a serial on the Verify page or at `/api/badge/{code}`.
+- The six built-in examples are saved, labelled demonstrations that work without the access code and never issue a badge. Reviewing other text needs the access code.
+- `GET /api/llm-status` (public, at most one tiny model call every five minutes) and the "Test the AI connection" button in Settings show whether the AI step works and, if not, the provider's error.
+- Checks without paid model calls: `python -m pytest tests -q`, `node tests/frontend_regressions.cjs`, `python -m evals.eval_golden`, `python -m evals.eval_fiqh`, `python -m evals.eval_translations` (the CI workflow runs them on every push).
 
 ## Fiqh check (challenge day 1)
 
