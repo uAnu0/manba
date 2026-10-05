@@ -85,10 +85,11 @@
     </div>
   </section>
 
-  <div class="what">
-    <div><b>الآيات</b><span>مطابقة حرفية مع المصحف، وبيان الكلمة المحرّفة بالضبط</span></div>
-    <div><b>الأحاديث</b><span>المصدر والرقم من الكتب التسعة، وأحكام المحدثين من الدرر السنية</span></div>
-    <div><b>الأحكام الفقهية</b><span>هل في المسألة خلاف؟ أقوال المذاهب بنص الموسوعة الفقهية الكويتية</span></div>
+  <div class="what" aria-label="ما الذي نفحصه: اضغط مربعًا لترى مثالًا من التقرير">
+    <div role="button" tabindex="0" data-preview="quran" aria-haspopup="dialog"><b>الآيات</b><span>مطابقة حرفية مع المصحف، وبيان الكلمة المحرّفة بالضبط</span><i class="peek">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="hadith" aria-haspopup="dialog"><b>الأحاديث</b><span>المصدر والرقم من الكتب التسعة، وأحكام المحدثين من الدرر السنية</span><i class="peek">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="fiqh" aria-haspopup="dialog"><b>الأحكام الفقهية</b><span>هل في المسألة خلاف؟ أقوال المذاهب بنص الموسوعة الفقهية الكويتية</span><i class="peek">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="lang" aria-haspopup="dialog"><b>بلغات أخرى</b><span>اقتباس بالإنجليزية أو غيرها يُقارن بالترجمات المعتمدة ثم بأصله العربي</span><i class="peek">شاهد مثالًا</i></div>
   </div>
   <p class="fine">أداة مدعومة بالذكاء الاصطناعي، تبيّن مواضع النصوص وأحكام العلماء كما في المصادر، ولا تصدر فتوى ولا ترجّح بين الأقوال. لا نحفظ النص الذي تُدخله.</p>
 </main>
@@ -119,6 +120,15 @@
   </ol>
   <p class="cap" style="line-height: 1.8">الذكاء الاصطناعي يستخرج المواضع ويختار المقاطع ذات الصلة فقط؛ أما الحكم بأن النص موجود أو محرّف أو مختلف فيه فيُقرأ من المصادر نفسها. مستوى المحتوى (أ، ب، ج، د) من الحزمة العلمية للتحدي.</p>
   <form method="dialog"><button class="btn primary">حسنًا</button></form>
+</dialog>
+
+<dialog id="previewDlg" class="preview" aria-labelledby="previewTitle">
+  <div class="row-between"><h2 id="previewTitle" style="margin: 0"></h2><form method="dialog"><button class="btn small" aria-label="إغلاق">إغلاق</button></form></div>
+  <p class="cap" id="previewLead" style="line-height: 1.8; margin: 6px 0 12px"></p>
+  <div class="pv-in"><span class="cap">النص المُدخل</span><div id="previewInput" dir="auto"></div></div>
+  <div class="pv-arrow" aria-hidden="true">↓</div>
+  <div id="previewOut" class="pv-out"></div>
+  <div class="actions" style="margin-top: 14px"><button class="btn primary" id="previewTry">جرّب هذا المثال</button></div>
 </dialog>
 
 <dialog id="settingsDlg" aria-labelledby="settingsTitle">

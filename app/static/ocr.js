@@ -27,7 +27,8 @@ const Ocr = (() => {
       keep: "keep this page in the box", reread: "Read it as an image instead",
       diffs: n => `${n} place(s) where the two readings differ: check them against the page`, nothing: "(nothing)", useB: "use the second reading",
       pdfFail: "Could not load the PDF reader (pdf.js): check the connection.", noAccess: "The server needs an access code: enter it in Settings.",
-      unreadable: c => `The page could not be read (${c}).`, opening: "Opening the PDF…", choose: "Choose a PDF or an image (PNG, JPEG, WebP).",
+      unreadable: c => `The page could not be read (${c}).`, noModel: "Reading is unavailable: no working AI key. Add yours in Settings.",
+      tooBig: "The picture is too large or not valid. Try a smaller page, PNG or JPEG.", oneReading: "The page was read once only, so no second reading was compared: check every word.", opening: "Opening the PDF…", choose: "Choose a PDF or an image (PNG, JPEG, WebP).",
       page: (name, n) => `${name} · page ${n}`, reading: l => `Reading ${l}…`, rereading: l => `Reading ${l} as an image…`,
       garbled: "The PDF has a text layer but it is garbled, so the page was read as an image.", done: "Done. Check the text, then press Check claim.",
       info: (name, total, a, b) => `${name}: ${total} pages in all; showing ${a}–${b} (up to ${MAX_PAGES} pages are shown at once: change “first page” for others).`,
@@ -45,7 +46,8 @@ const Ocr = (() => {
       keep: "إبقاء هذه الصفحة في النص", reread: "قراءتها كصورة بدلًا من ذلك",
       diffs: n => `${arDigits(n)} موضع اختلفت فيه القراءتان: قارنه بالصفحة`, nothing: "(لا شيء)", useB: "اعتمد القراءة الثانية",
       pdfFail: "تعذّر تحميل قارئ PDF (pdf.js). تحقق من الاتصال.", noAccess: "الخادم يطلب رمز دخول: أدخله من الإعدادات.",
-      unreadable: c => `تعذّرت قراءة الصفحة (${arDigits(c)}).`, opening: "جارٍ فتح ملف PDF…", choose: "اختر ملف PDF أو صورة (PNG أو JPEG أو WebP).",
+      unreadable: c => `تعذّرت قراءة الصفحة (${arDigits(c)}).`, noModel: "خدمة القراءة غير متاحة الآن: لا يوجد مفتاح ذكاء اصطناعي صالح. أدخل مفتاحك من الإعدادات.",
+      tooBig: "الصورة كبيرة أو غير صالحة. جرّب صفحة أصغر أو صورة PNG أو JPEG.", oneReading: "قُرئت الصفحة مرة واحدة فقط، فلم تُقارن قراءتان: راجع النص كلمة كلمة.", opening: "جارٍ فتح ملف PDF…", choose: "اختر ملف PDF أو صورة (PNG أو JPEG أو WebP).",
       page: (name, n) => `${name} · صفحة ${arDigits(n)}`, reading: l => `جارٍ قراءة ${l}…`, rereading: l => `جارٍ قراءة ${l} كصورة…`,
       garbled: "في ملف PDF طبقة نصية لكنها مشوّهة، فقُرئت الصفحة كصورة.", done: "تمّ. راجع النص ثم اضغط «راجع النص».",
       info: (name, total, a, b) => `${name}: ${arDigits(total)} صفحة في الملف؛ تُعرض الصفحات ${arDigits(a)}–${arDigits(b)} (تُعرض حتى ${arDigits(MAX_PAGES)} صفحات دفعة واحدة: غيّر «أول صفحة» لعرض غيرها).`,
@@ -99,8 +101,8 @@ const Ocr = (() => {
     return single < 0.35 && (t.match(stray) || []).length / Math.max(1, t.length) < 0.01;
   }
   function blank(w, h) { const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); return c; }
-  async function pdfCanvas(page) {
-    const v0 = page.getViewport({ scale: 1 }), scale = Math.min(3, MAX_SIDE / Math.max(v0.width, v0.height)), vp = page.getViewport({ scale });
+  async function pdfCanvas(page, side) {
+    const v0 = page.getViewport({ scale: 1 }), scale = Math.min(3, (side || MAX_SIDE) / Math.max(v0.width, v0.height)), vp = page.getViewport({ scale });
     const c = blank(vp.width, vp.height);
     // intent "print" does not wait for animation frames, which a background tab never gets: the scan keeps going if the person switches tabs
     await page.render({ canvasContext: c.getContext("2d"), viewport: vp, intent: "print" }).promise; return c;
@@ -160,16 +162,19 @@ const Ocr = (() => {
       const res = await fetch("/api/ocr", { method: "POST", headers: headers(), body: JSON.stringify({ image: jpeg(await canvasOf(p)), page: p.n || 1 }) });
       const d = await res.json().catch(() => ({}));
       if (res.status === 401) throw new Error(T.noAccess);
-      if (!res.ok) throw new Error(typeof d.detail === "string" ? d.detail : T.unreadable(res.status));
-      p.text = d.text; p.diffs = d.diffs || []; p.note = d.note || null;
+      if (!res.ok) throw new Error(res.status === 502 ? T.noModel : res.status === 413 || res.status === 422 ? T.tooBig : T.unreadable(res.status));
+      p.text = d.text; p.diffs = d.diffs || []; p.note = d.note ? (lang === "ar" && !/[\u0600-\u06FF]/.test(d.note) ? T.oneReading : d.note) : null;
     }
 
     // a scanned page is read when it is ticked; if it does not fit with the pages already ticked it is un-ticked (its text is kept, so ticking it again later costs nothing)
+    let gen = 0;  // bumped when the scan is cleared or replaced
     async function tick(p, on) {
       p.include = on; p.refused = false;
+      const g = gen;
       if (on && !p.text && p.source === "scan") {
         p.loading = true; draw();
         try { await ocr(p); } catch (e) { p.error = e.message; p.include = false; p.source = "scan"; }
+        if (g !== gen) return;  // the scan was cleared or another file chosen while this page was being read
         p.loading = false;
         if (p.include && picked() - words(p.text) > 0 && picked() > WORD_LIMIT) { p.include = false; p.refused = true; }
       }
@@ -177,18 +182,18 @@ const Ocr = (() => {
     }
 
     async function run(files) {
-      if (busy) return; busy = true; pages = []; edited = false; draw();
+      if (busy) return; busy = true; gen++; pages = []; edited = false; draw();
       try {
         const start = Math.max(1, parseInt($(".ocr-first").value, 10) || 1), jobs = []; let info = "";
         for (const f of files) {
           if (jobs.length >= MAX_PAGES) break;
           if (f.type === "application/pdf" || /\.pdf$/i.test(f.name)) {
             status.textContent = T.opening; await loadPdfJs();
-            const pdf = await window.pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+            const pdf = await window.pdfjsLib.getDocument({ data: await f.arrayBuffer(), isEvalSupported: false }).promise;
             const last = Math.min(pdf.numPages, start + (MAX_PAGES - jobs.length) - 1);
             for (let n = start; n <= last; n++) jobs.push({ kind: "pdf", pdf, n, name: f.name });
             if (pdf.numPages > last || start > 1) info = T.info(f.name, pdf.numPages, start, Math.max(start, last));
-          } else if (/^image\//.test(f.type)) jobs.push({ kind: "image", file: f, name: f.name });
+          } else if (/^image\/(png|jpeg|webp)$/.test(f.type)) jobs.push({ kind: "image", file: f, name: f.name });
         }
         if (!jobs.length) throw new Error(T.choose);
         for (const j of jobs) {
@@ -196,7 +201,7 @@ const Ocr = (() => {
           pages.push(p); status.textContent = T.preparing(p.label); draw();
           try {   // only a thumbnail and the page's own text layer (if it has one) are made here: nothing is sent anywhere yet
             if (j.kind === "pdf") {
-              const page = await j.pdf.getPage(j.n); p.thumb = thumbOf(await pdfCanvas(page));
+              const page = await j.pdf.getPage(j.n); p.thumb = thumbOf(await pdfCanvas(page, 360));
               const t = await layerText(page);
               if (hasLayer(t)) { p.text = t; p.source = "layer"; } else { if (t.trim()) p.note = T.garbled; p.source = "scan"; }
             } else { p.thumb = thumbOf(await imageCanvas(j.file)); p.source = "scan"; }
@@ -213,7 +218,7 @@ const Ocr = (() => {
 
     $(".ocr-pick").onclick = () => input.click();
     input.onchange = () => run([...input.files]);
-    $(".ocr-clear").onclick = () => { pages = []; scanActive = false; draw(); list.innerHTML = ""; status.textContent = ""; };
+    $(".ocr-clear").onclick = () => { gen++; pages = []; scanActive = false; draw(); list.innerHTML = ""; status.textContent = ""; };
     if ($(".ocr-edit")) $(".ocr-edit").onclick = () => opts.onReview();
     list.addEventListener("click", async ev => {
       const el = ev.target.closest(".ocr-page"); if (!el) return; const p = pages[+el.dataset.i];
