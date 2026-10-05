@@ -194,6 +194,18 @@ class FiqhPosition(BaseModel):
 
     schools: list[str]
     text: str
+    ruling: Optional[str] = None  # read by code from the sentence's own words: واجب، سنة، حرام، مكروه، جائز، غير واجب...
+
+
+class FiqhAttribution(BaseModel):
+    """The text attributes a ruling to a school ("واجبة عند الحنابلة"): what the encyclopedia reports for that school."""
+
+    school: str
+    claimed: str  # the ruling the text attributes
+    reported: Optional[str] = None  # the ruling the encyclopedia's sentence on that school states
+    status: Literal["matches", "differs", "not_reported"]
+    text: str = ""  # the encyclopedia's sentence, verbatim
+    cite: str = ""
 
 
 class FiqhPassage(BaseModel):
@@ -227,6 +239,8 @@ class FiqhCheck(BaseModel):
         "agreement_differs",  # the encyclopedia reports an agreed ruling different from the text's
         "partly_disputed",  # agreement on part, disagreement on another part
         "found_no_marker",  # found, without explicit agreement or disagreement
+        "school_matches",  # the text attributes the ruling to a school, and the encyclopedia reports that school's view the same way
+        "school_differs",  # the text attributes to a school a ruling the encyclopedia reports differently for it
         "not_found",
         "not_fiqh",
     ]
@@ -241,6 +255,8 @@ class FiqhCheck(BaseModel):
     notice_ar: str
     notice_en: str
     error: Optional[str] = None
+    attribution: Optional[FiqhAttribution] = None
+    schools: list[FiqhPosition] = Field(default_factory=list)  # each school the ruling paragraph names, with the ruling it states for it
 
 
 class FiqhRequest(BaseModel):

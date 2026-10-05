@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from app.schemas import FiqhCheck, FiqhPassage, FiqhPosition
+from app.schemas import FiqhAttribution, FiqhCheck, FiqhPassage, FiqhPosition
 from app.services.cache import async_cache
 from app.services.evidence import stem, terms
 from app.services.llm_extractor import ExtractionError, chat_json
@@ -117,6 +117,8 @@ def assertion_of(sentence: str) -> tuple[str, list[str]]:
     ruling = _has(t, RULING_WORDS)
     if not ruling and t.split() and t.split()[-1] in ("سنه", "سنة"):
         ruling = ["سنة"]  # "صلاة الضحى سنة": "سنة" closing the sentence is a ruling, "سنة 1400" or "سنة جيدة" is a year
+    if not ruling and re.search(r"\bسن[هة]\s+(?:مؤكد[هة]\s+)?(?:عند|في مذهب|على قول)\b", t):
+        ruling = ["سنة"]  # "الوتر سنة عند الجمهور": attributed to a school, it is a ruling
     if not ruling:
         return "none", []
     hedge = _has(t, HEDGE_WORDS)
@@ -136,8 +138,42 @@ def agreement_of(text: str) -> str:
     return "agreement" if agree else "disagreement" if disagree else "none"
 
 
+# Rulings, as words: a school's position and a person's sentence are compared by the family of the ruling word, never by
+# a model. The negated forms are read first ("لا يجب" is not "يجب").
+RULING_FAMILIES = [
+    ("غير واجب", _n("لا يجب|لا تجب|ليس بواجب|ليست بواجبة|غير واجب|غير واجبة|عدم الوجوب|عدم وجوب|لا يلزم")),
+    ("لا يجوز", _n("لا يجوز|لا تجوز|عدم الجواز|عدم جواز|غير جائز|غير جائزة")),
+    ("لا ينقض", _n("لا ينقض|لا تنقض|عدم النقض|عدم نقض|غير ناقض")),
+    ("واجب", _n("واجب|واجبة|وجوب|يجب|تجب|فرض|فريضة|يفترض|لازم|يلزم")),
+    ("سنة", _n("سنة|مسنون|مسنونة|يسن|تسن|مستحب|مستحبة|يستحب|استحباب|مندوب|مندوبة|يندب")),
+    ("حرام", _n("حرام|محرم|محرمة|يحرم|تحرم|تحريم|حرمة")),
+    ("مكروه", _n("مكروه|مكروهة|يكره|تكره|كراهة|كراهية")),
+    ("جائز", _n("يجوز|تجوز|جائز|جائزة|جواز|مباح|مباحة|إباحة|يباح")),
+    ("ينقض", _n("ينقض|تنقض|نقض|ناقض|ناقضة")),
+    ("يبطل", _n("يبطل|تبطل|باطل|باطلة|بطلان|يفسد|تفسد|فاسد|فاسدة")),
+]
+_SAME = {"لا يجوز": {"لا يجوز", "حرام"}, "حرام": {"حرام", "لا يجوز"}, "غير واجب": {"غير واجب", "سنة", "جائز", "مكروه"}}
+
+
+def rulings_of(text: str) -> list[str]:
+    """The ruling families a sentence states, in order of first mention; a negated form hides its positive."""
+    t = normalize(text)
+    found: list[tuple[int, str]] = []
+    masked = f" {t} "
+    for label, forms in RULING_FAMILIES:
+        for f in forms:
+            for c in ("", "و", "ف", "ب", "ل"):
+                k = masked.find(f" {c}{f}")
+                while k >= 0:
+                    found.append((k, label))
+                    masked = masked[:k + 1] + "_" * (len(c) + len(f)) + masked[k + 1 + len(c) + len(f):]  # a negated phrase is not read again as positive
+                    k = masked.find(f" {c}{f}")
+    found.sort()
+    return list(dict.fromkeys(label for _, label in found))
+
+
 def positions_of(text: str) -> list[FiqhPosition]:
-    """The sentences of a passage that name a school, verbatim (with the school names they mention)."""
+    """The sentences of a passage that name a school, verbatim (with the school names they mention and the ruling they state)."""
     out = []
     for sentence in _SENTENCE.split(text):
         sentence = sentence.strip()
@@ -146,7 +182,8 @@ def positions_of(text: str) -> list[FiqhPosition]:
         t = normalize(sentence)
         names = [name for name, forms in SCHOOLS if _has(t, forms)]
         if names:
-            out.append(FiqhPosition(schools=names, text=sentence[:600]))
+            rs = rulings_of(sentence)
+            out.append(FiqhPosition(schools=names, text=sentence[:600], ruling=rs[0] if rs else None))
         if len(out) >= MAX_POSITIONS:
             break
     return out
@@ -401,8 +438,10 @@ SUMMARIES = {
         "We did not find this question in the Kuwaiti Fiqh Encyclopedia, so nothing is concluded; refer it to a specialist.",
     ),
     "not_fiqh": ("لا يتضمن النص حكمًا فقهيًا.", "The text states no fiqh ruling."),
+    "school_matches": ("نسبة القول إلى المذهب موافقة لما تنقله الموسوعة الفقهية.", "The attribution to the school matches the encyclopedia."),
+    "school_differs": ("نسبة القول إلى المذهب تخالف ما تنقله الموسوعة الفقهية عنه.", "The attribution to the school differs from the encyclopedia."),
 }
-ATTENTION = {"consensus_claim_disputed", "stated_as_certain_disputed", "agreement_differs", "partly_disputed", "not_found"}
+ATTENTION = {"school_differs", "consensus_claim_disputed", "stated_as_certain_disputed", "agreement_differs", "partly_disputed", "not_found"}
 
 
 def _status(assertion: str, shown: list[FiqhPassage]) -> str:
@@ -421,7 +460,7 @@ def _status(assertion: str, shown: list[FiqhPassage]) -> str:
 
 def _level(status: str) -> str:
     """Content level of the scientific pack: (ب) explanation with the reference shown, (ج) a disputed question."""
-    return "ب" if status in ("agreement_reported", "agreement_differs", "found_no_marker", "not_fiqh") else "ج"
+    return "ب" if status in ("agreement_reported", "agreement_differs", "found_no_marker", "not_fiqh", "school_matches") else "ج"
 
 
 async def fiqh_check(claim: str, use_llm: bool = True, api_key: str | None = None, key_terms: list[str] | None = None) -> FiqhCheck:
@@ -457,8 +496,111 @@ async def fiqh_check(claim: str, use_llm: bool = True, api_key: str | None = Non
     return result
 
 
+# School names only as schools: "مالك" or "أحمد" alone is often a narrator ("أنس بن مالك"), not the school.
+STRICT_SCHOOLS = [
+    ("الحنفية", _n("الحنفية|الأحناف|أبو حنيفة|أبي حنيفة|أبا حنيفة")),
+    ("المالكية", _n("المالكية|الإمام مالك")),
+    ("الشافعية", _n("الشافعية|الشافعي")),
+    ("الحنابلة", _n("الحنابلة|الحنبلية|الإمام أحمد|مذهب أحمد")),
+    ("الجمهور", _n("الجمهور|جمهور الفقهاء|جمهور العلماء")),
+]
+_CLAUSE = re.compile(r"\s(?=(?:و|ف)?(?:ذهب|قال|يرى|صرح|نص|عند|اما|أما|بينما)\s)|[؛.]\s*")
+
+
+def _school_sentences(text: str) -> list[str]:
+    """The passage's sentences, with a sentence that ends on a colon ("وذهب الحنابلة:") joined to the one after it."""
+    out: list[str] = []
+    for part in _SENTENCE.split(text):
+        part = part.strip()
+        if out and out[-1].rstrip().endswith(":"):
+            out[-1] = f"{out[-1]} {part}"
+        elif part:
+            out.append(part)
+    return out
+
+
+_HEAD_END = re.compile(r"\s(?:الى|إلى|على)\s+(?:ان|أن)\s|\sب(?:ان|أن)\s|\sان\s")
+_NOT_SCHOOL = re.compile(r"(?:\sمن|\sبعض|\sاحد قولي|\sأحد قولي|\sروايه عن|\sرواية عن|\sقول عند|\sفي قول|\sقول ل|\sوجه عند|\sمتاخري|\sمتأخري)\s+(?:ال)?$")
+
+
+def _subject(clause: str, forms: list[str]) -> bool:
+    """The school is what the clause is about: named before "إلى أن / بأن", not as "من الحنابلة" (one scholar),
+    "بعض الحنابلة", "أحد قولي الشافعي" or "رواية عن أحمد" (a minority view)."""
+    m = _HEAD_END.search(f" {clause} ")
+    head = f" {clause} "[: m.start() + 1] if m else f" {clause} "
+    for f in forms:
+        for c in ("", "و", "ف", "ب", "ل"):
+            k = head.find(f" {c}{f}")
+            if k >= 0 and not _NOT_SCHOOL.search(head[:k + 1]):
+                return True
+    return False
+
+
+def school_ruling(text: str, school: str) -> tuple[str, list[str]] | None:
+    """(the sentence, verbatim; the rulings it states for that school), read clause by clause."""
+    forms = dict(STRICT_SCHOOLS)[school]
+    for sentence in _school_sentences(text):
+        clauses = [c for c in _CLAUSE.split(normalize(sentence)) if c and c.strip()]
+        for k, clause in enumerate(clauses):
+            if not _subject(clause, forms):
+                continue
+            got = rulings_of(clause)  # never borrowed from the next clause: that one may be about someone else
+            if got:
+                return sentence[:500], got
+    return None
+
+
+SCHOOL_EN = {"الحنفية": "Hanafis", "المالكية": "Malikis", "الشافعية": "Shafi'is", "الحنابلة": "Hanbalis", "الجمهور": "majority"}
+RULING_EN = {"واجب": "obligatory", "غير واجب": "not obligatory", "سنة": "sunnah", "حرام": "forbidden", "لا يجوز": "not permitted",
+             "مكروه": "disliked", "جائز": "permitted", "ينقض": "breaks wudu", "لا ينقض": "does not break wudu", "يبطل": "invalidates"}
+
+
+def attribution_of(claim: str, shown: list[FiqhPassage]) -> FiqhAttribution | None:
+    """The text says a school holds a ruling ("التسمية واجبة عند الحنابلة"): find that school's view in the passages shown
+    and compare the ruling by its words. Nothing is inferred for a school the encyclopedia does not name."""
+    t = normalize(claim)
+    schools = [name for name, forms in STRICT_SCHOOLS if _has(t, forms)]
+    rest = t
+    for _, forms in STRICT_SCHOOLS:
+        for f in forms:
+            rest = rest.replace(f, " ")
+    claimed = rulings_of(rest)
+    if not schools or not claimed:
+        return None
+    school, want = schools[0], claimed[0]
+    # Only the paragraph ranked first, the one that states the ruling: a later paragraph on the same act (its time, how to
+    # make it up) states other rulings for the same school.
+    for p in [q for q in shown if q.same_issue is not False][:1]:
+        found = school_ruling(p.text, school)
+        if not found:
+            continue
+        sentence, got = found
+        ok = want in got or any(g in _SAME.get(want, set()) for g in got)
+        return FiqhAttribution(school=school, claimed=want, reported=want if ok else got[0],
+                               status="matches" if ok else "differs", text=sentence, cite=p.cite)
+    return FiqhAttribution(school=school, claimed=want, status="not_reported")
+
+
 def _result(claim: str, assertion: str, words: list[str], status: str, shown: list[FiqhPassage], by: str) -> FiqhCheck:
+    attribution = attribution_of(claim, shown) if shown else None
+    if attribution and attribution.status != "not_reported":
+        status = "school_matches" if attribution.status == "matches" else "school_differs"
     ar, en = SUMMARIES[status]
+    top = [q for q in shown if q.same_issue is not False][:1]
+    schools = []
+    for name, _ in STRICT_SCHOOLS:
+        found = school_ruling(top[0].text, name) if top else None
+        if found:
+            schools.append(FiqhPosition(schools=[name], text=found[0], ruling=found[1][0]))
+    if attribution and attribution.status == "not_reported":
+        ar += f" ولم تُسمِّ فقرة الحكم في الموسوعة {attribution.school}، فلم نتحقق من نسبة القول إليهم."
+        en += f" The encyclopedia's ruling paragraph does not name the {SCHOOL_EN.get(attribution.school, attribution.school)}, so the attribution was not checked."
+    if attribution and attribution.status == "matches":
+        ar = f"نسب النص الحكم «{attribution.claimed}» إلى {attribution.school}، والموسوعة الفقهية تنقله عنهم كذلك."
+        en = f"The text attributes '{RULING_EN.get(attribution.claimed, attribution.claimed)}' to the {SCHOOL_EN.get(attribution.school, attribution.school)}; the encyclopedia reports the same for them."
+    elif attribution and attribution.status == "differs":
+        ar = f"نسب النص إلى {attribution.school} أن الحكم «{attribution.claimed}»، والذي تنقله الموسوعة الفقهية عنهم: «{attribution.reported}»."
+        en = f"The text attributes '{RULING_EN.get(attribution.claimed, attribution.claimed)}' to the {SCHOOL_EN.get(attribution.school, attribution.school)}; the encyclopedia reports '{RULING_EN.get(attribution.reported, attribution.reported)}' for them."
     if by == "keywords" and shown:
         ar += " (مطابقة بالكلمات: تأكّد أن النص المنقول في المسألة نفسها.)"
         en += " (Keyword match: confirm the passage is about the same question.)"
@@ -466,4 +608,5 @@ def _result(claim: str, assertion: str, words: list[str], status: str, shown: li
         claim=claim, assertion=assertion, assertion_words=words, status=status, attention=status in ATTENTION,
         content_level=_level(status) if status != "not_fiqh" else None, summary_ar=ar, summary_en=en,
         passages=shown, matched_by=by, source_ar=SOURCE_AR, source_en=SOURCE_EN, notice_ar=NOTICE_AR, notice_en=NOTICE_EN,
+        attribution=attribution, schools=schools,
     )
