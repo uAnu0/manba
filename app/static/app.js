@@ -1069,7 +1069,7 @@
   fetch("/api/config").then(r => r.json()).then(c => { serverCfg = c; cfgNote(); }).catch(() => {});
 
   // ---------- sections: review, how it works, who it is for ----------
-  const VIEWS = { how: "howView", who: "whoView", verify: "verifyView" };
+  const VIEWS = { how: "howView", who: "whoView", verify: "verifyView", legal: "legalView" };
   function showView(name, push) {
     const page = VIEWS[name];
     for (const id of Object.values(VIEWS)) $(id).hidden = id !== page;
@@ -1126,6 +1126,10 @@
   { const m = /^#v=([^&]+)(?:&t=(.+))?$/.exec(location.hash);
     if (m) { showView("verify", false); $("vCode").value = decodeURIComponent(m[1]);
       (m[2] ? unpackText(m[2]).then(t => { $("vText").value = t; }).catch(() => {}) : Promise.resolve()).then(verifyBadge); } }
+  // The table of contents on the terms page scrolls within the page instead of changing the address.
+  document.querySelectorAll("[data-legal-jump]").forEach(a => a.addEventListener("click", ev => {
+    ev.preventDefault(); const t = document.querySelector(a.getAttribute("href")); if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
   $("vCode").addEventListener("keydown", e => { if (e.key === "Enter") verifyBadge(); });
   $("verifyView").addEventListener("click", ev => {
     const t = ev.target.closest("button"); if (!t) return;

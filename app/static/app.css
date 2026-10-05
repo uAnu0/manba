@@ -670,3 +670,22 @@ html[lang="en"] .what .peek::after { content: " →"; }
 .llm-why code { display: block; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
 .mk .num { vertical-align: 0.35em; margin-inline: 0 4px; }
 .llm-test { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 12px; } .llm-test .cap { overflow-wrap: anywhere; line-height: 1.7; }
+
+/* ---------- terms of use and privacy policy ---------- */
+html:not([lang="en"]) .legal-en, html[lang="en"] .legal-ar { display: none; }
+.legal article { display: flex; flex-direction: column; gap: 16px; max-width: 920px; }
+.legal h2 { margin: 0 0 6px; font-size: 22px; }
+.legal h3 { margin: 18px 0 4px; font-size: 16px; }
+.legal p, .legal li { line-height: 1.95; color: var(--ink); margin: 0; }
+.legal ul { margin: 4px 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 4px; }
+.legal section { scroll-margin-top: 16px; }
+.legal-toc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+.legal-toc a { padding: 6px 12px; border: 1px solid var(--line2); border-radius: 999px; text-decoration: none; font-size: 14px; color: var(--ink); }
+.legal-toc a:hover { border-color: var(--brand); color: var(--brand); }
+.table-wrap { overflow-x: auto; margin: 10px 0; }
+.credits { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+.credits th { text-align: start; background: var(--soft); color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--line2); }
+.credits td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.7; }
+.legal-link { white-space: nowrap; }
+.legal-link .ls { display: none; }
+@media (max-width: 520px) { .legal-link .lf { display: none; } .legal-link .ls { display: inline; } .legal-link { padding: 0 10px; } }
