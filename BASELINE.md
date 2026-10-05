@@ -3,7 +3,7 @@
 The challenge guide allows earlier work if it is declared, and only what is built from 4 to 6 October 2026 is assessed.
 This file declares what existed before the challenge opened (Sunday 4 October 2026, 09:00 Riyadh time).
 
-- **Baseline commit:** `192bd088e2370ca50c63dba024cb73e280bd415b`, tagged `v0-baseline` (last commit 4 October 2026, 02:59 +03:00).
+- **Baseline commit:** `52962663421a245605a8e1fe10b08f2aff32b35a` (last commit 4 October 2026, 02:59 +03:00). Commit IDs changed on 5 October 2026 when tool co-author lines were removed from commit messages and a personal email was replaced with a GitHub no-reply address; contents and dates are unchanged. The same commit had the ID `192bd08` before, which the tag `v0-baseline` still points to.
 - **Everything after that tag** is challenge work and is listed, by date, in `CHANGELOG.md`.
 - **Rights:** the code in the baseline was written by the team. Third-party data and its licences are listed in the README (Data sources).
 
