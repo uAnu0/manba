@@ -69,6 +69,9 @@ IMLAEI_EXCEPTIONS = {
     "الربوا": "الربا",
     "ابراهم": "ابراهيم",
     "ابرهيم": "ابراهيم",
+    # Common modern spellings of two Quranic words: الزنا (corpus: الزنى, 17:32 and 25:68) and يؤوده (corpus: يئوده, 2:255).
+    "الزنى": "الزنا",
+    "يئوده": "يؤوده",
 }
 # Clitic letters (wa, fa, ba, la, ka, sa, hamzat al-istifham) that may precede an exception word,
 # and pronoun/dual/plural endings that may follow it, e.g. ولاكنهم, افبهاذا, الاهكم.
