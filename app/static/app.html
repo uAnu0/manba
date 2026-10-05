@@ -27,13 +27,18 @@
 </div>
 <header class="top">
   <div class="wrap">
+    <nav class="views" aria-label="الأقسام" data-en-aria-label="Sections">
+      <a href="#" class="view-tab" data-view="review" aria-current="page" data-en="Review">المراجعة</a>
+      <a href="#how" class="view-tab" data-view="how" data-en="How it works">كيف يعمل</a>
+      <a href="#who" class="view-tab" data-view="who" data-en="Who it's for">لمن مَنبَع</a>
+    </nav>
     <a class="logo" href="/" aria-label="مَنبَع، الصفحة الرئيسية">
       <svg width="30" height="30" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.4" style="color: var(--brand)"><rect x="9" y="9" width="22" height="22" rx="2"></rect><rect x="9" y="9" width="22" height="22" rx="2" transform="rotate(45 20 20)"></rect><circle cx="20" cy="20" r="4" fill="currentColor" stroke="none"></circle></svg>
       <b>مَنبَع</b>
     </a>
     <nav>
-      <button class="btn small" id="aboutBtn" aria-haspopup="dialog">كيف يعمل والمصادر</button>
-      <button class="btn small" id="settingsBtn" aria-haspopup="dialog" aria-label="الإعدادات">
+      <button class="btn small" id="langBtn" lang="en" aria-label="English" data-en="عربي" data-en-aria-label="العربية">English</button>
+      <button class="btn small" id="settingsBtn" aria-haspopup="dialog" aria-label="الإعدادات" data-en-aria-label="Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
       </button>
       <button class="btn small" id="themeBtn" aria-label="الوضع الفاتح" title="الوضع الفاتح">
@@ -47,28 +52,28 @@
 <main id="inputView" class="hero wait">
   <div style="display: flex; flex-direction: column; gap: 10px">
     <h1 class="sr-only">مَنبَع</h1>
-    <p class="lede">ألصق خطبة أو مقالًا أو منشورًا. نتحقق من كل آية وحديث وحكم فقهي فيه، ونخبرك بما يحتاج تصحيحًا ومن أين.</p>
+    <p class="lede" data-en="Paste a sermon, article or post. We check every verse, hadith and fiqh ruling in it, and tell you what needs correcting and where it comes from.">ألصق خطبة أو مقالًا أو منشورًا. نتحقق من كل آية وحديث وحكم فقهي فيه، ونخبرك بما يحتاج تصحيحًا ومن أين.</p>
   </div>
 
   <section class="composer" aria-label="النص المراد مراجعته">
     <div class="tabs" role="tablist" aria-label="طريقة الإدخال">
       <span class="tab-pill" id="tabPill" aria-hidden="true"></span>
       <button class="tab" role="tab" id="tabPaste" aria-selected="true" aria-controls="panePaste">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 4h6v3H9z"></path></svg>لصق نص</button>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="12" height="17" rx="2"></rect><path d="M9 4h6v3H9z"></path></svg><span data-en="Paste text">لصق نص</span></button>
       <button class="tab" role="tab" id="tabFile" aria-selected="false" aria-controls="paneFile">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg>رفع ملف نصي</button>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"></path></svg><span data-en="Upload a text file">رفع ملف نصي</span></button>
       <button class="tab" role="tab" id="tabScan" aria-selected="false" aria-controls="paneScan">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"></path></svg>مسح PDF أو صورة</button>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"></path></svg><span data-en="Scan a PDF or image">مسح PDF أو صورة</span></button>
     </div>
     <div id="panePaste" role="tabpanel" aria-labelledby="tabPaste" style="display: flex; flex-direction: column; gap: 8px">
-      <label for="text" class="cap">النص (حتى 500 كلمة)</label>
-      <textarea id="text" dir="auto" placeholder="ألصق النص هنا… مثال: قال رسول الله ﷺ: «…»"></textarea>
+      <label for="text" class="cap" data-en="Text (up to 500 words)">النص (حتى 500 كلمة)</label>
+      <textarea id="text" dir="auto" placeholder="ألصق النص هنا… مثال: قال رسول الله ﷺ: «…»" data-en-placeholder="Paste the text here… e.g. The Prophet ﷺ said: &quot;…&quot;"></textarea>
     </div>
     <div id="paneFile" role="tabpanel" aria-labelledby="tabFile" hidden>
       <div class="drop" id="drop">
-        <b>اسحب ملفًا نصيًا إلى هنا</b>
-        <span class="cap">ملف ‎.txt‎ أو ‎.md‎ · يُقرأ في متصفحك ويوضع في خانة النص لتراجعه قبل الفحص</span>
-        <label class="btn" for="file">اختيار ملف</label>
+        <b data-en="Drop a text file here">اسحب ملفًا نصيًا إلى هنا</b>
+        <span class="cap" data-en="A .txt or .md file · read in your browser and placed in the text box for you to review before checking">ملف ‎.txt‎ أو ‎.md‎ · يُقرأ في متصفحك ويوضع في خانة النص لتراجعه قبل الفحص</span>
+        <label class="btn" for="file" data-en="Choose a file">اختيار ملف</label>
         <input type="file" id="file" accept=".txt,.md,text/plain" hidden>
       </div>
     </div>
@@ -77,36 +82,157 @@
     </div>
     <div class="row-between">
       <span class="cap" id="wc">0 كلمة من 500</span>
-      <button class="btn primary big" id="go">راجع النص</button>
+      <button class="btn primary big" id="go" data-en="Review the text">راجع النص</button>
     </div>
     <div class="try">
-      <span class="cap">جرّب مثالًا:</span>
+      <span class="cap" data-en="Try an example:">جرّب مثالًا:</span>
       <div class="samples" id="samples"></div>
     </div>
   </section>
 
   <div class="what" aria-label="ما الذي نفحصه: اضغط مربعًا لترى مثالًا من التقرير">
-    <div role="button" tabindex="0" data-preview="quran" aria-haspopup="dialog"><b>الآيات</b><span>مطابقة حرفية مع المصحف، وبيان الكلمة المحرّفة بالضبط</span><i class="peek">شاهد مثالًا</i></div>
-    <div role="button" tabindex="0" data-preview="hadith" aria-haspopup="dialog"><b>الأحاديث</b><span>المصدر والرقم من الكتب التسعة، وأحكام المحدثين من الدرر السنية</span><i class="peek">شاهد مثالًا</i></div>
-    <div role="button" tabindex="0" data-preview="fiqh" aria-haspopup="dialog"><b>الأحكام الفقهية</b><span>هل في المسألة خلاف؟ أقوال المذاهب بنص الموسوعة الفقهية الكويتية</span><i class="peek">شاهد مثالًا</i></div>
-    <div role="button" tabindex="0" data-preview="lang" aria-haspopup="dialog"><b>بلغات أخرى</b><span>اقتباس بالإنجليزية أو غيرها يُقارن بالترجمات المعتمدة ثم بأصله العربي</span><i class="peek">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="quran" aria-haspopup="dialog"><b data-en="Verses">الآيات</b><span data-en="Letter-by-letter match with the Mushaf, showing exactly which word was changed">مطابقة حرفية مع المصحف، وبيان الكلمة المحرّفة بالضبط</span><i class="peek" data-en="See an example">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="hadith" aria-haspopup="dialog"><b data-en="Hadith">الأحاديث</b><span data-en="Book and number from the nine books, and scholars' gradings from Dorar">المصدر والرقم من الكتب التسعة، وأحكام المحدثين من الدرر السنية</span><i class="peek" data-en="See an example">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="fiqh" aria-haspopup="dialog"><b data-en="Fiqh rulings">الأحكام الفقهية</b><span data-en="Is it disputed? What each school holds, in the words of the Kuwaiti Fiqh Encyclopedia">هل في المسألة خلاف؟ أقوال المذاهب بنص الموسوعة الفقهية الكويتية</span><i class="peek" data-en="See an example">شاهد مثالًا</i></div>
+    <div role="button" tabindex="0" data-preview="lang" aria-haspopup="dialog"><b data-en="Other languages">بلغات أخرى</b><span data-en="A quote in English or another language is compared with approved translations, then with its Arabic original">اقتباس بالإنجليزية أو غيرها يُقارن بالترجمات المعتمدة ثم بأصله العربي</span><i class="peek" data-en="See an example">شاهد مثالًا</i></div>
   </div>
-  <p class="fine">أداة مدعومة بالذكاء الاصطناعي، تبيّن مواضع النصوص وأحكام العلماء كما في المصادر، ولا تصدر فتوى ولا ترجّح بين الأقوال. لا نحفظ النص الذي تُدخله.</p>
+  <p class="fine" data-en="An AI-assisted tool. It shows where texts are found and what scholars' rulings the sources record; it issues no fatwa and prefers no opinion. Your text is not stored.">أداة مدعومة بالذكاء الاصطناعي، تبيّن مواضع النصوص وأحكام العلماء كما في المصادر، ولا تصدر فتوى ولا ترجّح بين الأقوال. لا نحفظ النص الذي تُدخله.</p>
 </main>
 
+
+<main id="howView" class="page wrap" hidden>
+  <header class="page-head">
+    <span class="eyebrow" data-en="How it works">كيف يعمل</span>
+    <h1 data-en="AI finds. The sources decide.">الذكاء الاصطناعي يبحث، والمصادر تحكم</h1>
+    <p class="lede" data-en="Manba reads a sermon, article or post the way a careful reviewer would: it finds every verse, hadith and ruling in it, checks each one against the source itself, and tells you what to change before it reaches people.">يقرأ مَنبَع الخطبة أو المقال أو المنشور كما يقرؤه مراجع متأنٍّ: يستخرج كل آية وحديث وحكم فيه، ويرجع بكل واحد منها إلى مصدره نفسه، ثم يخبرك بما يجب تعديله قبل أن يصل إلى الناس.</p>
+  </header>
+
+  <ol class="flow" aria-label="مراحل المراجعة" data-en-aria-label="Review stages">
+    <li><span class="fi">1</span><b data-en="You paste the text">تُدخل النص</b><span data-en="A khutbah, article, post or lesson; typed, uploaded, or scanned from a PDF or photo; in Arabic or another language.">خطبة أو مقالًا أو منشورًا أو درسًا؛ كتابةً أو ملفًا أو صورة وPDF، بالعربية أو بلغة أخرى.</span></li>
+    <li><span class="fi">2</span><b data-en="We find what needs checking">نستخرج ما يحتاج تحققًا</b><span data-en="Every quoted verse and hadith, and every sentence that states a ruling, even without quotation marks. The AI only points at them.">كل آية وحديث مقتبس، وكل جملة فيها حكم، ولو بلا علامات تنصيص. الذكاء الاصطناعي يدلّ على المواضع فقط.</span></li>
+    <li><span class="fi">3</span><b data-en="We go back to the source">نرجع إلى المصدر</b><span data-en="The Mushaf letter by letter, the nine hadith books with the scholars' gradings, the Kuwaiti Fiqh Encyclopedia, and approved translations.">المصحف حرفًا بحرف، والكتب التسعة مع أحكام المحدثين، والموسوعة الفقهية الكويتية، والترجمات المعتمدة.</span></li>
+    <li><span class="fi">4</span><b data-en="You get a report you can act on">تقرير تعمل به</b><span data-en="What blocks publishing comes first, each with its source and a next step: the correct wording to copy, the school to attribute, or the specialist to ask.">ما يمنع النشر أولًا، ولكل موضع مصدره وخطوته التالية: النص الصحيح لتنسخه، أو المذهب الذي تنسب إليه القول، أو المختص الذي تسأله.</span></li>
+  </ol>
+
+  <section class="split">
+    <div class="panel">
+      <h2 data-en="Who decides what">من يقرّر ماذا</h2>
+      <ul class="ticks">
+        <li data-en="<b>Code, from the sources:</b> whether a verse matches the Mushaf, which book and number a hadith has, whether the encyclopedia reports agreement or disagreement, and which ruling it gives each school."><b>الكود، من المصادر:</b> هل تطابق الآية المصحف، وما كتاب الحديث ورقمه، وهل تنقل الموسوعة اتفاقًا أم خلافًا، وما حكم كل مذهب فيها.</li>
+        <li data-en="<b>The AI:</b> finding claims written without quotation marks, choosing which encyclopedia paragraph is about the same question, and an optional plain-language explanation, always labelled."><b>الذكاء الاصطناعي:</b> العثور على الادعاءات غير المقتبسة، واختيار فقرة الموسوعة التي في المسألة نفسها، وشرح مبسّط اختياري معلَّم دائمًا.</li>
+        <li data-en="<b>Never:</b> a fatwa, a preference between opinions, or a verdict the sources do not state."><b>لا يحدث أبدًا:</b> فتوى، أو ترجيح بين الأقوال، أو حكم لا تنص عليه المصادر.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2 data-en="Four content levels">مستويات المحتوى الأربعة</h2>
+      <p class="cap" data-en="From the challenge's scientific pack: each finding carries its level.">من الحزمة العلمية للتحدي: كل نتيجة تحمل مستواها.</p>
+      <dl class="levels">
+        <div><dt>أ</dt><dd data-en="A settled text: a verse, or an authentic hadith shown as it is.">نص أصلي مستقر: آية، أو حديث ثابت يُعرض كما هو.</dd></div>
+        <div><dt>ب</dt><dd data-en="An explanation, shown with its reference.">شرح أو بيان، يُعرض مع مرجعه.</dd></div>
+        <div><dt>ج</dt><dd data-en="Disputed or sensitive: the opinions are attributed, none is preferred.">خلافي أو حساس: تُنسب الأقوال إلى قائليها دون ترجيح.</dd></div>
+        <div><dt>د</dt><dd data-en="A personal case: referred to a qualified scholar.">حالة شخصية: تُحال إلى عالم مؤهل.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2 data-en="What it checks against">ما نرجع إليه</h2>
+    <div class="stats">
+      <div><b>6,236</b><span data-en="verses of the Mushaf (Tanzil), letter by letter">آية من المصحف (Tanzil)، حرفًا بحرف</span></div>
+      <div><b>41,196</b><span data-en="hadith from the nine books">حديثًا من الكتب التسعة</span></div>
+      <div><b>21,007</b><span data-en="hadith with named scholars' gradings, plus Dorar's hadith encyclopedia">حديثًا بأحكام محدّثين مسمَّين، ومعها الموسوعة الحديثية في الدرر السنية</span></div>
+      <div><b>26,363</b><span data-en="paragraphs of the Kuwaiti Fiqh Encyclopedia">فقرة من الموسوعة الفقهية الكويتية</span></div>
+      <div><b>8</b><span data-en="approved Quran translations (QuranEnc) in 6 languages">ترجمات معتمدة لمعاني القرآن (QuranEnc) بست لغات</span></div>
+      <div><b>2</b><span data-en="tafsir works shown beside every verse used as evidence">تفسيران يُعرضان بجانب كل آية تُذكر دليلًا</span></div>
+    </div>
+  </section>
+
+  <section class="split">
+    <div class="panel">
+      <h2 data-en="Tested before every release">مُختبَر قبل كل إصدار</h2>
+      <ul class="ticks">
+        <li data-en="51 of 51 quotes checked correctly, with no altered quote shown as verified (0 of 25)."><b>٥١ من ٥١</b> اقتباسًا فُحصت صحيحًا، ولم يُعرض أي اقتباس محرّف على أنه موثّق (٠ من ٢٥).</li>
+        <li data-en="16 of 16 fiqh test cases, with no disputed question shown as settled."><b>١٦ من ١٦</b> حالة فقهية، ولم تُعرض مسألة خلافية على أنها متفق عليها.</li>
+        <li data-en="10 of 10 quotes in other languages, with no false verification."><b>١٠ من ١٠</b> اقتباسات بلغات أخرى، دون أي تأكيد خاطئ.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2 data-en="What Manba will not do">ما لا يفعله مَنبَع</h2>
+      <ul class="ticks no">
+        <li data-en="Issue a fatwa or choose between scholars' opinions.">لا يُفتي، ولا يرجّح بين أقوال العلماء.</li>
+        <li data-en="Answer a personal case: those are referred to a scholar.">لا يجيب عن حالة شخصية: تُحال إلى عالم.</li>
+        <li data-en="Keep your text: it is checked and not stored.">لا يحفظ النص الذي تدخله: يُفحص ولا يُخزَّن.</li>
+        <li data-en="Hide what the AI wrote: every AI-written line is labelled.">لا يُخفي ما كتبه الذكاء الاصطناعي: كل سطر منه معلَّم.</li>
+      </ul>
+    </div>
+  </section>
+  <div class="page-cta"><a class="btn primary big" href="#" data-view="review" data-en="Review a text">راجع نصًا الآن</a></div>
+</main>
+
+<main id="whoView" class="page wrap" hidden>
+  <header class="page-head">
+    <span class="eyebrow" data-en="Who it's for">لمن مَنبَع</span>
+    <h1 data-en="For everyone who publishes religious content">لكل من ينشر محتوى شرعيًا</h1>
+    <p class="lede" data-en="A mistaken verse or a weak hadith in a sermon or a post spreads faster than its correction. Manba gives the person about to publish a reviewer at their side.">آية منقولة بخطأ أو حديث لا يثبت في خطبة أو منشور ينتشر أسرع من تصحيحه. يضع مَنبَع بجانب من يوشك أن ينشر مراجعًا يرجع إلى المصادر.</p>
+  </header>
+  <div class="personas">
+    <article class="persona" data-scenario="khutbah">
+      <span class="p-ico" aria-hidden="true">🕌</span>
+      <h2 data-en="The khateeb">الخطيب</h2>
+      <p class="p-sit" data-en="Thursday night, the Friday khutbah is written. One hadith was taken from a forwarded message.">ليلة الخميس، وخطبة الجمعة مكتوبة. أحد الأحاديث فيها نُقل من رسالة متداولة.</p>
+      <p class="p-does" data-en="Manba marks the hadith that has no source, corrects a misquoted verse, and flags a ruling stated as agreed when the schools differ.">يعلّم مَنبَع الحديث الذي لا أصل له، ويصحح آية نُقلت بخطأ، وينبّه على حكم قُدِّم على أنه متفق عليه والمذاهب فيه مختلفة.</p>
+      <button class="btn small" data-en="Try this scenario">جرّب هذا السيناريو</button>
+    </article>
+    <article class="persona" data-scenario="post">
+      <span class="p-ico" aria-hidden="true">📣</span>
+      <h2 data-en="The content team">فريق المحتوى</h2>
+      <p class="p-sit" data-en="A da'wah organisation's account is about to repost a popular 'share it and be rewarded' card.">حساب جهة دعوية يوشك أن يعيد نشر بطاقة متداولة: «انشرها تؤجر».</p>
+      <p class="p-does" data-en="Manba checks every hadith on the card against the books and Dorar, and says plainly which ones cannot be attributed to the Prophet ﷺ.">يفحص مَنبَع كل حديث في البطاقة في كتب الحديث والدرر السنية، ويبيّن بوضوح ما لا يصح نسبته إلى النبي ﷺ.</p>
+      <button class="btn small" data-en="Try this scenario">جرّب هذا السيناريو</button>
+    </article>
+    <article class="persona" data-scenario="lesson">
+      <span class="p-ico" aria-hidden="true">📖</span>
+      <h2 data-en="The teacher">المعلّم</h2>
+      <p class="p-sit" data-en="A fiqh lesson attributes rulings to the schools from memory.">درس فقه ينسب الأحكام إلى المذاهب من الذاكرة.</p>
+      <p class="p-does" data-en="Manba reads what the encyclopedia reports for each school, confirms the right attributions and corrects the wrong ones, with volume and page.">يقرأ مَنبَع ما تنقله الموسوعة عن كل مذهب، فيؤكد النسبة الصحيحة ويصحح الخاطئة، مع المجلد والصفحة.</p>
+      <button class="btn small" data-en="Try this scenario">جرّب هذا السيناريو</button>
+    </article>
+    <article class="persona" data-scenario="english">
+      <span class="p-ico" aria-hidden="true">🌍</span>
+      <h2 data-en="The translator">المترجم وصانع المحتوى بلغات أخرى</h2>
+      <p class="p-sit" data-en="An English article for new Muslims quotes verses and hadith in English.">مقال بالإنجليزية للمسلمين الجدد يقتبس آيات وأحاديث بالإنجليزية.</p>
+      <p class="p-does" data-en="Manba compares each quote with the approved translations, shows the Arabic original, and catches a changed word or a wrong verse number.">يقارن مَنبَع كل اقتباس بالترجمات المعتمدة، ويعرض أصله العربي، ويكشف الكلمة المبدّلة أو رقم الآية الخطأ.</p>
+      <button class="btn small" data-en="Try this scenario">جرّب هذا السيناريو</button>
+    </article>
+    <article class="persona" data-scenario="reviewer">
+      <span class="p-ico" aria-hidden="true">✅</span>
+      <h2 data-en="The Sharia reviewer">المراجع الشرعي</h2>
+      <p class="p-sit" data-en="A publisher's reviewer has dozens of articles a week to approve.">مراجع في دار نشر أمامه عشرات المقالات في الأسبوع.</p>
+      <p class="p-does" data-en="Manba does the source-checking first and puts what needs a scholar's eye at the top, so the review time goes where it matters.">ينجز مَنبَع التحقق من المصادر أولًا، ويضع ما يحتاج نظر العالم في أعلى التقرير، فيذهب وقت المراجعة إلى ما يستحقه.</p>
+      <button class="btn small" data-en="Try this scenario">جرّب هذا السيناريو</button>
+    </article>
+  </div>
+  <section class="panel">
+    <h2 data-en="Before and after">قبل وبعد</h2>
+    <div class="ba">
+      <div><span class="cap" data-en="Before">قبل</span><p class="q">«وأحل الله البيع وحرم الزنا»</p><p>اطلبوا العلم ولو في الصين</p><p>زكاة الحلي المستعمل واجبة بالإجماع</p></div>
+      <div><span class="cap" data-en="After">بعد</span><p class="q">﴿وَأَحَلَّ ٱللَّهُ ٱلْبَيْعَ وَحَرَّمَ ٱلرِّبَوٰا۟﴾ البقرة ٢٧٥</p><p data-en="Removed: no authentic source (Dorar: 11 weak, 4 fabricated)">حُذف: لا يثبت (الدرر: ١١ ضعيف، ٤ موضوع)</p><p data-en="Zakat on worn jewellery is obligatory for the Hanafis; the majority hold it is not.">زكاة الحلي المستعمل واجبة عند الحنفية، وغير واجبة عند الجمهور.</p></div>
+    </div>
+  </section>
+</main>
 <section id="loadingView" class="loading" hidden aria-live="polite">
-  <b style="font-size: 18px">نراجع النص الآن</b>
+  <b style="font-size: 18px" data-en="Reviewing your text">نراجع النص الآن</b>
   <div id="steps" style="display: flex; flex-direction: column; gap: 12px"></div>
   <div class="bar"><i id="barFill"></i></div>
-  <span class="cap">عادةً بين 10 و40 ثانية حسب طول النص</span>
+  <span class="cap" data-en="Usually 10 to 40 seconds, depending on length">عادةً بين 10 و40 ثانية حسب طول النص</span>
 </section>
 
 <main id="reportView" class="wrap report" hidden></main>
 
 <footer class="foot">
   <div class="wrap">
-    <span>المصادر: نص المصحف من Tanzil (CC BY 3.0) · الكتب التسعة · الموسوعة الحديثية في الدرر السنية · الموسوعة الفقهية الكويتية (وزارة الأوقاف بالكويت) · التفسير الميسر وتفسير السعدي.</span>
-    <span>مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="/claim">أدوات الاختبار للمطورين</a></span>
+    <span data-en="Sources: Quran text from Tanzil (CC BY 3.0) · the nine hadith books · Dorar's hadith encyclopedia · the Kuwaiti Fiqh Encyclopedia (Ministry of Awqaf, Kuwait) · Tafsir al-Muyassar and al-Saadi · QuranEnc approved translations.">المصادر: نص المصحف من Tanzil (CC BY 3.0) · الكتب التسعة · الموسوعة الحديثية في الدرر السنية · الموسوعة الفقهية الكويتية (وزارة الأوقاف بالكويت) · التفسير الميسر وتفسير السعدي.</span>
+    <span data-en="Manba is an automated tool, not a scholar or a mufti. Anything the AI writes is always labelled and kept apart from the source texts. <a href='/claim'>Developer tools</a>">مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="/claim">أدوات الاختبار للمطورين</a></span>
   </div>
 </footer>
 
@@ -123,23 +249,23 @@
 </dialog>
 
 <dialog id="previewDlg" class="preview" aria-labelledby="previewTitle">
-  <div class="row-between"><h2 id="previewTitle" style="margin: 0"></h2><form method="dialog"><button class="btn small" aria-label="إغلاق">إغلاق</button></form></div>
+  <div class="row-between"><h2 id="previewTitle" style="margin: 0"></h2><form method="dialog"><button class="btn small" aria-label="إغلاق" data-en="Close" data-en-aria-label="Close">إغلاق</button></form></div>
   <p class="cap" id="previewLead" style="line-height: 1.8; margin: 6px 0 12px"></p>
-  <div class="pv-in"><span class="cap">النص المُدخل</span><div id="previewInput" dir="auto"></div></div>
+  <div class="pv-in"><span class="cap" data-en="Input">النص المُدخل</span><div id="previewInput" dir="auto"></div></div>
   <div class="pv-arrow" aria-hidden="true">↓</div>
   <div id="previewOut" class="pv-out"></div>
-  <div class="actions" style="margin-top: 14px"><button class="btn primary" id="previewTry">جرّب هذا المثال</button></div>
+  <div class="actions" style="margin-top: 14px"><button class="btn primary" id="previewTry" data-en="Try this example">جرّب هذا المثال</button></div>
 </dialog>
 
 <dialog id="settingsDlg" aria-labelledby="settingsTitle">
-  <h2 id="settingsTitle" style="margin-top: 0">الإعدادات</h2>
-  <label for="token">رمز الدخول (إن طلبه الخادم)<input id="token" type="password" autocomplete="off"></label>
-  <label for="provider">مزوّد الذكاء الاصطناعي
-    <select id="provider"><option value="">افتراضي الخادم</option><option value="openrouter">OpenRouter</option><option value="google">Google Gemini</option></select></label>
-  <label for="orkey">مفتاح OpenRouter الخاص بك (اختياري)<input id="orkey" type="password" autocomplete="off" dir="ltr"></label>
-  <label for="gkey">مفتاح Google Gemini الخاص بك (اختياري)<input id="gkey" type="password" autocomplete="off" dir="ltr"></label>
+  <h2 id="settingsTitle" style="margin-top: 0" data-en="Settings">الإعدادات</h2>
+  <label for="token"><span data-en="Access code (if the server asks for one)">رمز الدخول (إن طلبه الخادم)</span><input id="token" type="password" autocomplete="off"></label>
+  <label for="provider"><span data-en="AI provider">مزوّد الذكاء الاصطناعي</span>
+    <select id="provider"><option value="" data-en="Server default">افتراضي الخادم</option><option value="openrouter">OpenRouter</option><option value="google">Google Gemini</option></select></label>
+  <label for="orkey"><span data-en="Your OpenRouter key (optional)">مفتاح OpenRouter الخاص بك (اختياري)</span><input id="orkey" type="password" autocomplete="off" dir="ltr"></label>
+  <label for="gkey"><span data-en="Your Google Gemini key (optional)">مفتاح Google Gemini الخاص بك (اختياري)</span><input id="gkey" type="password" autocomplete="off" dir="ltr"></label>
   <p class="cap" id="cfgNote" style="line-height: 1.8">تبقى المفاتيح في متصفحك فقط، وتُرسل مع كل طلب ولا تُحفظ على الخادم.</p>
-  <form method="dialog"><button class="btn primary">حفظ</button></form>
+  <form method="dialog"><button class="btn primary" data-en="Save">حفظ</button></form>
 </dialog>
 
 <script src="/static/grades.js"></script>

@@ -41,23 +41,25 @@
   function chips(s, cls, opts) {
     if (!s || s.book === "القرآن الكريم" || s.strength === "quran") return "";
     opts = opts || {};
+    const en = opts.lang === "en";
     if (SAHIHAYN.has(s.book) || s.strength === "sahihayn")
-      return `<span class="chip ${cls("ok")}" title="أحاديث الصحيحين تلقتها الأمة بالقبول، فلا يُذكر لها حكم محدّث فردي">في الصحيحين</span>`;
+      return en ? `<span class="chip ${cls("ok")}" title="The hadith of al-Bukhari and Muslim are accepted as authentic by the Muslim community, so no single scholar's grading is given">In al-Bukhari or Muslim</span>`
+        : `<span class="chip ${cls("ok")}" title="أحاديث الصحيحين تلقتها الأمة بالقبول، فلا يُذكر لها حكم محدّث فردي">في الصحيحين</span>`;
     const gs = (s.grades || []).filter(g => /[a-z\u0600-\u06FF]/i.test(g.grade || ""));
     if (!gs.length) {
-      const why = NO_GRADES.has(s.book) ? `لا حكم في بياناتنا لأحاديث ${s.book}` : "لا حكم عليه في بياناتنا";
-      return `<span class="chip ${cls("neu")}">${esc(why)}</span>${opts.text ? ` <a class="cap" href="${dorarLink(opts.text)}" target="_blank" rel="noopener">ابحث عن أحكامه في الدرر السنية</a>` : ""}`;
+      const why = en ? "No grading in our data" : NO_GRADES.has(s.book) ? `لا حكم في بياناتنا لأحاديث ${s.book}` : "لا حكم عليه في بياناتنا";
+      return `<span class="chip ${cls("neu")}">${esc(why)}</span>${opts.text ? ` <a class="cap" href="${dorarLink(opts.text)}" target="_blank" rel="noopener">${en ? "Look up its gradings in Dorar" : "ابحث عن أحكامه في الدرر السنية"}</a>` : ""}`;
     }
     const shown = gs.slice(0, opts.max || 3);
-    return shown.map(g => `<span class="chip ${cls(kindOf(g.grade))}" title="${esc(g.grade)} (${esc(g.name)})">${esc(gradeAr(g.grade))} · ${esc(GRADER[g.name] || g.name)}</span>`).join(" ")
-      + (gs.length > shown.length ? ` <span class="cap">و${gs.length - shown.length} أحكام أخرى</span>` : "");
+    return shown.map(g => `<span class="chip ${cls(kindOf(g.grade))}" title="${esc(g.grade)} (${esc(g.name)})">${esc(en ? g.grade : gradeAr(g.grade))} · ${esc(en ? g.name : GRADER[g.name] || g.name)}</span>`).join(" ")
+      + (gs.length > shown.length ? ` <span class="cap">${en ? `and ${gs.length - shown.length} more` : `و${gs.length - shown.length} أحكام أخرى`}</span>` : "");
   }
 
   // A verse listed as evidence, with the tafsir line the API attached (context_ar), clamped with a "more" toggle.
-  function context(item) {
+  function context(item, lang) {
     if (!item || !item.context_ar) return "";
-    const t = item.context_ar, long = t.length > 260;
-    return `<div class="ctx"><span class="cap">سياق الآية من ${esc(item.context_source || "التفسير")}:</span> <span class="ctx-t">${esc(long ? t.slice(0, 260) + "…" : t)}</span>${long ? ` <button class="link ctx-more" type="button" data-full="${esc(t)}">المزيد</button>` : ""}</div>`;
+    const t = item.context_ar, long = t.length > 260, en = lang === "en";
+    return `<div class="ctx"><span class="cap">${en ? "Context of the verse (Tafsir al-Muyassar, Arabic):" : `سياق الآية من ${esc(item.context_source || "التفسير")}:`}</span> <span class="ctx-t" dir="rtl">${esc(long ? t.slice(0, 260) + "…" : t)}</span>${long ? ` <button class="link ctx-more" type="button" data-full="${esc(t)}">${en ? "More" : "المزيد"}</button>` : ""}</div>`;
   }
   document.addEventListener("click", ev => {
     const b = ev.target.closest(".ctx-more");
