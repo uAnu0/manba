@@ -48,3 +48,25 @@ async def llm_check(x_openrouter_key: Optional[str] = Header(default=None)) -> d
     except Exception as exc:
         return {"ok": False, "provider": provider_for(), "models": llm_models(), "server_keys": server_keys(),
                 "error": _redact(f"{type(exc).__name__}: {exc}")[:400]}
+
+
+_STATUS: dict = {"at": 0.0, "result": None}
+
+
+@router.get("/llm-status")
+async def llm_status() -> dict:
+    """Public: is the server's own AI configuration working right now? One tiny model call with the server's keys at most
+    once every five minutes (the answer is reused in between), so it costs next to nothing and cannot be used to spend."""
+    import time
+
+    if _STATUS["result"] is None or time.time() - _STATUS["at"] > 300:
+        started = time.monotonic()
+        try:
+            await chat_json([{"role": "user", "content": 'Reply with {"ok": true}.'}], _PING_SCHEMA, None, max_tokens=20)
+            result = {"ok": True, "seconds": round(time.monotonic() - started, 2)}
+        except Exception as exc:
+            result = {"ok": False, "error": _redact(f"{type(exc).__name__}: {exc}")[:400]}
+        result.update({"provider": provider_for(), "models": llm_models(), "server_keys": server_keys(),
+                       "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        _STATUS.update(at=time.time(), result=result)
+    return _STATUS["result"]
