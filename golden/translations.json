@@ -1,0 +1,12 @@
+[
+  {"id": "T01", "lang": "en", "quote": "Indeed, with hardship comes ease", "hint": "quran", "expect": "verified", "source": "94:6"},
+  {"id": "T02", "lang": "en", "quote": "Allah has permitted trade and forbidden adultery", "hint": "quran", "expect": "semantic_variant", "source": "2:275"},
+  {"id": "T03", "lang": "en", "quote": "Indeed, with hardship comes ease", "hint": "quran", "ref": [2, 255], "expect": "semantic_variant", "source": "94:6"},
+  {"id": "T04", "lang": "en", "quote": "The reward of deeds depends upon the intentions", "hint": "hadith", "expect": "verified", "source": "صحيح البخاري|1"},
+  {"id": "T05", "lang": "en", "quote": "Cleanliness is half of faith", "hint": "hadith", "expect": "verified", "source": "صحيح مسلم|223"},
+  {"id": "T06", "lang": "en", "quote": "Seek knowledge even if you have to go to China", "hint": "hadith", "expect": "baseless"},
+  {"id": "T07", "lang": "en", "quote": "The merciful are shown mercy by the Most Merciful", "hint": "hadith", "expect": "semantic_variant", "source": "جامع الترمذي|1924"},
+  {"id": "T08", "lang": "fr", "quote": "Certes, avec la peine vient le soulagement", "hint": "quran", "expect": "any_found", "source": "94:5|94:6"},
+  {"id": "T09", "lang": "en", "quote": "Say, He is Allah, who is One", "hint": "quran", "expect": "verified", "source": "112:1"},
+  {"id": "T10", "lang": "en", "quote": "The best of you are those who invented the internet", "hint": "hadith", "expect": "baseless"}
+]

@@ -202,6 +202,11 @@ def _overlap(a: tuple[int, int], b: tuple[int, int]) -> int:
 async def check_text(
     text: str, use_llm: bool = True, api_key: str | None = None, use_meaning: bool = True
 ) -> TextCheckResponse:
+    from app.services.foreign import check_foreign, language_of  # imported here: it imports this module's neighbours
+
+    lang = language_of(text)
+    if lang != "ar":
+        return await check_foreign(text, lang, use_llm, api_key, use_meaning)
     llm = ClaimLLMInfo()
 
     # 1. Quotes, found without a model. A bracketed or attributed text that matches nothing is still shown (as not found).

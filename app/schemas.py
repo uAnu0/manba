@@ -44,6 +44,19 @@ class Source(BaseModel):
     strength: Optional[str] = None  # quran | sahihayn | sahih | hasan | daif | disputed | ungraded
 
 
+class OfficialTranslation(BaseModel):
+    """The approved translation a non-Arabic quote was compared with (QuranEnc for the Quran), shown exactly as published."""
+
+    kind: Literal["quran", "hadith"]
+    key: str  # e.g. english_saheeh
+    title: str
+    language: str
+    version: Optional[str] = None
+    text: str  # the official wording of this verse or hadith in that language
+    source_url: str = ""
+    match: float = 0.0  # share of the quoted words found, in order, in the official wording
+
+
 class Segment(BaseModel):
     segment_text: str
     classification: Literal["quran", "hadith", "unverified"]
@@ -58,6 +71,7 @@ class Segment(BaseModel):
     # Content level of the challenge's scientific pack (services/levels.py): أ settled text, ب explanation,
     # ج disputed or needs care, د personal case. None when nothing was found to classify.
     content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None
+    translation: Optional[OfficialTranslation] = None  # a quote in another language: the official translation it was matched with
 
 
 class ExtractionInfo(BaseModel):
@@ -288,6 +302,7 @@ class TextClaimItem(BaseModel):
     fragment: bool = False  # kind == "quote": an unmarked run of five words or fewer that happens to occur in a text: a matched phrase, not a quotation
     similar: Optional[SimilarText] = None  # kind == "similar": a sentence close to a known text, nothing else found in it
     content_level: Optional[Literal["أ", "ب", "ج", "د"]] = None  # level of the scientific pack (services/levels.py)
+    translated_ar: Optional[str] = None  # a claim written in another language: the machine translation that was searched (model-written)
 
 
 class TextCheckResponse(BaseModel):
@@ -300,6 +315,11 @@ class TextCheckResponse(BaseModel):
     truncated: bool = False  # the text had more sentences than the limit
     summary: dict[str, int] = Field(default_factory=dict)  # count per outcome / quote status
     llm: ClaimLLMInfo = Field(default_factory=ClaimLLMInfo)
+    language: str = "ar"  # language of the input: ar, en, fr, ur, id, tr, es, other
+    translations_used: list[str] = Field(default_factory=list)  # titles of the official translations searched
+    content_type: str = "text"  # khutbah | article | post | lesson | question | text (services/genre.py)
+    content_type_ar: str = "النص"
+    content_type_cues: list[str] = Field(default_factory=list)  # the words that decided it
 
 
 class TafsirEntry(BaseModel):
