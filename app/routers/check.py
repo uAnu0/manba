@@ -21,4 +21,6 @@ async def check(payload: TextCheckRequest, x_openrouter_key: Optional[str] = Hea
     result = assess(label(result, payload.text), payload.text)
     if not (payload.use_llm and payload.use_meaning):
         result.badge = None
+        result.review_complete = False
+        result.badge_unavailable = "incomplete_review"
     return result

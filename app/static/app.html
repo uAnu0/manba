@@ -98,7 +98,7 @@
     <div role="button" tabindex="0" data-preview="fiqh" aria-haspopup="dialog"><b data-en="Fiqh rulings">الأحكام الفقهية</b><span data-en="Is it disputed? What each school holds, in the words of the Kuwaiti Fiqh Encyclopedia">هل في المسألة خلاف؟ أقوال المذاهب بنص الموسوعة الفقهية الكويتية</span><i class="peek" data-en="See an example">شاهد مثالًا</i></div>
     <div role="button" tabindex="0" data-preview="lang" aria-haspopup="dialog"><b data-en="Other languages">بلغات أخرى</b><span data-en="A quote in English or another language is compared with approved translations, then with its Arabic original">اقتباس بالإنجليزية أو غيرها يُقارن بالترجمات المعتمدة ثم بأصله العربي</span><i class="peek" data-en="See an example">شاهد مثالًا</i></div>
   </div>
-  <p class="fine" data-en="An AI-assisted tool. It shows where texts are found and what scholars' rulings the sources record; it issues no fatwa and prefers no opinion. Your text is not stored.">أداة مدعومة بالذكاء الاصطناعي، تبيّن مواضع النصوص وأحكام العلماء كما في المصادر، ولا تصدر فتوى ولا ترجّح بين الأقوال. لا نحفظ النص الذي تُدخله.</p>
+  <p class="fine" data-en="An AI-assisted tool. It shows where texts are found and what scholars' rulings the sources record; it issues no fatwa and prefers no opinion. No text database; temporary caches and AI providers may process your text.">أداة مدعومة بالذكاء الاصطناعي، تبيّن مواضع النصوص وأحكام العلماء كما في المصادر، ولا تصدر فتوى ولا ترجّح بين الأقوال. لا قاعدة بيانات للنصوص؛ قد تعالجها ذاكرة مؤقتة ومزوّدو الذكاء الاصطناعي.</p>
 </main>
 
 
@@ -117,6 +117,7 @@
         <div class="tour-scene" id="tourScene" aria-live="polite"></div>
       </div>
       <div class="tour-nav">
+        <button class="btn small" id="tourPause" type="button" data-en="Pause tour">أوقف الجولة</button>
         <button class="btn small" id="tourBack" type="button" data-en="Back">السابق</button>
         <div class="tour-dots" id="tourDots" role="group" aria-label="الخطوات" data-en-aria-label="Steps"></div>
         <button class="btn small primary" id="tourNext" type="button"></button>
@@ -142,8 +143,8 @@
     <div class="personas principles">
     <article class="persona principle">
       <img class="p-img" src="/static/img/principle-sources.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
-      <h3 data-en="The sources decide, not the model">المصادر تحكم، لا النموذج</h3>
-      <p class="p-does" data-en="The AI points at the verses, hadith and rulings; the verdict is read by code from the Mushaf, the hadith books and their gradings, and the fiqh encyclopedia.">الذكاء الاصطناعي يدلّ على مواضع الآيات والأحاديث والأحكام، أما الحكم فيُقرأ بالكود من المصحف وكتب الحديث وأحكام المحدثين والموسوعة الفقهية.</p>
+      <h3 data-en="Source checks and AI assessments">فحص المصادر وتقديرات النموذج</h3>
+      <p class="p-does" data-en="Code checks quoted wording and recorded rulings against the sources. AI finds claims and assesses evidence relevance; those assessments need human review and cannot earn a badge.">يفحص الكود ألفاظ الاقتباسات والأحكام المنقولة بالرجوع إلى المصادر. يعثر الذكاء الاصطناعي على الادعاءات ويقدّر صلة الأدلة بها؛ وتحتاج هذه التقديرات مراجعة بشرية ولا تمنح شارة.</p>
     </article>
     <article class="persona principle">
       <img class="p-img" src="/static/img/principle-scholar.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
@@ -152,8 +153,8 @@
     </article>
     <article class="persona principle">
       <img class="p-img" src="/static/img/principle-private.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
-      <h3 data-en="Your text is not stored">نصك لا يُحفظ</h3>
-      <p class="p-does" data-en="The text is checked, then forgotten. A share link carries the text itself and the badge only its fingerprint, so nothing is kept on our side.">يُفحص النص ثم يُنسى. رابط المشاركة يحمل النص نفسه، والشارة تحمل بصمته فقط، فلا شيء محفوظ عندنا.</p>
+      <h3 data-en="How your text is handled">كيف يُعالج نصك</h3>
+      <p class="p-does" data-en="There is no text database. Results and requests may remain in process memory (model caches: up to six hours; Dorar lookups: up to a day). AI providers receive text for model steps. Share links contain the full text; anyone with the link can read it.">لا قاعدة بيانات للنصوص. قد تبقى الطلبات والنتائج في ذاكرة مؤقتة (ذاكرة النماذج حتى ست ساعات واستعلامات الدرر حتى يوم)، ويتلقى مزوّدو الذكاء الاصطناعي النص لخطوات النموذج. رابط المشاركة يتضمن النص كاملًا؛ يستطيع كل من يملكه قراءته.</p>
     </article>
     <article class="persona principle">
       <img class="p-img" src="/static/img/principle-labelled.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
@@ -170,8 +171,8 @@
       <h2 data-en="Who decides what">من يقرّر ماذا</h2>
       <ul class="ticks">
         <li data-en="<b>Code, from the sources:</b> whether a verse matches the Mushaf, which book and number a hadith has, whether the encyclopedia reports agreement or disagreement, and which ruling it gives each school."><b>الكود، من المصادر:</b> هل تطابق الآية المصحف، وما كتاب الحديث ورقمه، وهل تنقل الموسوعة اتفاقًا أم خلافًا، وما حكم كل مذهب فيها.</li>
-        <li data-en="<b>The AI:</b> finding claims written without quotation marks, choosing which encyclopedia paragraph is about the same question, and an optional plain-language explanation, always labelled."><b>الذكاء الاصطناعي:</b> العثور على الادعاءات غير المقتبسة، واختيار فقرة الموسوعة التي في المسألة نفسها، وشرح مبسّط اختياري معلَّم دائمًا.</li>
-        <li data-en="<b>Never:</b> a fatwa, a preference between opinions, or a verdict the sources do not state."><b>لا يحدث أبدًا:</b> فتوى، أو ترجيح بين الأقوال، أو حكم لا تنص عليه المصادر.</li>
+        <li data-en="<b>The AI:</b> finding unquoted claims, choosing relevant passages, assessing whether evidence supports a claim, and labelled explanations or translations. Evidence assessments require human review."><b>الذكاء الاصطناعي:</b> العثور على الادعاءات غير المقتبسة، واختيار المقاطع ذات الصلة، وتقدير دلالة الأدلة على الادعاء، وشرح أو ترجمة معلَّمة. تحتاج تقديرات الأدلة مراجعة بشرية.</li>
+        <li data-en="<b>Limits:</b> this automated review issues no fatwa or preference between opinions. Check the cited passage and refer personal cases to a scholar."><b>الحدود:</b> لا تصدر هذه المراجعة الآلية فتوى ولا ترجّح بين الأقوال. راجع المقطع المستشهد به وأحِل الحالات الشخصية إلى عالم.</li>
       </ul>
     </div>
     <div class="panel">
@@ -249,7 +250,7 @@
   </header>
   <section class="panel vform">
     <label for="vCode" class="cap" data-en="Serial">الرقم التسلسلي</label>
-    <input id="vCode" dir="ltr" autocomplete="off" spellcheck="false" placeholder="MNB-XXXX-XXXX-XXXX-XXXX">
+    <input id="vCode" dir="ltr" autocomplete="off" spellcheck="false" placeholder="MNB2-…">
     <label for="vText" class="cap" data-en="The text (optional)">النص (اختياري)</label>
     <textarea id="vText" dir="auto" placeholder="ألصق النص الذي يحمل الشارة" data-en-placeholder="Paste the text that carries the badge"></textarea>
     <div><button class="btn primary" id="vGo" type="button" data-en="Verify">تحقق</button></div>
@@ -268,7 +269,7 @@
 
 <footer class="foot">
   <div class="wrap">
-    <span data-en="Sources: Quran text from Tanzil (CC BY 3.0) · the nine hadith books · Dorar's hadith encyclopedia · the Kuwaiti Fiqh Encyclopedia (Ministry of Awqaf, Kuwait) · Tafsir al-Muyassar and al-Saadi · QuranEnc approved translations.">المصادر: نص المصحف من Tanzil (CC BY 3.0) · الكتب التسعة · الموسوعة الحديثية في الدرر السنية · الموسوعة الفقهية الكويتية (وزارة الأوقاف بالكويت) · التفسير الميسر وتفسير السعدي.</span>
+    <span data-en="Sources: Quran text from <a href='https://tanzil.net' target='_blank' rel='noopener'>Tanzil</a> (CC BY 3.0) · the nine hadith books · Dorar's hadith encyclopedia · the Kuwaiti Fiqh Encyclopedia (Ministry of Awqaf, Kuwait) · Tafsir al-Muyassar and al-Saadi · QuranEnc approved translations.">المصادر: نص المصحف من <a href="https://tanzil.net" target="_blank" rel="noopener">Tanzil</a> (CC BY 3.0) · الكتب التسعة · الموسوعة الحديثية في الدرر السنية · الموسوعة الفقهية الكويتية (وزارة الأوقاف بالكويت) · التفسير الميسر وتفسير السعدي.</span>
     <span data-en="Manba is an automated tool, not a scholar or a mufti. Anything the AI writes is always labelled and kept apart from the source texts. <a href='#verify' data-view='verify'>Verify a badge</a> · <a href='/claim'>Developer tools</a>">مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="#verify" data-view="verify">تحقق من شارة</a> · <a href="/claim">أدوات الاختبار للمطورين</a></span>
   </div>
 </footer>
@@ -281,7 +282,7 @@
     <li>يبحث عن الأحكام الفقهية في الموسوعة الفقهية الكويتية، ويقرأ منها الاتفاق أو الخلاف بنصها.</li>
     <li>يرتب النتائج: ما يمنع النشر أولًا، ثم ما يحتاج صياغة، ثم الموثّق.</li>
   </ol>
-  <p class="cap" style="line-height: 1.8">الذكاء الاصطناعي يستخرج المواضع ويختار المقاطع ذات الصلة فقط؛ أما الحكم بأن النص موجود أو محرّف أو مختلف فيه فيُقرأ من المصادر نفسها. مستوى المحتوى (أ، ب، ج، د) من الحزمة العلمية للتحدي.</p>
+  <p class="cap" style="line-height: 1.8">يفحص الكود ألفاظ الاقتباسات والأحكام المنقولة من المصادر. يستخرج الذكاء الاصطناعي الادعاءات ويقدّر صلة الأدلة بها؛ وتحتاج تقديراته مراجعة بشرية. مستوى المحتوى (أ، ب، ج، د) من الحزمة العلمية للتحدي.</p>
   <form method="dialog"><button class="btn primary">حسنًا</button></form>
 </dialog>
 

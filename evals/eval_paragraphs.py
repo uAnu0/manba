@@ -65,7 +65,7 @@ async def main(verbose: bool) -> int:
     print(f"commentary checked (target 0): {commentary_checked}")
     print(f"claims invented in claim-free text (target 0): {extra_claims}")
     print(f"reversals (target 0):   {reversals}")
-    return 1 if reversals else 0
+    return int(bool(reversals or found != total or quotes_ok != quotes_total or commentary_checked or extra_claims))
 
 
 if __name__ == "__main__":

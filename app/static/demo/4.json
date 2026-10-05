@@ -1,0 +1,101 @@
+{
+  "original_text": "قال تعالى: «وأحل الله البيع وحرم الزنا». وقال سبحانه: ﴿إن مع العسر يسرا﴾.",
+  "word_count": 13,
+  "items": [
+    {
+      "kind": "quote",
+      "text": "«وأحل الله البيع وحرم الزنا»",
+      "start": 11,
+      "end": 39,
+      "quote": {
+        "segment_text": "وأحل الله البيع وحرم الزنا",
+        "classification": "quran",
+        "status": "semantic_variant",
+        "match_type": "full",
+        "confidence": 0.8,
+        "source": {
+          "book": "القرآن الكريم",
+          "chapter": "al-Baqarah",
+          "number": "2:275",
+          "matched_text": "ٱلَّذِينَ يَأْكُلُونَ ٱلرِّبَوٰا۟ لَا يَقُومُونَ إِلَّا كَمَا يَقُومُ ٱلَّذِى يَتَخَبَّطُهُ ٱلشَّيْطَـٰنُ مِنَ ٱلْمَسِّ ۚ ذَٰلِكَ بِأَنَّهُمْ قَالُوٓا۟ إِنَّمَا ٱلْبَيْعُ مِثْلُ ٱلرِّبَوٰا۟ ۗ وَأَحَلَّ ٱللَّهُ ٱلْبَيْعَ وَحَرَّمَ ٱلرِّبَوٰا۟ ۚ فَمَن جَآءَهُۥ مَوْعِظَةٌ مِّن رَّبِّهِۦ فَٱنتَهَىٰ فَلَهُۥ مَا سَلَفَ وَأَمْرُهُۥٓ إِلَى ٱللَّهِ ۖ وَمَنْ عَادَ فَأُو۟لَـٰٓئِكَ أَصْحَـٰبُ ٱلنَّارِ ۖ هُمْ فِيهَا خَـٰلِدُونَ",
+          "other_matches_count": 0,
+          "grades": [],
+          "level": 1,
+          "strength": "quran"
+        },
+        "differences": [
+          "verbatim: 'واحل الله البيع وحرم' (al-Baqarah 2:275)",
+          "not found in the corpus: 'الزنا'"
+        ],
+        "is_claim": true,
+        "content_level": "أ",
+        "translation": null
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": "أ",
+      "translated_ar": null,
+      "verdict_kind": "fix",
+      "needs_action": true
+    },
+    {
+      "kind": "quote",
+      "text": "﴿إن مع العسر يسرا﴾",
+      "start": 54,
+      "end": 72,
+      "quote": {
+        "segment_text": "إن مع العسر يسرا",
+        "classification": "quran",
+        "status": "verified",
+        "match_type": "full",
+        "confidence": 1.0,
+        "source": {
+          "book": "القرآن الكريم",
+          "chapter": "Ash-Sharh",
+          "number": "94:6",
+          "matched_text": "إِنَّ مَعَ ٱلْعُسْرِ يُسْرًا",
+          "other_matches_count": 0,
+          "grades": [],
+          "level": 1,
+          "strength": "quran"
+        },
+        "differences": [],
+        "is_claim": true,
+        "content_level": "أ",
+        "translation": null
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": "أ",
+      "translated_ar": null,
+      "verdict_kind": "ok",
+      "needs_action": false
+    }
+  ],
+  "sentences": 2,
+  "commentary_sentences": 0,
+  "skipped_claims": 0,
+  "truncated": false,
+  "summary": {
+    "semantic_variant": 1,
+    "verified": 1,
+    "level_أ": 2
+  },
+  "llm": {
+    "used": false,
+    "error": null,
+    "recited": 0,
+    "recited_found": 0
+  },
+  "language": "ar",
+  "translations_used": [],
+  "content_type": "text",
+  "content_type_ar": "النص",
+  "content_type_cues": [],
+  "blocking": 1,
+  "badge": null,
+  "review_complete": false,
+  "badge_unavailable": "incomplete_review"
+}

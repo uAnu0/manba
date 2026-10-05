@@ -1,0 +1,198 @@
+{
+  "original_text": "Dear brothers and sisters, Allah says: \"Indeed, with hardship comes ease\" (2:255). The Prophet ﷺ said: \"Cleanliness is half of faith.\" He also said: \"Seek knowledge even if you have to go to China.\" And Allah says: \"Allah has permitted trade and forbidden adultery\" (2:275).",
+  "word_count": 45,
+  "items": [
+    {
+      "kind": "quote",
+      "text": "\"Indeed, with hardship comes ease\"",
+      "start": 39,
+      "end": 73,
+      "quote": {
+        "segment_text": "Indeed, with hardship comes ease",
+        "classification": "quran",
+        "status": "semantic_variant",
+        "match_type": "full",
+        "confidence": 1.0,
+        "source": {
+          "book": "القرآن الكريم",
+          "chapter": "Ash-Sharh",
+          "number": "94:6",
+          "matched_text": "إِنَّ مَعَ ٱلْعُسْرِ يُسْرًا",
+          "other_matches_count": 0,
+          "grades": [],
+          "level": 1,
+          "strength": "quran"
+        },
+        "differences": [
+          "the reference given is 2:255; these words are 94:6"
+        ],
+        "is_claim": true,
+        "content_level": "أ",
+        "translation": {
+          "kind": "quran",
+          "key": "english_rwwad",
+          "title": "English Translation - Rowwad Translation Center",
+          "language": "en",
+          "version": "1.0.19",
+          "text": "indeed, with hardship comes ease.",
+          "source_url": "https://quranenc.com/en/browse/english_rwwad",
+          "match": 1.0
+        }
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": "أ",
+      "translated_ar": null,
+      "verdict_kind": "fix",
+      "needs_action": true
+    },
+    {
+      "kind": "quote",
+      "text": "\"Cleanliness is half of faith.\"",
+      "start": 103,
+      "end": 134,
+      "quote": {
+        "segment_text": "Cleanliness is half of faith.",
+        "classification": "hadith",
+        "status": "verified",
+        "match_type": "full",
+        "confidence": 1.0,
+        "source": {
+          "book": "صحيح مسلم",
+          "chapter": "كتاب الطهارة",
+          "number": "223",
+          "matched_text": "حَدَّثَنَا إِسْحَاقُ بْنُ مَنْصُورٍ، حَدَّثَنَا حَبَّانُ بْنُ هِلاَلٍ، حَدَّثَنَا أَبَانٌ، حَدَّثَنَا يَحْيَى، أَنَّ زَيْدًا، حَدَّثَهُ أَنَّ أَبَا سَلاَّمٍ حَدَّثَهُ عَنْ أَبِي مَالِكٍ الأَشْعَرِيِّ، قَالَ قَالَ رَسُولُ اللَّهِ صلى الله عليه وسلم \" الطُّهُورُ شَطْرُ الإِيمَانِ وَالْحَمْدُ لِلَّهِ تَمْلأُ الْمِيزَانَ . وَسُبْحَانَ اللَّهِ وَالْحَمْدُ لِلَّهِ تَمْلآنِ - أَوْ تَمْلأُ - مَا بَيْنَ السَّمَوَاتِ وَالأَرْضِ وَالصَّلاَةُ نُورٌ وَالصَّدَقَةُ بُرْهَانٌ وَالصَّبْرُ ضِيَاءٌ وَالْقُرْآنُ حُجَّةٌ لَكَ أَوْ عَلَيْكَ كُلُّ النَّاسِ يَغْدُو فَبَائِعٌ نَفْسَهُ فَمُعْتِقُهَا أَوْ مُوبِقُهَا \" .",
+          "other_matches_count": 0,
+          "grades": [],
+          "level": 2,
+          "strength": "sahihayn"
+        },
+        "differences": [],
+        "is_claim": true,
+        "content_level": "أ",
+        "translation": {
+          "kind": "hadith",
+          "key": "hadith_en",
+          "title": "English translations of the hadith books (fawazahmed0/hadith-api)",
+          "language": "en",
+          "version": null,
+          "text": "Abu Malik at-Ash'ari reported:The Messenger of Allah (ﷺ) said: Cleanliness is half of faith and al-Hamdu Lillah (all praise and gratitude is for Allah alone) fills the scale, and Subhan Allah (Glory be to Allah) and al-Hamdu Lillah fill up what is between the heavens and the earth, and prayer is a light, and charity is proof (of one's faith) and endurance is a brightness and the Holy Qur'an is a proof on your behalf or against you. All men go out early in the morning and sell themselves, thereby setting themselves free or destroying themselves",
+          "source_url": "https://github.com/fawazahmed0/hadith-api/tree/df57907be35291c91ad6a6691180e22ca9920784",
+          "match": 1.0
+        }
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": "أ",
+      "translated_ar": null,
+      "verdict_kind": "ok",
+      "needs_action": false
+    },
+    {
+      "kind": "quote",
+      "text": "\"Seek knowledge even if you have to go to China.\"",
+      "start": 149,
+      "end": 198,
+      "quote": {
+        "segment_text": "Seek knowledge even if you have to go to China.",
+        "classification": "hadith",
+        "status": "baseless",
+        "match_type": "full",
+        "confidence": 0.38,
+        "source": null,
+        "differences": [
+          "not found in the official translations searched"
+        ],
+        "is_claim": true,
+        "content_level": null,
+        "translation": null
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": null,
+      "translated_ar": null,
+      "verdict_kind": "bad",
+      "needs_action": true
+    },
+    {
+      "kind": "quote",
+      "text": "\"Allah has permitted trade and forbidden adultery\"",
+      "start": 215,
+      "end": 265,
+      "quote": {
+        "segment_text": "Allah has permitted trade and forbidden adultery",
+        "classification": "quran",
+        "status": "semantic_variant",
+        "match_type": "full",
+        "confidence": 0.75,
+        "source": {
+          "book": "القرآن الكريم",
+          "chapter": "al-Baqarah",
+          "number": "2:275",
+          "matched_text": "ٱلَّذِينَ يَأْكُلُونَ ٱلرِّبَوٰا۟ لَا يَقُومُونَ إِلَّا كَمَا يَقُومُ ٱلَّذِى يَتَخَبَّطُهُ ٱلشَّيْطَـٰنُ مِنَ ٱلْمَسِّ ۚ ذَٰلِكَ بِأَنَّهُمْ قَالُوٓا۟ إِنَّمَا ٱلْبَيْعُ مِثْلُ ٱلرِّبَوٰا۟ ۗ وَأَحَلَّ ٱللَّهُ ٱلْبَيْعَ وَحَرَّمَ ٱلرِّبَوٰا۟ ۚ فَمَن جَآءَهُۥ مَوْعِظَةٌ مِّن رَّبِّهِۦ فَٱنتَهَىٰ فَلَهُۥ مَا سَلَفَ وَأَمْرُهُۥٓ إِلَى ٱللَّهِ ۖ وَمَنْ عَادَ فَأُو۟لَـٰٓئِكَ أَصْحَـٰبُ ٱلنَّارِ ۖ هُمْ فِيهَا خَـٰلِدُونَ",
+          "other_matches_count": 0,
+          "grades": [],
+          "level": 1,
+          "strength": "quran"
+        },
+        "differences": [
+          "words not in the official translation: adultery"
+        ],
+        "is_claim": true,
+        "content_level": "أ",
+        "translation": {
+          "kind": "quran",
+          "key": "english_saheeh",
+          "title": "English Translation - Noor International Center",
+          "language": "en",
+          "version": "1.1.2",
+          "text": "Those who consume interest[110] cannot stand [on the Day of Resurrection] except as one stands who is being beaten by Satan into insanity. That is because they say, \"Trade is [just] like interest.\" But Allāh has permitted trade and has forbidden interest. So whoever has received an admonition from his Lord and desists may have what is past, and his affair rests with Allāh. But whoever returns [to dealing in interest or usury] - those are the companions of the Fire; they will abide eternally therein.",
+          "source_url": "https://quranenc.com/en/browse/english_saheeh",
+          "match": 0.75
+        }
+      },
+      "result": null,
+      "fragment": false,
+      "similar": null,
+      "content_level": "أ",
+      "translated_ar": null,
+      "verdict_kind": "fix",
+      "needs_action": true
+    }
+  ],
+  "sentences": 2,
+  "commentary_sentences": 0,
+  "skipped_claims": 0,
+  "truncated": false,
+  "summary": {
+    "quote_semantic_variant": 2,
+    "quote_verified": 1,
+    "quote_baseless": 1
+  },
+  "llm": {
+    "used": false,
+    "error": null,
+    "recited": 0,
+    "recited_found": 0
+  },
+  "language": "en",
+  "translations_used": [
+    "English Translation - Hilali and Khan",
+    "English Translation - Rowwad Translation Center",
+    "English Translation - Noor International Center",
+    "English hadith (fawazahmed0/hadith-api)"
+  ],
+  "content_type": "khutbah",
+  "content_type_ar": "الخطبة",
+  "content_type_cues": [
+    "Dear brothers",
+    "brothers and sisters"
+  ],
+  "blocking": 3,
+  "badge": null,
+  "review_complete": false,
+  "badge_unavailable": "incomplete_review"
+}

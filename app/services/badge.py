@@ -1,11 +1,7 @@
-"""The Manba badge: a short serial for a review in which nothing blocked publishing, signed by the server.
+"""Source-backed review receipts. Unresolved or incomplete reviews cannot earn one.
 
-The serial holds the day of the review, whether the AI took part ("full") or only direct matching ran, and a fingerprint of the
-exact text, all signed with a server key (HMAC-SHA256). Nothing is stored: anyone can check a serial at /api/badge/{code}, and
-sending the text with it shows whether it is the very text that was reviewed (one changed letter gives another fingerprint).
-
-Which findings block publishing is decided here with the same rules the reviewer's page uses (app.js: segVerdict, claimVerdict,
-similarVerdict), so the page and the badge never disagree.
+V2 uses a 128-bit text digest and 128-bit MAC, a dedicated secret, and exact UTF-8
+text. Legacy 32-bit receipts are deliberately not accepted by this verifier.
 """
 import base64
 import datetime as dt
@@ -13,35 +9,37 @@ import hashlib
 import hmac
 import os
 import re
+from zoneinfo import ZoneInfo
 
-from app.config import settings
 from app.schemas import BadgeInfo, BadgeVerifyResponse, TextCheckResponse
 
 EPOCH = dt.date(2026, 1, 1)
 NOT_IN_TR = "not found in the official translations searched"
-BLOCKING_FIQH = {"school_differs", "consensus_claim_disputed", "agreement_differs"}
-BLOCKING_OUTCOME = {"supported_in_part": "fix", "supported_weakly": "fix", "contradicted": "bad"}
 RANK = {"bad": 0, "fix": 1, "khl": 2, "ref": 3, "neu": 4, "ok": 5}
+FIQH_KINDS = {
+    "school_differs": "bad", "consensus_claim_disputed": "bad", "agreement_differs": "bad",
+    "stated_as_certain_disputed": "khl", "partly_disputed": "khl",
+    "school_matches": "ok", "disagreement_acknowledged": "ok", "agreement_reported": "ok",
+    "found_no_marker": "neu", "not_found": "neu",
+}
 
 
-def _key() -> bytes:
-    secret = os.getenv("BADGE_SECRET", "").strip() or settings.api_access_token or os.getenv("OPENROUTER_API_KEY", "").strip() or "manba-local-dev"
-    return hashlib.sha256(b"manba-badge|" + secret.encode()).digest()
-
-
-def _norm(text: str) -> str:
-    return re.sub(r"\s+", " ", text or "").strip()
+def _key() -> bytes | None:
+    secret = os.getenv("BADGE_SECRET", "").strip()
+    if len(secret.encode()) < 32:
+        return None
+    return hashlib.sha256(b"manba-badge-v2|" + secret.encode()).digest()
 
 
 def fingerprint(text: str) -> bytes:
-    return hashlib.sha256(_norm(text).encode()).digest()[:4]
+    return hashlib.sha256(text.encode("utf-8")).digest()[:16]
 
 
 def _segment_kind(sg) -> str:
     if sg is None:
         return "bad"
     s = sg.source
-    if getattr(sg, "translation", None) is not None or NOT_IN_TR in (sg.differences or []):
+    if sg.translation is not None or NOT_IN_TR in (sg.differences or []):
         if sg.translation is None:
             return "bad"
         if sg.status != "verified":
@@ -62,66 +60,95 @@ def kind_of(item) -> str:
     if item.kind == "similar":
         return "fix"
     r = item.result
-    qc = getattr(r, "quote_check", None)
+    if r is None:
+        return "neu"
+    qc = r.quote_check
     if r.outcome == "quote_checked" and qc is not None and qc.segments:
-        kinds = [_segment_kind(sg) for sg in qc.segments if getattr(sg, "is_claim", None) is not False]
+        kinds = [_segment_kind(sg) for sg in qc.segments if sg.is_claim is not False]
         if kinds:
             return min(kinds, key=RANK.get)
-    if r.fiqh is not None and r.fiqh.status:
-        return "bad" if r.fiqh.status in BLOCKING_FIQH else "khl"
-    return BLOCKING_OUTCOME.get(r.outcome, "neu")
+    if r.fiqh is not None and r.fiqh.status in FIQH_KINDS:
+        return FIQH_KINDS[r.fiqh.status]
+    # Evidence stances come from a model, so they cannot certify a claim.
+    return {"supported_in_part": "fix", "supported_weakly": "fix", "contradicted": "bad",
+            "mixed": "khl", "refer_to_scholar": "ref"}.get(r.outcome, "neu")
 
 
 def counted(response: TextCheckResponse) -> list:
-    return [
-        i for i in response.items
-        if not i.fragment and not (i.kind == "claim" and i.result is not None and i.result.outcome == "out_of_scope")
-    ]
+    return [i for i in response.items if not i.fragment and not
+            (i.kind == "claim" and i.result is not None and i.result.outcome == "out_of_scope")]
+
+
+def assess(response: TextCheckResponse, text: str, today: dt.date | None = None) -> TextCheckResponse:
+    response.badge = None
+    response.badge_unavailable = None
+    items = counted(response)
+    for item in response.items:
+        item.verdict_kind = kind_of(item)
+        item.needs_action = item.verdict_kind != "ok"
+        r = item.result
+        if r is not None and (r.refer_to_scholar or r.llm.error or
+                              (r.fiqh is not None and (r.fiqh.error or r.fiqh.matched_by != "model" or
+                               (r.fiqh.attribution is not None and r.fiqh.attribution.status == "not_reported")))):
+            item.needs_action = True
+            if item.verdict_kind == "ok":
+                item.verdict_kind = "neu"
+    response.blocking = sum(i.needs_action for i in items)
+    response.review_complete = bool(response.llm and response.llm.used and not response.llm.error
+                                    and not response.truncated and not response.skipped_claims)
+    if not response.review_complete:
+        response.badge_unavailable = "incomplete_review"
+    elif response.blocking or not items:
+        response.badge_unavailable = "unresolved_findings" if items else "nothing_checked"
+    else:
+        key = _key()
+        if key is None:
+            response.badge_unavailable = "signing_unavailable"
+        else:
+            day = today or dt.datetime.now(ZoneInfo("Asia/Riyadh")).date()
+            days = (day - EPOCH).days
+            if not 0 <= days <= 0x7FFF:
+                response.badge_unavailable = "signing_unavailable"
+                return response
+            payload = (days | 0x8000).to_bytes(2, "big") + fingerprint(text)
+            mac = hmac.new(key, b"v2" + payload, hashlib.sha256).digest()[:16]
+            response.badge = BadgeInfo(code=_encode(payload + mac), date=day.isoformat(), mode="full", items=len(items))
+    return response
 
 
 def _encode(raw: bytes) -> str:
     b = base64.b32encode(raw).decode().rstrip("=")
-    return "MNB-" + "-".join(b[k : k + 4] for k in range(0, len(b), 4))
+    return "MNB2-" + "-".join(b[k:k + 4] for k in range(0, len(b), 4))
 
 
 def _decode(code: str) -> bytes | None:
-    c = re.sub(r"[^A-Z2-7]", "", (code or "").upper().replace("MNB", "", 1))
-    if len(c) != 16:
+    shown = code.strip().upper()
+    if not re.fullmatch(r"MNB2-(?:[A-Z2-7]{4}-){13}[A-Z2-7]{3}", shown):
         return None
+    b = shown[5:].replace("-", "")
     try:
-        return base64.b32decode(c)
+        raw = base64.b32decode(b + "=" * ((-len(b)) % 8))
+        return raw if _encode(raw) == shown else None
     except ValueError:
         return None
 
 
-def assess(response: TextCheckResponse, text: str, today: dt.date | None = None) -> TextCheckResponse:
-    """Set response.blocking and, when nothing blocks and something was checked, response.badge."""
-    items = counted(response)
-    response.blocking = sum(1 for i in items if kind_of(i) in ("bad", "fix"))
-    if response.blocking or not items or response.truncated:
-        return response
-    day = today or dt.date.today()
-    full = bool(response.llm and response.llm.used)
-    days = min((day - EPOCH).days, 0x7FFF) | (0x8000 if full else 0)
-    payload = days.to_bytes(2, "big") + fingerprint(text)
-    mac = hmac.new(_key(), b"v1" + payload, hashlib.sha256).digest()[:4]
-    response.badge = BadgeInfo(code=_encode(payload + mac), date=day.isoformat(), mode="full" if full else "matching", items=len(items))
-    return response
-
-
 def verify(code: str, text: str | None = None) -> BadgeVerifyResponse:
-    raw = _decode(code)
     shown = code.strip().upper()
+    if shown.startswith("MNB-"):
+        return BadgeVerifyResponse(valid=False, code=shown, reason="legacy_serial")
+    raw = _decode(code)
     if raw is None:
         return BadgeVerifyResponse(valid=False, code=shown, reason="malformed")
-    payload, mac = raw[:6], raw[6:]
-    if not hmac.compare_digest(hmac.new(_key(), b"v1" + payload, hashlib.sha256).digest()[:4], mac):
-        return BadgeVerifyResponse(valid=False, code=_encode(raw), reason="not_issued")
+    key = _key()
+    if key is None:
+        return BadgeVerifyResponse(valid=False, code=shown, reason="signing_unavailable")
+    payload, mac = raw[:18], raw[18:]
+    if not hmac.compare_digest(hmac.new(key, b"v2" + payload, hashlib.sha256).digest()[:16], mac):
+        return BadgeVerifyResponse(valid=False, code=shown, reason="not_issued")
     days = int.from_bytes(payload[:2], "big")
-    out = BadgeVerifyResponse(
-        valid=True, code=_encode(raw), date=(EPOCH + dt.timedelta(days=days & 0x7FFF)).isoformat(),
-        mode="full" if days & 0x8000 else "matching",
-    )
-    if text is not None and text.strip():
-        out.text_matches = hmac.compare_digest(fingerprint(text), payload[2:6])
+    out = BadgeVerifyResponse(valid=True, code=shown, date=(EPOCH + dt.timedelta(days=days & 0x7FFF)).isoformat(),
+                              mode="full" if days & 0x8000 else "matching")
+    if text is not None:
+        out.text_matches = hmac.compare_digest(fingerprint(text), payload[2:18])
     return out

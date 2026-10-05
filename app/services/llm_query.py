@@ -20,7 +20,7 @@ from app.services.llm_extractor import ExtractionError, chat_json, env_models, l
 JUDGE_CHUNK = int(os.getenv("JUDGE_CHUNK", "30"))  # evidence card: relevance of each text
 # The model that decides whether a text supports a claim. It is the step where a lenient model does the most harm
 # (it called a general verse on dawn prayer "direct support" for a claim with extra conditions), so it has its own
-# setting; benchmarked 28/30 on the overreach cases against 23/30 for gpt-4o-mini (claude-haiku-4.5 scored 30/30 but costs several times more). JUDGE_MODEL may list fallbacks.
+# setting; benchmarked 28/30 on the overreach cases against 23/30 for gpt-4o-mini. JUDGE_MODEL may list fallbacks.
 DEFAULT_JUDGE_MODEL = "google/gemini-2.5-flash"
 
 
@@ -387,7 +387,7 @@ async def find_claims(
     """(sentence number, claim text, subject) for the claims in numbered sentences. The caller must check that each claim text
     really occurs in its sentence: the model is told to copy, and nothing it writes is trusted."""
     lines = "\n".join(
-        f"{k}. {'[QUOTE] ' if quote else ''}{text[:400]}" for k, (text, quote) in enumerate(zip(sentences, quote_flags))
+        f"{k}. {'[QUOTE] ' if quote else ''}{text}" for k, (text, quote) in enumerate(zip(sentences, quote_flags))
     )
     content = await chat_json(
         [{"role": "system", "content": TRIAGE_PROMPT}, {"role": "user", "content": lines}], TRIAGE_SCHEMA, api_key

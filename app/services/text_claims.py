@@ -75,7 +75,7 @@ def _pieces(text: str, spans: list[tuple[int, int]], covered: list[bool]) -> lis
                 pieces.append((start, end))
             if m:
                 start = m.end()
-    return pieces[:MAX_PIECES]
+    return pieces
 
 
 _ATTRIBUTION = frozenset(SAID | SPEAKER | SPEAKER_NAMES | PROPHET | FILLER | CONTEXT | set(HONORIFIC) | {"ﷺ", "ﷻ", "عليه", "السلام", "رضي", "عنه", "عنها"})
@@ -219,9 +219,10 @@ async def check_text(
     llm = ClaimLLMInfo()
 
     # 1. Quotes, found without a model. A bracketed or attributed text that matches nothing is still shown (as not found).
+    local_quotes = verify_local(text)
     quotes = [
         item
-        for item in verify_local(text)
+        for item in local_quotes
         if (item.segment.status in ("verified", "semantic_variant") and item.segment.classification in ("quran", "hadith"))
         or item.kind == "region"
     ]
@@ -277,15 +278,13 @@ async def check_text(
     # A sentence that attributes quoted words to the Prophet or to God and matches nothing is shown as a quote that was not
     # found. With a model the claim router usually handles it, but a model that passes over it must not make it
     # disappear: it is added unless one of the model's claims already covers the quoted words themselves.
-    for loc in verify_local(text):
+    for loc in local_quotes:
         span = (loc.start, loc.end)
         piece = text[loc.start : loc.end]
         if loc.segment.status != "baseless" or not _ATTRIBUTED.search(piece) or any(_overlap(span, q) > 0 for q in quote_spans):
             continue
         inner = _QUOTED.search(piece)
         core = (loc.start + inner.start(), loc.start + inner.end()) if inner else span
-        if llm.used and not inner:
-            continue  # unquoted attributed wording: the model's claims are the better judge of what is a quotation
         if any(_overlap(core, (c[0], c[1])) > 0.5 * (core[1] - core[0]) for c in claims):
             continue
         claims[:] = [c for c in claims if _overlap((c[0], c[1]), core) == 0]
@@ -321,10 +320,18 @@ async def check_text(
 
     async def nearest(sentence: str):
         async with sem:
-            return await nearest_text(sentence, api_key)
+            try:
+                return await nearest_text(sentence, api_key, strict=True)
+            except Exception as exc:
+                # Missing retrieval must not look like a completed clean review.
+                llm.error = (llm.error + "; " if llm.error else "") + _redact(f"meaning: {type(exc).__name__}: {exc}")
+                return None
 
     # Sentences no quote covers are also compared with the corpus by meaning (one cached embedding each, no chat model).
     pieces = _pieces(text, spans, covered) if use_meaning else []
+    if len(pieces) > MAX_PIECES:
+        truncated = True
+        pieces = pieces[:MAX_PIECES]
     results, nears = await asyncio.gather(
         asyncio.gather(*(check(c[2]) for c in claims), return_exceptions=True),
         asyncio.gather(*(nearest(text[a:b]) for a, b in pieces)),
@@ -340,6 +347,7 @@ async def check_text(
     for (start, end, claim), result in zip(claims, results):
         if isinstance(result, Exception):
             llm.error = (llm.error + "; " if llm.error else "") + _redact(f"{type(result).__name__}: {result}")
+            skipped += 1
             continue
         items.append(TextClaimItem(kind="claim", text=claim, start=start, end=end, result=result, content_level=result.content_level))
     taken: list[tuple[int, int]] = []  # a part of the text already pointed out (the best match per stretch wins)

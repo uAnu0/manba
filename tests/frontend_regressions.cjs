@@ -1,0 +1,36 @@
+// Exercise the actual fix and verdict functions without a browser or paid API.
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const source = fs.readFileSync(path.resolve(__dirname, '../app/static/app.js'), 'utf8');
+const begin = source.slice(0, source.indexOf('  // ---------- state ----------'));
+const quoteHelpers = source.slice(source.indexOf('  function quoteOf('), source.indexOf('  function wordingScore('));
+const fixes = source.slice(source.indexOf('  const CONSENSUS_RE'), source.indexOf('  function progressHtml()'));
+const context = { localStorage: { getItem: () => null }, document: { getElementById: () => null } };
+vm.createContext(context);
+vm.runInContext(begin + '\n const store = {data:null, entries:[], fixes:{}};\n' + quoteHelpers + fixes +
+                '\n globalThis.api = {store, fixPlan, draftNow, verdictOf};})();', context);
+const { store, fixPlan, draftNow, verdictOf } = context.api;
+const text = 'قال تعالى: «وأحل الله البيع وحرم الزنا». قال تعالى: «وأحل الله البيع وحرم الزنا».';
+const q = '«وأحل الله البيع وحرم الزنا»';
+const start = text.lastIndexOf(q);
+const sg = { status: 'semantic_variant', source: {book:'القرآن الكريم', number:'2:275', matched_text:'وأحل الله البيع وحرم الربا'} };
+const entry = { n: 2, it: {start, end:start + q.length}, v:{ k:'fix', seg:sg} };
+store.data = {original_text:text}; store.entries = [entry]; store.fixes = {2:'applied'};
+assert.equal(fixPlan(entry).start, start);
+assert.ok(draftNow().startsWith('قال تعالى: ' + q));
+assert.ok(draftNow().endsWith('﴿وأحل الله البيع وحرم الربا﴾.'));
+assert.equal(draftNow().split('الزنا').length - 1, 1);
+store.manualDraft = 'تحرير يدوي محفوظ\nكما كتبته';
+assert.equal(draftNow(), store.manualDraft);
+assert.equal(fixPlan(entry), null);
+delete store.manualDraft;
+entry.v.seg = {status:'semantic_variant', translation:{text:'Indeed, with hardship comes ease'}, differences:['the reference given is wrong']};
+assert.equal(fixPlan(entry), null);
+entry.v = {k:'neu', fiqh:{status:'school_differs', matched_by:'keywords', attribution:{school:'الحنفية'}}};
+assert.equal(fixPlan(entry), null);
+const v = verdictOf({kind:'quote', text:'نص', quote:{classification:'quran', status:'verified', source:{book:'القرآن الكريم',number:'1:1'}}, verdict_kind:'neu', needs_action:true});
+assert.equal(v.k, 'neu');
+assert.match(v.label, /مراجعة/);
+console.log('6 frontend regression scenarios passed');

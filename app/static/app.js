@@ -34,7 +34,7 @@
   // ---------- verdicts: one plain-language class per result ----------
   // k: bad (must change) | fix (needs correcting) | khl (disputed, attribute it) | ref (refer) | neu (no conclusion) | ok (verified)
   const RANK = { bad: 0, fix: 1, khl: 2, ref: 3, neu: 4, ok: 5 };
-  const K_LABEL = { bad: ["لا يثبت", "Not authentic"], fix: ["يحتاج تصحيحًا", "Needs correcting"], khl: ["مسألة خلافية", "Disputed"], ref: ["يُحال إلى مختص", "Refer to a scholar"], neu: ["بلا حكم", "No conclusion"], ok: ["موثّق", "Verified"] };
+  const K_LABEL = { bad: ["غير مُثبت", "Not established"], fix: ["يحتاج تصحيحًا", "Needs correcting"], khl: ["مسألة خلافية", "Disputed"], ref: ["يُحال إلى مختص", "Refer to a scholar"], neu: ["بلا حكم", "No conclusion"], ok: ["موثّق", "Verified"] };
   const LEVEL_TITLE = { "أ": ["مستوى أ: نص أصلي مستقر", "Level A: a settled text"], "ب": ["مستوى ب: شرح مع إظهار المرجع", "Level B: explanation with its reference"], "ج": ["مستوى ج: خلافي أو حساس", "Level C: disputed or sensitive"], "د": ["مستوى د: حالة شخصية تُحال", "Level D: a personal case, referred"] };
   const lvlTag = l => L(`مستوى ${l}`, `Level ${LVL_EN[l] || l}`);
 
@@ -104,7 +104,7 @@
     not_found: { k: "neu", label: ["لم توجد في الموسوعة الفقهية", "Not found in the fiqh encyclopedia"], next: ["يُرجع فيها إلى مختص", "Refer it to a specialist"] },
   };
   const OUTCOME_V = {
-    supported: { k: "ok", label: ["تؤيده الأدلة", "Supported by the evidence"] },
+    supported: { k: "neu", label: ["تأييد محتمل بتقييم آلي: يحتاج مراجعة", "AI-assessed support: needs review"] },
     supported_in_part: { k: "fix", label: ["مؤيد جزئيًا", "Partly supported"], next: ["قيّد العبارة بما تؤيده النصوص", "Limit the statement to what the texts support"] },
     supported_weakly: { k: "fix", label: ["دليله ضعيف", "Weak evidence only"], next: ["لا تبنِ عليه إلا بدليل ثابت", "Do not rely on it without authentic evidence"] },
     contradicted: { k: "bad", label: ["تخالفه الأدلة", "Contradicted by the evidence"], next: ["راجع العبارة في ضوء النصوص المعروضة", "Revise it in light of the texts shown"] },
@@ -139,6 +139,15 @@
   }
 
   function verdictOf(it) {
+    const v = localVerdictOf(it);
+    if (it.verdict_kind) {
+      if (v.k === "ok" && it.verdict_kind !== "ok") v.label = L("مطابقة للمصدر تحتاج مراجعة", "Source match needs review");
+      v.k = it.verdict_kind;
+    }
+    return v;
+  }
+  const needsAction = e => typeof e.it.needs_action === "boolean" && e.it.verdict_kind ? e.it.needs_action : e.v.k !== "ok";
+  function localVerdictOf(it) {
     if (it.kind === "quote") return Object.assign({ seg: it.quote }, segVerdict(it.quote, it.text));
     if (it.kind === "similar") return similarVerdict(it.similar);
     return claimVerdict(it.result, it.text);
@@ -273,8 +282,11 @@
     if (!text || words() > MAX_WORDS) return;
     startLoading();
     try {
-      const res = await fetch("/api/check", { method: "POST", headers: headers(true), body: JSON.stringify({ text, use_llm: true, use_meaning: true }) });
+      const sample = SAMPLES.findIndex(s => s[1] === text);
+      const demo = sample >= 0 && !headers(false)["X-Access-Token"];
+      const res = demo ? await fetch(`/static/demo/${sample + 1}.json`) : await fetch("/api/check", { method: "POST", headers: headers(true), body: JSON.stringify({ text, use_llm: true, use_meaning: true }) });
       const data = await res.json().catch(() => ({}));
+      if (demo) data.demo = true;
       if (res.status === 401) { stopLoading(); $("inputView").hidden = false; alertInline(L("الخادم يطلب رمز دخول: أدخله من الإعدادات.", "The server needs an access code: enter it in Settings.")); openSettings(); return; }
       if (res.status === 422) throw new Error(L("النص طويل أو غير صالح للفحص. اختصره إلى 500 كلمة أو أقل.", "The text is too long or not valid. Keep it to 500 words or fewer."));
       if (!res.ok) throw new Error(L("تعذر الفحص الآن. أعد المحاولة بعد قليل.", "The check could not run right now. Try again shortly."));
@@ -360,18 +372,16 @@
   };
   const typeOf = k => { const t = TYPES[k] || TYPES.text; return LANG === "en" ? Object.assign({ f: false }, t.en) : t; };
   function headline(needs, counts) {
+    const d = store.data;
+    if (!needs && d && !d.review_complete) return L("المراجعة محدودة: لا يمكن تأكيد جاهزية النص للنشر", "Limited review: publishing readiness is unconfirmed");
     const t = typeOf(store.type);
     if (LANG === "en") {
       if (needs) return `${t.the} is not ready ${t.act}: ${needs} ${needs === 1 ? "place needs" : "places need"} changes`;
-      if (counts.khl) return `${t.the} is ready ${t.act}; its disputed questions should be attributed to their schools`;
-      if (counts.ref) return `${t.the} is ready ${t.act}; part of it should be referred to a scholar`;
-      return `${t.the} is ready ${t.act} as far as its texts and rulings go`;
+      return `No changes found in the completed review of ${t.the.toLowerCase()}`;
     }
     const ready = t.f ? "جاهزة" : "جاهز", inIt = t.f ? "فيها" : "فيه";
     if (needs) return `${t.the} غير ${ready} ${t.act}: ${AR_DIGITS(needs)} ${needs === 1 ? "موضع يحتاج" : needs === 2 ? "موضعان يحتاجان" : "مواضع تحتاج"} تعديلًا`;
-    if (counts.khl) return `${t.the} ${ready} ${t.act}، و${inIt} مسائل خلافية تُنسب إلى قائليها`;
-    if (counts.ref) return `${t.the} ${ready} ${t.act}، و${inIt} ما يُحال إلى مختص`;
-    return `${t.the} ${ready} ${t.act} من جهة النصوص والأحكام التي ${inIt}`;
+    return `لم نجد مواضع تحتاج تعديلًا في المراجعة المكتملة لـ${t.the}`;
   }
   function typeLine(data) {
     const cues = (data.content_type_cues || []).map(c => `«${esc(c)}»`).join("، ");
@@ -380,7 +390,7 @@
       ${cues ? `<span class="cap">${L("عرفناه من:", "Recognised from:")} ${cues}</span>` : ""}</div>`;
   }
   function renderReport(data) {
-    if (store.data !== data) { store.fixes = {}; store.badge = null; }
+    if (store.data !== data) { store.manualDraft = undefined; store.fixes = {}; store.badge = null; }
     store.data = data; store.onReport = true;
     store.type = data.content_type || "text";
     const items = (data.items || []).filter(it => !it.fragment && !(it.kind === "claim" && it.result && it.result.outcome === "out_of_scope"));
@@ -389,7 +399,7 @@
     store.entries.forEach((e, n) => { e.n = n + 1; });
     store.entries.sort((a, b) => RANK[a.v.k] - RANK[b.v.k] || a.n - b.n);
     const counts = {}; store.entries.forEach(e => { counts[e.v.k] = (counts[e.v.k] || 0) + 1; });
-    const needs = (counts.bad || 0) + (counts.fix || 0);
+    const needs = store.entries.filter(needsAction).length;
     store.filter = store.entries.length > 6 ? "attention" : "all";
 
     const llmOff = !data.llm || !data.llm.used;
@@ -400,17 +410,21 @@
           <span class="cap">${L(`${AR_DIGITS(data.word_count)} كلمة · ${AR_DIGITS(store.entries.length)} من النصوص والأحكام · ${AR_DIGITS(data.commentary_sentences || 0)} جملة تعليق لا تحتاج تحققًا`, `${data.word_count} words · ${store.entries.length} texts and rulings · ${data.commentary_sentences || 0} commentary sentences with nothing to check`)}</span>
         </div>
         <div class="actions no-print">
-          <button class="btn" id="shareBtn">${L("مشاركة التقرير", "Share the report")}</button>
+          <button class="btn" id="shareBtn" title="${L("الرابط يتضمن النص كاملًا؛ يستطيع كل من يملكه قراءته", "The link contains the full text; anyone with it can read it")}">${L("مشاركة التقرير", "Share the report")}</button>
           <button class="btn" id="copySummary">${L("نسخ ملخص التقرير", "Copy summary")}</button>
           <button class="btn" id="printBtn">${L("طباعة أو حفظ PDF", "Print or save PDF")}</button>
           <button class="btn primary" id="newBtn">${L("مراجعة نص جديد", "Review another text")}</button>
         </div>
       </div>
+      ${data.demo ? `<div class="notice" role="status">${L("عرض توضيحي محفوظ لأحد الأمثلة بالمطابقة المباشرة. ليست مراجعة حية؛ لا يمنح شارة. لمراجعة نصك استخدم رمز الدخول.", "Saved direct-matching sample demo. This is not a live review and cannot earn a badge. Reviewing your own text requires an access code.")}</div>` : ""}
       ${store.entries.length ? `<p class="headline" id="headline" tabindex="-1">${headline(needs, counts)}</p>${typeLine(data)}${needs && typeOf(store.type).tip ? `<p class="cap type-tip" id="typeTip">${typeOf(store.type).tip}</p>` : `<p class="cap type-tip" id="typeTip" hidden></p>`}<div class="seg" aria-hidden="true">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<i class="s-${k}" style="flex: ${counts[k]}"></i>`).join("")}</div>
       <div class="counts">
         ${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<span class="chip k-${k}">${N(counts[k])} ${P(K_LABEL[k])}</span>`).join("")}</div>` : ""}
       ${data.language && data.language !== "ar" ? `<div class="notice" role="status">${L("النص", "The text is")} ${esc(P(LANG_AR[data.language] || LANG_AR.other))}: ${trNote(data)}${llmOff ? L(" ترجمة الادعاءات غير المقتبسة إلى العربية تحتاج الذكاء الاصطناعي، وهو غير متاح الآن.", " Translating unquoted claims into Arabic needs the AI, which is not available right now.") : ""}</div>` : ""}
-      ${llmOff && !(data.language && data.language !== "ar") ? `<div class="notice" role="status">${L("خدمة الذكاء الاصطناعي غير متاحة الآن، فتحققنا من الاقتباسات والأحكام الفقهية الصريحة بالمطابقة المباشرة فقط. قد لا تظهر الادعاءات غير المقتبسة.", "The AI service is not available right now, so we checked quotes and explicit fiqh rulings by direct matching only. Unquoted claims may not appear.")}</div>` : ""}
+      ${llmOff && !data.demo && !(data.language && data.language !== "ar") ? `<div class="notice" role="status">${L("جرت المراجعة بالمطابقة المباشرة فقط، فقد لا تظهر الادعاءات غير المقتبسة.", "This review used direct matching only; unquoted claims may not appear.")}</div>` : ""}
+      ${data.skipped_claims ? `<div class="notice" role="status">${L(`لم يُفحص ${AR_DIGITS(data.skipped_claims)} من الادعاءات. قسّم النص وأعد الفحص.`, `${data.skipped_claims} claims were not checked. Split the text and re-check.`)}</div>` : ""}
+      ${data.llm && data.llm.used && data.llm.error ? `<div class="notice" role="status">${L("تعذر إكمال بعض خطوات المراجعة؛ لا يمكن منح شارة.", "Some review steps failed; a badge cannot be issued.")}</div>` : ""}
+      ${data.badge_unavailable === "signing_unavailable" ? `<div class="notice" role="status">${L("توقيع الشارات غير مهيأ على الخادم.", "Badge signing is not configured on the server.")}</div>` : ""}
       ${data.truncated ? `<div class="notice">${L("النص أطول من الحد، فُحص الجزء الأول منه فقط.", "The text is over the limit: only its first part was checked.")}</div>` : ""}
     </section>`;
 
@@ -428,7 +442,7 @@
         <section class="list" aria-label="${L("النتائج", "Results")}">
           <div class="row-between"><b class="cap" style="font-size: 14px">${L("النتائج، الأهم أولًا", "Results, most important first")}</b>
             <div class="filters" role="group" aria-label="${L("تصفية النتائج", "Filter results")}">
-              <button class="btn small" data-f="attention" aria-pressed="${store.filter === "attention"}">${L("تحتاج إجراء", "Need action")} ${N(store.entries.filter(e => e.v.k !== "ok").length)}</button>
+              <button class="btn small" data-f="attention" aria-pressed="${store.filter === "attention"}">${L("تحتاج إجراء", "Need action")} ${N(store.entries.filter(needsAction).length)}</button>
               <button class="btn small" data-f="all" aria-pressed="${store.filter === "all"}">${L("الكل", "All")} ${N(store.entries.length)}</button>
             </div></div>
           ${progressHtml()}
@@ -454,9 +468,9 @@
     const hl = $("headline"); if (hl) hl.focus({ preventScroll: true });  // keyboard and screen-reader users land on the verdict
     const db = $("draftBox"); if (db) db.addEventListener("input", () => { db.dataset.edited = "1"; });
     // A re-check of the corrected text, or a badge link: the badge is given only when nothing needs changing.
-    // The badge comes from the server, signed, and only when nothing blocks publishing (services/badge.py).
+    // The badge comes from the server, signed, and only when no unresolved findings remained in this automated review (services/badge.py).
     if (data.badge) { store.verifiedText = data.original_text; showBadge(data); }
-    else if (store.recheck) rv.insertAdjacentHTML("afterbegin", `<div class="notice" role="status">${L(`بقي ما يحتاج تعديلًا (${AR_DIGITS(needs || data.blocking || 0)}). عالجه ثم أعد الفحص.`, `Something still needs changing (${needs || data.blocking || 0}). Handle it, then re-check.`)}</div>`);
+    else if (store.recheck && needs) rv.insertAdjacentHTML("afterbegin", `<div class="notice" role="status">${L(`بقي ما يحتاج مراجعة (${AR_DIGITS(needs)}). عالجه ثم أعد الفحص.`, `Findings still need review (${needs}). Handle them, then re-check.`)}</div>`);
     store.recheck = false;
     dorarSummaries();
   }
@@ -518,15 +532,26 @@
     return best * 2 >= n ? vw.slice(at, at + n).join(" ") : verse;
   }
   function fixPlan(e) {
+    if (store.manualDraft !== undefined) return null;
+    const plan = sourceFixPlan(e);
+    if (!plan || !plan.find) return null;
+    const original = store.data.original_text;
+    // Anchor to this finding, never the first identical wording elsewhere.
+    let at = original.indexOf(plan.find, e.it.start);
+    if (at < 0 || at >= e.it.end) at = original.lastIndexOf(plan.find, e.it.start);
+    if (at < 0 || at + plan.find.length < e.it.start || at > e.it.end) return null;
+    return Object.assign(plan, { start: at, end: at + plan.find.length });
+  }
+  function sourceFixPlan(e) {
     const v = e.v, it = e.it, sg = v.seg, src = store.data.original_text.slice(it.start, it.end);
-    if (v.k === "ok") return null;
+    if (!needsAction(e)) return null;
+    if (sg && sg.translation && (sg.differences || []).some(d => /^the reference given/.test(d))) return null; // correct the reference manually too
     if (sg && sg.translation && sg.status === "semantic_variant") {
       const q = quoteOf(src); return { find: q, to: sg.translation.text.replace(/^\d+\.\s*/, ""), label: L("ضع الترجمة المعتمدة", "Insert the approved translation") };
     }
     if (sg && sg.status === "semantic_variant" && sg.source && isQuran(sg.source)) {
-      const q = shownQuote(src), m = /^(\d+):(\d+)/.exec(sg.source.number || "");
-      const ref = m ? `[${SURAH[+m[1] - 1] || m[1]}: ${AR_DIGITS(m[2])}]` : "";  // the draft is Arabic whatever the interface language
-      return { find: q, to: `﴿${versePart(sg.source.matched_text, quoteOf(q))}﴾ ${ref}`.trim(), label: L("ضع نص المصحف", "Insert the Mushaf text") };
+      const q = shownQuote(src);
+      return { find: q, to: `﴿${versePart(sg.source.matched_text, quoteOf(q))}﴾`, label: L("ضع نص المصحف", "Insert the Mushaf text") };
     }
     if (v.t === "hadith" && v.k === "bad") {
       // remove the quote with the words that attribute it ("وقد قال رسول الله ﷺ:"), not the sentence around it
@@ -535,6 +560,7 @@
     }
     const f = v.fiqh;
     if (f && f.status && it.kind === "claim") {
+      if (f.matched_by !== "model" || f.error || f.status === "partly_disputed") return null; // keyword candidates need human review
       // "أجمع العلماء على أن" often sits just before the claim's span: it goes with the fix.
       const pre = (store.data.original_text.slice(Math.max(0, it.start - 40), it.start).match(/(?:أجمع|اتفق)\s+(?:العلماء|الفقهاء|المسلمون|الأمة)\s+على\s+(?:أن\s+)?$/) || [""])[0];
       const claim = src.replace(/[.،؛]+\s*$/, ""), whole = pre + src;
@@ -555,26 +581,27 @@
     return null;
   }
   function fixBar(e) {
-    if (e.v.k === "ok") return "";
+    if (!needsAction(e)) return "";
     const st = (store.fixes || {})[e.n], plan = fixPlan(e);
-    if (st) return `<div class="fixbar done no-print"><span>✓ ${st === "applied" ? L("طُبّق التصحيح في النص المصحح", "Applied to the corrected text") : L("عالجتَه بنفسك", "Handled by you")}</span><button class="link" data-unfix="${e.n}">${L("تراجع", "Undo")}</button></div>`;
+    if (st) return `<div class="fixbar done no-print"><span>✓ ${st === "applied" ? L("طُبّق التصحيح في النص المصحح", "Applied to the corrected text") : L("عالجتَه بنفسك", "Handled by you")}</span>${store.manualDraft === undefined ? `<button class="link" data-unfix="${e.n}">${L("تراجع", "Undo")}</button>` : ""}</div>`;
     return `<div class="fixbar no-print">${plan ? `<button class="btn small primary" data-fix="${e.n}">${esc(plan.label)}</button><span class="cap fix-prev" dir="auto">${plan.to ? L("سيصبح:", "Becomes:") + " " + esc(plan.to.length > 90 ? plan.to.slice(0, 90) + "…" : plan.to) : L("يُحذف من النص", "Removed from the text")}</span>` : ""}
       <button class="btn small" data-manual="${e.n}">${L("عالجتُه بنفسي", "I handled it myself")}</button></div>`;
   }
   function draftNow() {
-    let t = store.data.original_text;
-    for (const e of store.entries) {
-      if (store.fixes[e.n] !== "applied") continue;
-      const plan = fixPlan(e); if (!plan || !plan.find) continue;
-      const k = t.indexOf(plan.find); if (k < 0) continue;
-      t = t.slice(0, k) + plan.to + t.slice(k + plan.find.length);
+    if (store.manualDraft !== undefined) return store.manualDraft;
+    let t = store.data.original_text, boundary = t.length;
+    const plans = store.entries.filter(e => store.fixes[e.n] === "applied").map(fixPlan).filter(Boolean).sort((a, b) => b.start - a.start);
+    for (const plan of plans) {
+      if (plan.end > boundary) continue;
+      t = t.slice(0, plan.start) + plan.to + t.slice(plan.end);
+      boundary = plan.start;
     }
     return t.replace(/[ \t]{2,}/g, " ").replace(/\s+([.،])/g, "$1").replace(/([،.!؟?])(?:\s*\.)+/g, (m, a) => a === "،" ? "." : a).replace(/^[\s.،]+/, "").trim();
   }
   function progressHtml() {
-    const todo = store.entries.filter(e => e.v.k !== "ok"), done = todo.filter(e => store.fixes[e.n]).length;
+    const todo = store.entries.filter(needsAction), done = todo.filter(e => store.fixes[e.n]).length;
     if (!todo.length) return "";
-    const all = done === todo.length, left = todo.length - done, auto = todo.filter(e => !store.fixes[e.n] && fixPlan(e)).length;
+    const all = done === todo.length || store.manualDraft !== undefined, left = todo.length - done, auto = todo.filter(e => !store.fixes[e.n] && fixPlan(e)).length;
     return `<section class="fixpanel no-print" id="fixpanel" aria-label="${L("تطبيق التصحيحات", "Applying the fixes")}">
       <div class="row-between"><b>${L("طبّق التصحيحات واحصل على شارة مَنبَع", "Apply the fixes and earn the Manba badge")}</b><span class="cap">${L(`${AR_DIGITS(done)} من ${AR_DIGITS(todo.length)}`, `${done} of ${todo.length}`)}</span></div>
       <div class="fixprog"><i style="width: ${Math.round(100 * done / todo.length)}%"></i></div>
@@ -583,15 +610,16 @@
       <div class="actions">${auto ? `<button class="btn primary" id="applyAll">${auto === left ? L("طبّق كل التصحيحات وأعد الفحص", "Apply every fix and re-check") : L(`طبّق التصحيحات المقترحة (${AR_DIGITS(auto)})`, `Apply the suggested fixes (${auto})`)}</button>` : ""}
         <button class="btn ${all ? "primary" : ""}" id="recheckBtn" ${all ? "" : "disabled"}>${L("أعد الفحص لنيل الشارة", "Re-check to earn the badge")}</button>
         <button class="btn" id="copyDraft">${L("انسخ النص المصحح", "Copy the corrected text")}</button>
-        <span class="cap">${all ? L("كل المواضع عولجت: أعد الفحص للتأكد.", "Every place is handled: re-check to confirm.") : auto < left ? L(`${AR_DIGITS(left - auto)} من المواضع لا تصحيح آليًا لها: عدّلها في النص المصحح ثم اضغط «عالجتُه بنفسي».`, `${left - auto} of the places have no automatic fix: edit them in the corrected text, then press "I handled it myself".`) : L("الشارة تُمنح فقط إذا جاء الفحص الجديد نظيفًا.", "The badge is given only if the new check comes back clean.")}</span></div>
+        <span class="cap">${store.manualDraft !== undefined ? L("تعديلاتك محفوظة. أعد الفحص للتحقق منها.", "Your edits are preserved. Re-check to validate them.") : all ? L("كل المواضع عولجت: أعد الفحص للتأكد.", "Every place is handled: re-check to confirm.") : auto < left ? L(`${AR_DIGITS(left - auto)} من المواضع لا تصحيح آليًا لها: عدّلها في النص المصحح ثم اضغط «عالجتُه بنفسي».`, `${left - auto} of the places have no automatic fix: edit them in the corrected text, then press "I handled it myself".`) : L("الشارة تُمنح فقط إذا جاء الفحص الجديد نظيفًا.", "The badge is given only if the new check comes back clean.")}</span></div>
     </section>`;
   }
   // Every fix the sources give, in one go; when nothing is left to handle by hand, the corrected text is re-checked at once.
   function applyAll() {
-    store.entries.forEach(e => { if (e.v.k !== "ok" && !store.fixes[e.n] && fixPlan(e)) store.fixes[e.n] = "applied"; });
+    if (store.manualDraft !== undefined) return;
+    store.entries.forEach(e => { if (needsAction(e) && !store.fixes[e.n] && fixPlan(e)) store.fixes[e.n] = "applied"; });
     const box = $("draftBox"); if (box) delete box.dataset.edited;
     refreshFixes();
-    const left = store.entries.filter(e => e.v.k !== "ok" && !store.fixes[e.n]);
+    const left = store.entries.filter(e => needsAction(e) && !store.fixes[e.n]);
     if (!left.length) { $("recheckBtn").click(); return; }
     const c = $("card-" + left[0].n); if (c) { c.scrollIntoView({ behavior: "smooth", block: "center" }); c.classList.add("flash"); setTimeout(() => c.classList.remove("flash"), 1600); }
   }
@@ -630,8 +658,8 @@
       <text x="130" y="127" text-anchor="middle" font-family="Amiri, 'Traditional Arabic', serif" font-size="34" font-weight="700" fill="#FFFFFF">مَنبَع</text>
       <text x="130" y="159" text-anchor="middle" font-family="IBM Plex Sans, Arial, sans-serif" font-size="10" letter-spacing="1.2" fill="#E3F5EC">VERIFIED WITH MANBA</text>
       <line x1="88" y1="167" x2="172" y2="167" stroke="#E3F5EC" stroke-opacity=".45"/>
-      <text x="130" y="181" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#FFFFFF">${esc(code)}</text>
-      <text x="130" y="195" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#E3F5EC">${esc(date)}</text></svg>`;
+      ${(code.match(/.{1,20}/g) || []).map((line, i) => `<text x="130" y="${175 + i * 9}" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="6.5" fill="#FFFFFF">${esc(line)}</text>`).join("")}
+      <text x="130" y="218" text-anchor="middle" font-family="Menlo, Consolas, monospace" font-size="9" fill="#E3F5EC">${esc(date)}</text></svg>`;
   }
   window.ManbaBadge = badgeSvg;  // the How page's tour shows the same seal
   async function showBadge(data) {
@@ -642,21 +670,22 @@
       <div class="seal">${store.badge.svg}</div>
       <div class="badge-txt"><b>${L("نال النص شارة مَنبَع", "The text earned the Manba badge")}</b>
         <div class="serial"><span class="cap">${L("الرقم التسلسلي", "Serial")}</span><code dir="ltr">${esc(b.code)}</code></div>
-        <span class="cap">${L(`فُحص النص المصحح من جديد بتاريخ ${b.date} فلم يبقَ فيه ما يمنع النشر (${AR_DIGITS(b.items)} من النصوص والأحكام). الرقم موقَّع من خادم مَنبَع: يمكن لأي أحد التحقق منه في صفحة «تحقق من شارة»، ومعه النص يتأكد أنه هو النص نفسه.`, `The corrected text was checked again on ${b.date} and nothing blocks publishing (${b.items} texts and rulings). The serial is signed by the Manba server: anyone can check it on the "Verify a badge" page, and with the text, confirm it is the very same text.`)}${b.mode === "matching" ? L(" هذه المراجعة جرت بالمطابقة المباشرة دون الذكاء الاصطناعي.", " This review used direct matching only, without the AI.") : ""}</span>
+        <span class="cap">${L(`فُحص النص المصحح من جديد بتاريخ ${b.date} فلم تظهر مواضع غير محسومة في هذه المراجعة الآلية (${AR_DIGITS(b.items)} من النصوص والأحكام). الرقم موقَّع من خادم مَنبَع: يمكن لأي أحد التحقق منه في صفحة «تحقق من شارة»، ومعه النص يتأكد أنه هو النص نفسه.`, `The corrected text was checked again on ${b.date} and no unresolved findings remained in this automated review (${b.items} texts and rulings). The serial is signed by the Manba server: anyone can check it on the "Verify a badge" page, and with the text, confirm it is the very same text.`)}${b.mode === "matching" ? L(" هذه المراجعة جرت بالمطابقة المباشرة دون الذكاء الاصطناعي.", " This review used direct matching only, without the AI.") : ""}</span>
         <div class="actions"><button class="btn primary" id="dlBadge">${L("نزّل الشارة", "Download the badge")}</button><button class="btn" id="copyBadgeLink">${L("انسخ رابط التحقق", "Copy the verification link")}</button><button class="btn" id="copySerial">${L("انسخ الرقم", "Copy the serial")}</button><button class="btn" id="copyDraft2">${L("انسخ النص المصحح", "Copy the corrected text")}</button></div></div>
     </section>`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // ---------- verifying a badge: the serial's signature, and (optionally) that the text is the one reviewed ----------
-  const VERIFY_WHY = { malformed: ["هذا ليس رقمًا تسلسليًا لمَنبَع. الرقم يبدأ بـ MNB ويتبعه ستة عشر حرفًا ورقمًا.", "This is not a Manba serial. It starts with MNB followed by sixteen letters and digits."],
+  const VERIFY_WHY = { legacy_serial: ["هذه شارة بالإصدار القديم؛ أعد مراجعة النص للحصول على شارة جديدة.", "This badge uses the retired format. Re-check the text for a new badge."],
+    signing_unavailable: ["توقيع الشارات غير مهيأ على الخادم؛ تعذر التحقق.", "Badge signing is not configured; verification is unavailable."], malformed: ["هذا ليس رقمًا تسلسليًا لمَنبَع. انسخ رمز MNB2 كاملًا من الشارة.", "This is not a Manba serial. Copy the complete MNB2 code from the badge."],
     not_issued: ["لم يصدر هذا الرقم عن مَنبَع: التوقيع لا يطابق.", "This serial was not issued by Manba: the signature does not match."] };
   async function verifyBadge() {
-    const code = $("vCode").value.trim(), text = $("vText").value.trim(), out = $("vOut");
+    const code = $("vCode").value.trim(), text = $("vText").value, out = $("vOut");
     if (!code) { $("vCode").focus(); return; }
     out.hidden = false; out.className = "vout"; out.textContent = L("نتحقق…", "Checking…");
     try {
-      const res = await fetch("/api/badge/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, text: text || null }) });
+      const res = await fetch("/api/badge/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, text: text.length ? text : null }) });
       const r = await res.json();
       if (!r.valid) { out.className = "vout bad"; out.innerHTML = `<b>${L("رقم غير صالح", "Not a valid serial")}</b><span>${esc(P(VERIFY_WHY[r.reason] || VERIFY_WHY.not_issued))}</span>`; return; }
       const mode = r.mode === "full" ? L("مراجعة كاملة: الاقتباسات والادعاءات والأحكام، بمساعدة الذكاء الاصطناعي، والحكم للمصادر", "Full review: quotes, claims and rulings, with the AI's help; the sources decide")
@@ -666,7 +695,7 @@
         : `<span class="cap">${L("أرفق النص للتأكد من أنه النص نفسه الذي رُوجع.", "Add the text to confirm it is the very text that was reviewed.")}</span>`;
       out.className = "vout " + (r.text_matches === false ? "warn" : "good");
       out.innerHTML = `<div class="seal">${badgeSvg(r.code, r.date)}</div><div><b>${L("رقم صادر عن مَنبَع", "Issued by Manba")}</b>
-        <span>${L(`رُوجع بتاريخ ${r.date}، ولم يكن فيه ما يمنع النشر.`, `Reviewed on ${r.date}, with nothing blocking publishing.`)}</span><span class="cap">${mode}</span>${match}
+        <span>${L(`رُوجع بتاريخ ${r.date}، ولم تظهر مواضع غير محسومة في تلك المراجعة الآلية.`, `Reviewed on ${r.date}, with no unresolved findings in that automated review.`)}</span><span class="cap">${mode}</span>${match}
         ${text ? `<button class="btn small" id="vRerun" type="button">${L("أعد مراجعة النص الآن", "Review the text again now")}</button>` : ""}</div>`;
     } catch (e) { out.className = "vout bad"; out.textContent = L("تعذر الاتصال بالخادم.", "Could not reach the server."); }
   }
@@ -678,13 +707,13 @@
     ref: ["يُحال إلى مختص", "refer to a scholar"], neu: ["لم نجد ما نحكم به: تحقق منه", "nothing found to judge it by: verify it"], ok: ["ثابت في مصدره كما نُقل", "found in its source as quoted"] };
   function printableReport() {
     const data = store.data, counts = {}; store.entries.forEach(e => { counts[e.v.k] = (counts[e.v.k] || 0) + 1; });
-    const needs = (counts.bad || 0) + (counts.fix || 0), byN = [...store.entries].sort((a, b) => a.n - b.n);
+    const needs = store.entries.filter(needsAction).length, byN = [...store.entries].sort((a, b) => a.n - b.n);
     const today = new Date().toISOString().slice(0, 10), t = typeOf(store.type);
     const row = e => `<tr class="pk-${e.v.k}"><td class="pn">${N(e.n)}</td><td><div class="${isQuoteish(e.v) ? "pq" : ""}" dir="auto">${esc(isQuoteish(e.v) ? shownQuote(e.it.text) : e.it.text)}</div></td>
       <td><span class="pchip">${esc(e.v.label)}</span>${store.fixes[e.n] ? `<div class="pfixed">✓ ${store.fixes[e.n] === "applied" ? L("طُبّق التصحيح", "Fix applied") : L("عولج", "Handled")}</div>` : ""}</td>
       <td>${esc(e.v.why || "")}</td><td>${e.v.next ? esc(e.v.next) : "—"}${(() => { const pl = e.v.k !== "ok" ? fixPlan(e) : null, to = pl ? pl.to : e.v.copy; return to ? `<div class="pcopy" dir="auto">${esc(to.length > 220 ? to.slice(0, 220) + "…" : to)}</div>` : pl ? `<div class="pcopy">${L("يُحذف من النص", "Remove it from the text")}</div>` : ""; })()}</td></tr>`;
     const table = (rows, title) => rows.length ? `<h2>${title}</h2><table><colgroup><col style="width: 4%"><col style="width: 22%"><col style="width: 14%"><col style="width: 32%"><col style="width: 28%"></colgroup><thead><tr><th>#</th><th>${L("الموضع في النص", "In the text")}</th><th>${L("النتيجة", "Result")}</th><th>${L("السبب والمصدر", "Why, and the source")}</th><th>${L("ما العمل", "What to do")}</th></tr></thead><tbody>${rows.map(row).join("")}</tbody></table>` : "";
-    const must = store.entries.filter(e => e.v.k === "bad" || e.v.k === "fix"), rest = store.entries.filter(e => !(e.v.k === "bad" || e.v.k === "fix"));
+    const must = store.entries.filter(needsAction), rest = store.entries.filter(e => !needsAction(e));
     let marked = "", pos = 0; const text = data.original_text;
     for (const e of byN) { if (e.it.start < pos) continue; marked += esc(text.slice(pos, e.it.start)) + `<span class="pm pk-${e.v.k}"><sup>${N(e.n)}</sup>${esc(text.slice(e.it.start, e.it.end))}</span>`; pos = e.it.end; }
     marked += esc(text.slice(pos));
@@ -695,9 +724,10 @@
       <section class="pverdict ${needs ? "pv-bad" : "pv-ok"}">${b ? `<div class="pseal">${b.svg}</div>` : ""}<div><p class="phead">${esc(headline(needs, counts))}</p>
         <p class="pcounts">${["bad", "fix", "khl", "ref", "neu", "ok"].filter(k => counts[k]).map(k => `<span class="pchip pk-${k}">${N(counts[k])} ${P(K_LABEL[k])}</span>`).join(" ")}</p>
         ${b ? `<p class="pserial">${L("الرقم التسلسلي", "Serial")}: <code dir="ltr">${esc(b.code)}</code> · ${L("للتحقق", "Verify at")}: <span dir="ltr">${esc(location.host)}/#verify</span></p>` : ""}
+        ${data.skipped_claims || data.truncated || (data.llm && data.llm.error) ? `<p class="pnote">${L("المراجعة غير مكتملة؛ قسّم النص وأعد الفحص. لا يمكن تأكيد جاهزيته للنشر.", "Review incomplete; split the text and re-check. Publishing readiness is unconfirmed.")}</p>` : ""}
         ${data.llm && !data.llm.used ? `<p class="pnote">${L("جرت هذه المراجعة بالمطابقة المباشرة دون الذكاء الاصطناعي، فقد لا تظهر فيها الادعاءات غير المقتبسة.", "This review used direct matching without the AI, so unquoted claims may be missing.")}</p>` : ""}</div></section>
       <section class="plegend"><h2>${L("كيف تقرأ التقرير", "How to read this report")}</h2><ul>${["bad", "fix", "khl", "ok"].map(k => `<li><span class="pdot pk-${k}"></span><b>${P(K_LABEL[k])}</b>: ${P(K_EXPLAIN[k])}</li>`).join("")}</ul>
-        <p>${L("الأرقام تتبع ترتيب المواضع في النص. كل حكم هنا منقول من مصدره (المصحف، كتب الحديث وأحكام المحدثين، الموسوعة الفقهية الكويتية)، والذكاء الاصطناعي يدل على المواضع ولا يحكم.", "Numbers follow the order of the text. Every verdict comes from its source (the Mushaf, the hadith books and gradings, the Kuwaiti Fiqh Encyclopedia); the AI points at places and does not judge.")}</p></section>
+        <p>${L("الأرقام تتبع ترتيب المواضع في النص. الاقتباسات وأحكام المحدثين من المصادر. تقييم علاقة الأدلة بالادعاءات آلي ويحتاج مراجعة بشرية.", "Numbers follow the order of the text. Quotes and scholar gradings come from the sources. AI assessments of how evidence relates to a claim need human review.")}</p></section>
       ${table(must, L("ما يجب تعديله قبل النشر", "What must change before publishing"))}
       ${table(rest, L("بقية المواضع", "The other places"))}
       <h2>${L("النص مع المواضع المرقّمة", "The text, with the places numbered")}</h2><div class="ptext" dir="${data.language && data.language !== "ar" && data.language !== "ur" ? "ltr" : "rtl"}">${marked}</div>
@@ -915,7 +945,12 @@
     rv.addEventListener("mouseleave", () => { if (kind) setKind(kind, false); kind = null; });
     rv.addEventListener("mouseover", move); rv.addEventListener("focusin", move); rv.addEventListener("mouseleave", clear); rv.addEventListener("focusout", ev => { if (!rv.contains(ev.relatedTarget)) clear(); });
   })();
-  $("reportView").addEventListener("input", ev => { if (ev.target.id === "draftBox") ev.target.dataset.edited = "1"; });
+  $("reportView").addEventListener("input", ev => { if (ev.target.id === "draftBox") {
+    store.manualDraft = ev.target.value; ev.target.dataset.edited = "1";
+    const btn = $("recheckBtn"); if (btn) btn.disabled = false;
+    const apply = $("applyAll"); if (apply) apply.hidden = true;
+    $("reportView").querySelectorAll("[data-fix], [data-unfix]").forEach(b => { b.disabled = true; });
+  } });
   $("reportView").addEventListener("click", ev => {
     const t = ev.target.closest("button, a"); if (!t) return;
     if (t.dataset.goto) { const e = store.entries.find(x => x.n === +t.dataset.goto), card = $("card-" + e.n); if (card.hidden) { store.filter = "all"; applyFilter(); }
@@ -927,7 +962,7 @@
     if (t.dataset.explain) { explain(t); return; }
     if (t.hasAttribute("data-allrows")) { t.parentElement.querySelectorAll("[data-extra]").forEach(r => { r.hidden = false; }); t.remove(); return; }
     if (t.id === "copySummary") { copy(summaryText(), t); return; }
-    if (t.dataset.fix || t.dataset.manual) { store.fixes[+(t.dataset.fix || t.dataset.manual)] = t.dataset.fix ? "applied" : "manual"; refreshFixes(); return; }
+    if (t.dataset.fix || t.dataset.manual) { if (t.dataset.fix && store.manualDraft !== undefined) return; store.fixes[+(t.dataset.fix || t.dataset.manual)] = t.dataset.fix ? "applied" : "manual"; refreshFixes(); return; }
     if (t.dataset.unfix) { delete store.fixes[+t.dataset.unfix]; refreshFixes(); return; }
     if (t.id === "copyDraft" || t.id === "copyDraft2") { copy($("draftBox") ? $("draftBox").value : (store.verifiedText || draftNow()), t); return; }
     if (t.id === "recheckBtn") { const text = $("draftBox").value.trim(); store.recheck = true; $("text").value = text; updateCount(); run(); return; }

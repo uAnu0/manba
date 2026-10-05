@@ -102,7 +102,8 @@ _SENTENCE = re.compile(r"(?<=[.؛:])\s+")
 def _has(text_n: str, phrases: list[str]) -> list[str]:
     """Phrases that start a word of the text, also after a clinging و / ف / ب / ل ("والحنابلة", "فذهب")."""
     padded = f" {text_n} "
-    return list(dict.fromkeys(p for p in phrases if any(f" {c}{p}" in padded for c in ("", "و", "ف", "ب", "ل", "وب", "ول"))))
+    return list(dict.fromkeys(p for p in phrases if any(re.search(r" " + re.escape(c + p) + r"(?=\s|$)", padded)
+                                                     for c in ("", "و", "ف", "ب", "ل", "وب", "ول"))))
 
 
 _YEAR = re.compile(r"\bسن[هة]\s+\d")
@@ -444,17 +445,23 @@ SUMMARIES = {
 ATTENTION = {"school_differs", "consensus_claim_disputed", "stated_as_certain_disputed", "agreement_differs", "partly_disputed", "not_found"}
 
 
-def _status(assertion: str, shown: list[FiqhPassage]) -> str:
+def _status(assertion: str, shown: list[FiqhPassage], claim: str = "") -> str:
     if not shown:
         return "not_found"
     marks = {p.agreement for p in shown if p.same_issue is not False}
-    direction = next((p.direction for p in shown if p.direction in ("same", "different")), None)
+    # A model's direction label is not evidence. Compare explicit ruling words
+    # in its source-checked excerpt; ambiguous wording remains unresolved.
+    want = rulings_of(claim)
+    reported = [r for p in shown if p.same_issue is not False and p.ruling_sentence for r in rulings_of(p.ruling_sentence)]
+    direction = None
+    if len(want) == 1 and len(set(reported)) == 1:
+        direction = "same" if reported[0] == want[0] or reported[0] in _SAME.get(want[0], set()) else "different"
     if "disagreement" in marks:
         return {"consensus": "consensus_claim_disputed", "definite": "stated_as_certain_disputed"}.get(assertion, "disagreement_acknowledged")
     if "both" in marks:
         return "consensus_claim_disputed" if assertion == "consensus" else "partly_disputed" if assertion != "hedged" else "disagreement_acknowledged"
     if "agreement" in marks:
-        return "agreement_differs" if direction == "different" else "agreement_reported"
+        return "agreement_differs" if direction == "different" else "agreement_reported" if direction == "same" else "found_no_marker"
     return "found_no_marker"
 
 
@@ -483,7 +490,7 @@ async def fiqh_check(claim: str, use_llm: bool = True, api_key: str | None = Non
                 ruling = _occurs(v.get("ruling_sentence") or "", pool[k].text)
                 shown.append(_passage_out(pool[k], hits[k][1], ruling, v.get("direction"), True))
             shown.sort(key=lambda p: -p.score)
-            return _result(claim, assertion, words, _status(assertion, shown[:SHOW]), shown[:SHOW], "model")
+            return _result(claim, assertion, words, _status(assertion, shown[:SHOW], claim), shown[:SHOW], "model")
         except Exception as exc:  # no key, network, malformed answer: fall back to the keyword match below
             error = f"{type(exc).__name__}: {str(exc)[:160]}"
     shown = [
@@ -491,7 +498,7 @@ async def fiqh_check(claim: str, use_llm: bool = True, api_key: str | None = Non
         for i, score, share in hits[:SHOW]
         if share >= KEYWORD_MIN_SHARE and set(terms(passages()[i].heading + " " + passages()[i].entry)) & set(query_terms(claim, key_terms))
     ]
-    result = _result(claim, assertion, words, _status(assertion, shown[:1]) if shown else "not_found", shown[:SHOW], "keywords")
+    result = _result(claim, assertion, words, _status(assertion, shown[:1], claim) if shown else "not_found", shown[:SHOW], "keywords")
     result.error = error
     return result
 
@@ -583,9 +590,17 @@ def attribution_of(claim: str, shown: list[FiqhPassage]) -> FiqhAttribution | No
 
 def _result(claim: str, assertion: str, words: list[str], status: str, shown: list[FiqhPassage], by: str) -> FiqhCheck:
     attribution = attribution_of(claim, shown) if shown else None
-    if attribution and attribution.status != "not_reported":
+    multiple_schools = len([name for name, forms in STRICT_SCHOOLS if _has(normalize(claim), forms)]) > 1
+    if multiple_schools and assertion != "consensus":
+        # This response has only one attribution slot. Do not silently validate
+        # all named schools from the first school's match.
+        status, attribution = "found_no_marker", None
+    if assertion != "consensus" and attribution and attribution.status != "not_reported":
         status = "school_matches" if attribution.status == "matches" else "school_differs"
     ar, en = SUMMARIES[status]
+    if multiple_schools and assertion != "consensus":
+        ar = "تُنسب العبارة إلى عدة مذاهب؛ افصل النسب وتحقق من كل مذهب على حدة."
+        en = "Several schools are named; separate the attributions and check each school individually."
     top = [q for q in shown if q.same_issue is not False][:1]
     schools = []
     for name, _ in STRICT_SCHOOLS:
@@ -595,10 +610,10 @@ def _result(claim: str, assertion: str, words: list[str], status: str, shown: li
     if attribution and attribution.status == "not_reported":
         ar += f" ولم تُسمِّ فقرة الحكم في الموسوعة {attribution.school}، فلم نتحقق من نسبة القول إليهم."
         en += f" The encyclopedia's ruling paragraph does not name the {SCHOOL_EN.get(attribution.school, attribution.school)}, so the attribution was not checked."
-    if attribution and attribution.status == "matches":
+    if assertion != "consensus" and attribution and attribution.status == "matches":
         ar = f"نسب النص الحكم «{attribution.claimed}» إلى {attribution.school}، والموسوعة الفقهية تنقله عنهم كذلك."
         en = f"The text attributes '{RULING_EN.get(attribution.claimed, attribution.claimed)}' to the {SCHOOL_EN.get(attribution.school, attribution.school)}; the encyclopedia reports the same for them."
-    elif attribution and attribution.status == "differs":
+    elif assertion != "consensus" and attribution and attribution.status == "differs":
         ar = f"نسب النص إلى {attribution.school} أن الحكم «{attribution.claimed}»، والذي تنقله الموسوعة الفقهية عنهم: «{attribution.reported}»."
         en = f"The text attributes '{RULING_EN.get(attribution.claimed, attribution.claimed)}' to the {SCHOOL_EN.get(attribution.school, attribution.school)}; the encyclopedia reports '{RULING_EN.get(attribution.reported, attribution.reported)}' for them."
     if by == "keywords" and shown:
