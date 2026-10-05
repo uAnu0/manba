@@ -258,10 +258,16 @@ async def _translate(sentences: list[str], api_key: str | None) -> list[tuple[bo
                               TRANSLATE_SCHEMA, api_key, temperature=0.0, max_tokens=3000)
     data = json.loads(content)
     out = [(False, "")] * len(sentences)
+    seen = set()
     for row in data.get("sentences", []):
         k = row.get("index")
-        if isinstance(k, int) and 0 <= k < len(sentences):
+        if isinstance(k, int) and not isinstance(k, bool) and 0 <= k < len(sentences) and k not in seen:
+            seen.add(k)
             out[k] = (bool(row.get("religious_claim")), (row.get("arabic") or "").strip())
+            if row.get("religious_claim") and not out[k][1]:
+                raise ValueError("missing claim translation")
+    if len(seen) != len(sentences):
+        raise ValueError("incomplete sentence translations")
     return out
 
 
@@ -286,13 +292,25 @@ async def check_foreign(text: str, lang: str, use_llm: bool = True, api_key: str
         items.append(TextClaimItem(kind="quote", text=text[a:b], start=a, end=b, quote=seg, content_level=seg.content_level))
         taken.append((a, b))
 
-    rest = [(a, b) for a, b in _sentences(text) if not any(s < b and e > a for s, e in taken) and len(_tokens(text[a:b])) >= 3]
+    # Check the text beside a quote as well as sentences containing no quotes.
+    rest = []
+    for a, b in _sentences(text):
+        pos = a
+        cuts = sorted((max(a, s), min(b, e)) for s, e in taken if s < b and e > a)
+        for s, e in cuts + [(b, b)]:
+            if s > pos and len(_tokens(text[pos:s])) >= 3:
+                rest.append((pos, s))
+            pos = max(pos, e)
+    truncated = len(rest) > MAX_CLAIMS * 2
+    skipped = 0
     rest = rest[:MAX_CLAIMS * 2]
     if use_llm and rest:
         try:
             translated = await _translate([text[a:b] for a, b in rest], api_key)
             llm.used = True
-            todo = [(span, ar) for span, (is_claim, ar) in zip(rest, translated) if is_claim and ar][:MAX_CLAIMS]
+            todo = [(span, ar) for span, (is_claim, ar) in zip(rest, translated) if is_claim and ar]
+            skipped = max(0, len(todo) - MAX_CLAIMS)
+            todo = todo[:MAX_CLAIMS]
             sem = asyncio.Semaphore(4)
 
             async def one(ar: str):
@@ -316,6 +334,7 @@ async def check_foreign(text: str, lang: str, use_llm: bool = True, api_key: str
     sentences = _sentences(text)
     return TextCheckResponse(
         original_text=text, word_count=len(text.split()), items=items, sentences=len(sentences),
+        truncated=truncated, skipped_claims=skipped,
         commentary_sentences=max(0, len(sentences) - len(items)), summary=summary, llm=llm, language=lang,
         translations_used=[t["meta"]["title"] for t in _translations(lang)] + (["English hadith (fawazahmed0/hadith-api)"] if lang == "en" else []),
     )
