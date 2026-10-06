@@ -47,21 +47,3 @@ def health() -> HealthResponse:
 def reviewer_app() -> FileResponse:
     """Main reviewer UI: paste text, get a prioritized report."""
     return FileResponse(Path(__file__).parent / "static" / "app.html")
-
-
-@app.get("/test", include_in_schema=False)
-def test_console() -> FileResponse:
-    """Developer page for manual testing of /api/verify."""
-    return FileResponse(Path(__file__).parent / "static" / "index.html")
-
-
-@app.get("/evidence", include_in_schema=False)
-def evidence_console() -> FileResponse:
-    """Throwaway page for manual testing of /api/evidence."""
-    return FileResponse(Path(__file__).parent / "static" / "evidence.html")
-
-
-@app.get("/claim", include_in_schema=False)
-def claim_console() -> FileResponse:
-    """Throwaway page for manual testing of /api/claim."""
-    return FileResponse(Path(__file__).parent / "static" / "claim.html")

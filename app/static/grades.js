@@ -1,4 +1,4 @@
-/* Shared by the reviewer page (app.js) and the developer pages (cards.js): how a hadith's grading and a verse's context are
+/* Used by the reviewer page (app.js): how a hadith's grading and a verse's context are
    shown. Nothing here grades a hadith: it renders the gradings the dataset holds (fawazahmed0/hadith-api, the Unlicense),
    names the grader, and says plainly when our data has no grading. */
 (() => {

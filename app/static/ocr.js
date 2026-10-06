@@ -1,4 +1,4 @@
-/* Scan a PDF or image into the text box (used by the reviewer page "/" in Arabic and by the test console "/claim" in English).
+/* Scan a PDF or image into the text box (used by the reviewer page "/").
    - A PDF page that has its own text layer is read directly in the browser (pdf.js): no OCR, nothing uploaded.
    - Any other page (a scan, a photo, an image file) is shrunk in the browser and sent to /api/ocr, where two different models read it.
      Words on which the two readings differ are listed so the person can check them against the page.

@@ -68,3 +68,6 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 
 **Removed: the AI explanation (Oct 6)**
 - The **Explain** button, the AI-written Arabic explanation under each result and `POST /api/explain` (with `app/services/explain.py`, its schemas and the `EXPLAIN_MODEL` setting) are gone: the result already says what the sources contain, and a second AI-written text only repeated it. Results are now built from the sources and the code's own sentences.
+
+**Removed: the developer pages (Oct 6)**
+- The three test pages `/test`, `/evidence` and `/claim` (`index.html`, `evidence.html`, `claim.html`) and the result-card scripts only they used (`cards.js`, `cards.css`) are gone. The reviewer page `/` is the only page; the API endpoints (`/api/check`, `/api/claim`, `/api/verify`, `/api/evidence`, `/api/fiqh`, ...) and the engine are unchanged (tests, evals and API answers checked before and after).

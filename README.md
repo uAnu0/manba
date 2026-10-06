@@ -19,7 +19,7 @@ cp .env.example .env              # optional: only OPENROUTER_API_KEY is needed,
 uvicorn app.main:app --reload
 ```
 
-- Test console (throwaway page): http://127.0.0.1:8000/
+- The reviewer page: http://127.0.0.1:8000/
 - API docs: http://127.0.0.1:8000/docs
 - Startup takes about 10 s (it builds the search indexes) and about 300 MB of memory.
 
@@ -33,12 +33,12 @@ LLM extraction (`use_llm`) needs an OpenRouter key. There are two ways to provid
    it is Project Settings, Environment Variables: add `OPENROUTER_API_KEY` (tick Production, and Preview if you use it, and mark it Sensitive),
    then **redeploy**, because a running deployment does not see new variables. CLI alternative: `vercel env add OPENROUTER_API_KEY production`.
    The key stays on the server and is never sent to browsers.
-2. **Your own key (per request).** In the test console open Settings and paste your key. It is kept in your browser only and sent with each request
+2. **Your own key (per request).** On the reviewer page open Settings, choose the provider and paste your key. It is kept in your browser only and sent with each request
    in the `X-OpenRouter-Key` header; the server uses it for that call and never stores or logs it. A key sent this way takes priority over the shared one.
 
 **Protect a deployed app.** With a shared key on a public URL, anyone who finds the URL can spend your OpenRouter credit. Also set
 `API_ACCESS_TOKEN` (any long random string) in the same place. `POST /api/verify` then answers 401 unless the request carries it in the
-`X-Access-Token` header; the test console has an access-code field in Settings. Share the code with teammates directly, not in the repo.
+`X-Access-Token` header; the reviewer page has an access-code field in Settings. Share the code with teammates directly, not in the repo.
 `GET /api/config` reports only whether a code is required and whether the server has a shared key.
 
 Heads-up for serverless hosting: at startup the app loads about 48,000 corpus entries and builds its search indexes (about 10 s, about 300 MB).
@@ -97,14 +97,13 @@ behaviour, and a check. Cases for a conversational or translation product are li
 
 ## Transparency and privacy
 
-The claim page states that Manba is an AI-assisted tool, not a scholar; that it issues no fatwa and prefers no opinion; that AI-written explanations are
+The reviewer page states that Manba is an AI-assisted tool, not a scholar; that it issues no fatwa and prefers no opinion; that what the AI writes (a machine translation, for example) is
 labelled and kept apart from source texts; and what happens to the text a person enters (sent for checking, cached temporarily in process memory, and passed to model providers when enabled; keys stay in the browser; the Dorar
 tab contacts dorar.net from the browser).
 
 ## Paragraph check (version 0)
 
-`POST /api/check` with `{"text": "..."}` (up to 12,000 characters) finds every quote and every religious claim in a paragraph or sermon and checks each one. The `/claim` page uses it
-automatically when the text has several sentences.
+`POST /api/check` with `{"text": "..."}` (up to 12,000 characters) finds every quote and every religious claim in a paragraph or sermon and checks each one. The reviewer page uses it.
 
 1. **Quotes** are found locally (quote finder + verifier, no model), including bracketed or attributed texts that match nothing (shown as not found).
 2. **Claims**: the remaining sentences go to the model once; it says which make a religious claim and copies the claim text (a sentence with several claims is split; a piece that does not name its
@@ -123,7 +122,7 @@ of the golden evidence questions by about 5 points (69% to 64%), so it still jud
 ## Claim check (version 0)
 
 The point of the app is checking claims, so this is where everything else comes together. `POST /api/claim` with `{"claim": "..."}` (any language) returns where the
-evidence stands: never "true" or "false". Test page: `/claim`.
+evidence stands: never "true" or "false".
 
 1. **Route** (LLM): is it a *quote* (a verse or hadith, or words attributed to God or the Prophet), a *topic* claim ("Islam forbids X"), a *personal* question, or *not religious*?
    A text that is itself in the corpus is always treated as a quote.
@@ -148,7 +147,7 @@ A claim takes 15-40 seconds with the model (routing, recitation, two judging cal
 `POST /api/evidence` with `{"question": "...", "use_llm": true}` returns the Quran verses and hadith that bear on a topic, each with its source,
 an excerpt (a hadith without its chain of narrators), the full text, and the gradings scholars gave it (when the dataset has them).
 It also returns `refer_to_scholar` with a reason (sensitive topics such as family law, finance and medicine; personal situations; no clear evidence)
-and a notice that this is evidence, not a ruling. Test page: `/evidence`.
+and a notice that this is evidence, not a ruling.
 
 How it finds texts. Three searches run and their rankings are merged; only corpus text is ever shown:
 1. **Meaning search** (always, when `data/corpus_embeddings.npz` and an OpenRouter key are available): every verse and hadith was turned into a vector once
@@ -176,17 +175,9 @@ of the sentence's distinctive words (more for long sentences), the meaning is cl
 fabricated reward claims at most 47%. `/api/check` returns `kind: "similar"` items; `/api/claim` returns `similar`. Cost: about
 a tenth of a cent per sermon.
 
-## Result cards (test console)
-
-`/claim` shows each quote, claim and close match as one compact card (status badge, the sentence, the strongest source). A card
-opens like a tab: Evidence, Partial & related, Quote check and Close text.
-A strip of status counts and the filters (All, Claims, Quran & hadith quotes, Close matches, Short phrases, Needs attention)
-keep a long sermon manageable. Verified runs of four words or fewer are counted apart as "Matched phrase", so they do not
-inflate "verified". The code is `app/static/cards.js` and `cards.css` (served under `/static`); the API did not change.
-
 ## Choosing the provider in the page
 
-Each test page has Settings with **AI provider** (Server default, OpenRouter, Google) and a key field for each provider. A
+The reviewer page has Settings with **AI provider** (Server default, OpenRouter, Google) and a key field for each provider. A
 teammate picks the provider and pastes their own key; the choice and the keys stay in their browser (localStorage) and travel
 with each request as `X-LLM-Provider`, `X-OpenRouter-Key` and `X-Gemini-Key`. They apply to that request only: never stored,
 never logged, and error messages are scrubbed of key-like text. A chosen provider uses that provider's default models (the
@@ -220,7 +211,7 @@ texts are not verified: check them before a public release.** Hadith have no taf
 
 ## Scan a PDF or image (OCR)
 
-On the reviewer page `/` (a third tab, **مسح PDF أو صورة**, in Arabic) and on the test console `/claim` (English), **Scan a PDF or image** shows up to **10 pages as thumbnails** and the person ticks the ones to keep; **only ticked pages are read** (a scanned page goes to the models when it is ticked, so unticked pages cost nothing).
+On the reviewer page `/` (a third tab, **مسح PDF أو صورة**), **Scan a PDF or image** shows up to **10 pages as thumbnails** and the person ticks the ones to keep; **only ticked pages are read** (a scanned page goes to the models when it is ticked, so unticked pages cost nothing).
 The 500-word limit stays the real limit: a page that would pass it is refused with its word count, and the person unticks another first. A single page, or text-layer pages that all fit, are ticked automatically. Then the text is edited freely. A PDF page that has a real text layer is read in the browser (pdf.js, nothing uploaded);
 a garbled layer, a scan or an image is shrunk in the browser and sent to `POST /api/ocr`, where **two different models read it**
 (`app/services/ocr.py`: `gemini-3.1-flash-lite` and `gemini-3.5-flash-lite`, on the provider chosen in Settings). The words on which the two
@@ -269,7 +260,7 @@ app/              the FastAPI service
   services/       the logic: verifier.py, quote_finder.py, pipeline.py (quotes); claim_card.py, text_claims.py (claims);
                   fiqh.py (fiqh check); levels.py (content levels); dorar.py (Dorar gradings); evidence*.py, dense.py,
                   similar.py (search); llm_*.py, cache.py (model calls); tafsir.py, strength.py
-  static/         the test pages and the result cards (cards.js, cards.css)
+  static/         the reviewer page (app.html, app.js, app.css), the guided tour (tour.js), the scan reader (ocr.js), gradings (grades.js), saved demos, images
 data/             corpora shipped with the app: Quran, hadith, embeddings, tafsir, fiqh encyclopedia, Tanzil sources
 scripts/          rebuild the data (ingest_*.py, embed_corpus.py) and check it (validate_corpus.py)
 evals/            measurement scripts, one per golden set
