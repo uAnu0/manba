@@ -95,7 +95,10 @@ def assess(response: TextCheckResponse, text: str, today: dt.date | None = None)
                 item.verdict_kind = "neu"
     response.blocking = sum(i.needs_action for i in items)
     response.review_complete = bool(response.llm and response.llm.used and not response.llm.error
-                                    and not response.truncated and not response.skipped_claims)
+                                    and not response.truncated and not response.skipped_claims
+                                    and not any(i.result is not None and
+                                                (i.result.llm.error or (i.result.fiqh is not None and i.result.fiqh.error))
+                                                for i in response.items))
     if not response.review_complete:
         response.badge_unavailable = "incomplete_review"
     elif response.blocking or not items:
