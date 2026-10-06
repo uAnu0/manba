@@ -1066,11 +1066,13 @@
 
   // ---------- themes ----------
   // The Settings window draws its theme cards from this list. To add a theme: (1) add an entry here (id, names, and four colours for its little preview),
-  // (2) add a `:root[data-theme="<id>"] { ... }` block of colour variables in app.css (copy the "light" block and change the colours). Nothing else changes.
+  // (2) add a `:root[data-theme="<id>"] { ... }` block of colour variables in app.css (copy the "paper" block and change the colours). Nothing else changes.
   // "dark" is the default and has no data-theme attribute. The choice is remembered in this browser.
   const THEMES = [
     { id: "dark", name: ["داكن", "Dark"], swatch: { bg: "#0A0A0B", surface: "#151516", ink: "#EDEDEF", brand: "#3FBF9E" } },
     { id: "light", name: ["فاتح", "Light"], swatch: { bg: "#F4F5FA", surface: "#FFFFFF", ink: "#16163F", brand: "#0B6E5C" } },
+    { id: "paper", name: ["ورقي", "Paper"], swatch: { bg: "#F3EBDD", surface: "#FBF6EC", ink: "#2B2118", brand: "#0F6B58" } },
+    { id: "emerald", name: ["زمردي", "Emerald"], swatch: { bg: "#060D0B", surface: "#0E1815", ink: "#E8F1EC", brand: "#34D399" } },
   ];
   const root = document.documentElement;
   const themeId = () => root.dataset.theme || "dark";

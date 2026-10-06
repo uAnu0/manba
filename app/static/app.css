@@ -21,7 +21,38 @@
   --khl: #5B3FA8; --khl-bg: #EEE9FB; --khl-mark: #7B5FD0;
   --ref: #1F4FA3; --ref-bg: #E4ECFB; --ref-mark: #3D6FD0;
   --neu: #4A4D68; --neu-bg: #EDEEF4; --neu-mark: #9A9DB5;
+  --cover: rgba(244, 245, 250, .55);   /* the intro's veil */
   color-scheme: light;
+}
+/* A theme is one block like this one (34 colour variables); its card in Settings comes from the THEMES list in app.js. Paper: a warm cream theme for long reading. */
+:root[data-theme="paper"] {
+  --bg: #F3EBDD; --surface: #FBF6EC; --soft: #F7F0E2; --line: #E3D8C3; --line2: #D6C8AD;
+  --ink: #2B2118; --muted: #5C4D3C; --faint: #6B5B49; --brand: #0F6B58; --brand-ink: #FFFFFF;
+  --ok: #1E6B45; --ok-bg: #E4F0DD; --ok-mark: #3A8F5D;
+  --fix: #7A4A00; --fix-bg: #F6E6C3; --fix-mark: #B8700B;
+  --bad: #A8281F; --bad-bg: #F6DCD3; --bad-mark: #BE3B2E;
+  --khl: #5A3F9A; --khl-bg: #EAE3EE; --khl-mark: #7B5FD0;
+  --ref: #1F4FA3; --ref-bg: #E1E8F0; --ref-mark: #3D6FD0;
+  --neu: #5C4D3C; --neu-bg: #EBE2D0; --neu-mark: #9A8C78;
+  --glass: rgba(251, 246, 236, .66); --glass-soft: rgba(243, 235, 221, .55); --glass-line: rgba(60, 40, 20, .14);
+  --glow-a: rgba(214, 170, 90, .20); --glow-b: rgba(190, 150, 100, .16); --glow-c: rgba(150, 170, 120, .14);
+  --cover: rgba(243, 235, 221, .6);
+  color-scheme: light;
+}
+/* Emerald: a near-black with a faint green tint, in the brand's colour. */
+:root[data-theme="emerald"] {
+  --bg: #060D0B; --surface: #0E1815; --soft: #121F1B; --line: #1D2E28; --line2: #28403A;
+  --ink: #E8F1EC; --muted: #A9BDB4; --faint: #8FA69C; --brand: #34D399; --brand-ink: #04130D;
+  --ok: #6EE7B7; --ok-bg: #0F3A2A; --ok-mark: #34B37E;
+  --fix: #F5C26B; --fix-bg: #3A2C10; --fix-mark: #D9902C;
+  --bad: #FF9C92; --bad-bg: #3D1A17; --bad-mark: #E4604F;
+  --khl: #C9BBFF; --khl-bg: #2A2149; --khl-mark: #9B80F0;
+  --ref: #A5C0FF; --ref-bg: #162646; --ref-mark: #5B8AF0;
+  --neu: #A9BDB4; --neu-bg: #1A2824; --neu-mark: #6F8A7F;
+  --glass: rgba(14, 24, 21, .58); --glass-soft: rgba(0, 0, 0, .4); --glass-line: rgba(160, 255, 220, .10);
+  --glow-a: rgba(52, 211, 153, .14); --glow-b: rgba(40, 160, 120, .12); --glow-c: rgba(120, 255, 200, .09);
+  --cover: rgba(6, 13, 11, .55);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--ui); }
@@ -252,13 +283,12 @@ body::after {
 
 /* intro: the logo is written over the whole page while the page behind it is blurred, then the cover fades away and the page shows as usual */
 .intro { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; cursor: pointer;
-  background: rgba(10, 10, 11, .5); -webkit-backdrop-filter: blur(26px) saturate(1.2); backdrop-filter: blur(26px) saturate(1.2);
+  background: var(--cover, rgba(10, 10, 11, .5)); -webkit-backdrop-filter: blur(26px) saturate(1.2); backdrop-filter: blur(26px) saturate(1.2);
   animation: intro-failsafe 0s 9s forwards; transition: opacity .5s ease, visibility 0s .5s; }
 .intro .hero-logo { margin: 0; } .intro .hero-logo svg { width: min(620px, 86vw); }
 .intro.out { opacity: 0; visibility: hidden; pointer-events: none; }
 .intro .hero-logo:not(.go) svg { visibility: hidden; }
 @keyframes intro-failsafe { to { visibility: hidden; pointer-events: none; } }
-:root[data-theme="light"] .intro { background: rgba(244, 245, 250, .55); }
 @media (prefers-reduced-motion: reduce) { .intro { display: none; } }
 @media print { .intro { display: none; } }
 
@@ -748,7 +778,7 @@ html:not([lang="en"]) .legal-en, html[lang="en"] .legal-ar { display: none; }
 .key-reveal { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows .3s ease, opacity .25s ease, visibility 0s .3s; }
 .key-reveal.open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows .3s ease, opacity .25s ease .05s, visibility 0s; }
 .key-inner { overflow: hidden; min-height: 0; padding: 0 2px; }
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
 .theme-card { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--line2); border-radius: 12px; cursor: pointer; background: var(--soft); transition: border-color .2s, transform .25s cubic-bezier(.3, 1.5, .5, 1), box-shadow .2s; }
 .theme-card:hover { transform: translateY(-2px); border-color: var(--muted); }
 .theme-card:focus-visible { outline: 3px solid var(--ref-mark); outline-offset: 2px; }
