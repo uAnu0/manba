@@ -3,6 +3,7 @@
 The report speaks to the reviewer about that text ("هذه الخطبة غير جاهزة للإلقاء", "لا تنشر هذا المنشور قبل…"). The kind is read
 from the text's own conventions (the khutbah's opening and address, a post's "انشرها تؤجر", a question's "هل يجوز"), so the
 words that decided it are returned and shown; the reviewer can change it in the report. No model is used.
+Vowel marks and the stretching mark are removed before matching, so a fully vowelled sermon reads like a plain one.
 """
 import re
 
@@ -14,6 +15,7 @@ CUES = {
     "khutbah": [
         r"إن الحمد لله", r"الحمد لله نحمده", r"أما بعد", r"عباد الله", r"أيها المسلمون", r"أيها المؤمنون", r"أيها الإخوة",
         r"أيها الناس", r"اتقوا الله", r"الخطبة الثانية", r"أقول قولي هذا", r"معاشر المسلمين", r"خطبة",
+        r"الحمد لله الذي", r"معاشر المؤمنين", r"يا عباد الله", r"أيها الأحبة", r"إخوة الإيمان", r"أوصيكم ونفسي", r"بارك الله لي ولكم",
         r"praise be to allah", r"dear brothers", r"brothers and sisters", r"o servants of allah", r"khutbah", r"fear allah",
     ],
     "post": [
@@ -25,9 +27,15 @@ CUES = {
     "article": [r"المقال", r"مقالة", r"خلاصة القول", r"الخاتمة", r"\barticle\b", r"\bin conclusion\b"],
 }
 _COMPILED = {k: [re.compile(p, re.IGNORECASE) for p in v] for k, v in CUES.items()}
+_MARKS = re.compile("[\u064B-\u065F\u0670\u0640]")   # vowel marks, the dagger alef and the stretching mark
+
+
+def _bare(text: str) -> str:
+    return _MARKS.sub("", text)
 
 
 def content_type(text: str) -> tuple[str, list[str]]:
+    text = _bare(text)
     scores: dict[str, int] = {}
     seen: dict[str, list[str]] = {}
     head = text[:600]
