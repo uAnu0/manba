@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header
 from app.config import settings
 from app.schemas import VerifyRequest, VerifyResponse
 from app.security import apply_llm_choice, require_access
-from app.services.llm_extractor import chat_json, llm_models, provider_for, server_has_key, server_keys
+from app.services.llm_extractor import chat_json, llm_models, provider_for, server_default_provider, server_has_key, server_keys
 from app.services.pipeline import _redact, verify_text, verify_text_llm
 
 router = APIRouter(prefix="/api", tags=["verify"])
@@ -20,7 +20,7 @@ def config() -> dict:
         "access_required": bool(settings.api_access_token),
         "server_has_llm_key": server_has_key(),
         "server_keys": server_keys(),  # which providers the server holds a key for
-        "default_provider": os.getenv("LLM_PROVIDER") or "openrouter",
+        "default_provider": server_default_provider(),
     }
 
 

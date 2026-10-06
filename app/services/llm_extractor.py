@@ -41,15 +41,40 @@ def chosen_provider() -> str | None:
     return (_request.get() or {}).get("provider")
 
 
+def server_default_provider() -> str:
+    """The server's default provider: LLM_PROVIDER if it is set, otherwise Google Gemini when the server holds a Gemini key, otherwise OpenRouter
+    (so a server that only has an OpenRouter key keeps working until a Gemini key is added)."""
+    explicit = (os.getenv("LLM_PROVIDER") or "").strip().lower()
+    if explicit in PROVIDERS:
+        return explicit
+    return "google" if (os.getenv("GEMINI_API_KEY") or "").strip() else "openrouter"
+
+
+def default_provider() -> str:
+    """The default provider for THIS request when the person did not choose one: Gemini is the default, so a Gemini key brought in the page wins;
+    a person who brought only an OpenRouter key gets OpenRouter; otherwise the server's default applies."""
+    if (os.getenv("LLM_PROVIDER") or "").strip().lower() in PROVIDERS:
+        return server_default_provider()
+    req = _request.get() or {}
+    if req.get("gemini_key"):
+        return "google"
+    if req.get("openrouter_key"):
+        return "openrouter"
+    return server_default_provider()
+
+
 def provider_for(role: str = "") -> str:
-    return chosen_provider() or (os.getenv(f"{role}_PROVIDER") if role else None) or os.getenv("LLM_PROVIDER") or "openrouter"
+    return chosen_provider() or (os.getenv(f"{role}_PROVIDER") if role else None) or default_provider()
 
 
 def env_models(variable: str) -> list[str]:
     """Models set by the server's environment. Their names belong to one provider, so a provider chosen in the page ignores them."""
     if chosen_provider():
         return []
-    return [m.strip() for m in (os.getenv(variable) or "").split(",") if m.strip()]
+    models = [m.strip() for m in (os.getenv(variable) or "").split(",") if m.strip()]
+    if models and not (os.getenv("LLM_PROVIDER") or "").strip() and default_provider() == "google":
+        return [m for m in models if m.startswith("google:")]   # an unprefixed name is an OpenRouter model: it does not fit a Gemini default
+    return models
 
 
 def role_default(role: str, openrouter_model: str, google_model: str) -> str:

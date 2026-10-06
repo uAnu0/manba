@@ -200,7 +200,8 @@ teammate picks the provider and pastes their own key; the choice and the keys st
 with each request as `X-LLM-Provider`, `X-OpenRouter-Key` and `X-Gemini-Key`. They apply to that request only: never stored,
 never logged, and error messages are scrubbed of key-like text. A chosen provider uses that provider's default models (the
 server's `LLM_MODEL` / `JUDGE_MODEL` / `EXPLAIN_MODEL` names belong to one provider, so they are ignored then). Without a choice
-the server's `LLM_PROVIDER` (default OpenRouter) and its own keys are used. `/api/config` tells the page which providers the
+the server's `LLM_PROVIDER` is used if it is set; otherwise **Google Gemini is the default** when a Gemini key is available (the server's `GEMINI_API_KEY`,
+or one added in Settings), and OpenRouter only when it is the only key there is (a person who adds only an OpenRouter key gets OpenRouter). `/api/config` tells the page which providers the
 server holds a key for. The cache keeps answers of different providers apart.
 
 ## Free testing with Google's API
@@ -210,7 +211,9 @@ Set `GEMINI_API_KEY` and `LLM_PROVIDER=google` in `.env` to run every model step
 explanation writer `gemini-flash-lite-latest`. The judge benchmark (10 overreach and control cases, 3 runs each) gave 30/30 for
 `gemini-3.1-flash-lite` and 29/30 for `gemini-3.5-flash-lite` (gpt-4o-mini: 23/30). The free tier allows about 15
 requests per minute per Flash-Lite model and 5 per Flash model, so the client spaces calls and retries after a 429; a golden run
-takes about 20 minutes. Production stays on OpenRouter unless `LLM_PROVIDER` is set on the host.
+takes about 20 minutes. Gemini is the default provider, so a host that has `GEMINI_API_KEY` uses it with no further setting; a host that only has
+`OPENROUTER_API_KEY` keeps using OpenRouter until a Gemini key is added. A free-tier key lets Google use the content to improve its products:
+for private texts use a paid (billing-enabled) key.
 
 ## Tafsir under Quran verses
 
