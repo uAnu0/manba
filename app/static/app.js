@@ -187,8 +187,8 @@
     }
   }
   renderSamples();
-  // The three input tabs: a pill slides under the chosen tab, and the new pane slides in from the side of its tab (the tabs run right to left).
-  const TAB_ORDER = ["paste", "file", "scan"], TAB_IDS = { paste: "tabPaste", file: "tabFile", scan: "tabScan" }, PANE_IDS = { paste: "panePaste", file: "paneFile", scan: "paneScan" };
+  // The two input tabs (paste, scan): a pill slides under the chosen tab, and the new pane slides in from the side of its tab (the tabs run right to left).
+  const TAB_ORDER = ["paste", "scan"], TAB_IDS = { paste: "tabPaste", scan: "tabScan" }, PANE_IDS = { paste: "panePaste", scan: "paneScan" };
   let currentTab = "paste", pillReady = false;
   function placePill() {
     const bar = document.querySelector(".tabs"), pill = $("tabPill"), t = $(TAB_IDS[currentTab]);
@@ -210,19 +210,24 @@
   }
   (() => { const bar = document.querySelector(".tabs"); if (!bar) return; bar.classList.add("has-pill"); if (window.ResizeObserver) { const ro = new ResizeObserver(placePill); /* a tab can change width (font loading, bold) without the bar changing */ ro.observe(bar); bar.querySelectorAll(".tab").forEach(t => ro.observe(t)); } window.addEventListener("resize", placePill); if (document.fonts && document.fonts.ready) document.fonts.ready.then(placePill); placePill(); })();
   $("tabPaste").onclick = () => showTab("paste");
-  $("tabFile").onclick = () => showTab("file");
   $("tabScan").onclick = () => showTab("scan");
   // Scan a PDF or image (static/ocr.js): the text lands in the same box, so the word count and the review button below work unchanged.
   if (typeof Ocr !== "undefined") Ocr.mount($("scanRoot"), { textarea: $("text"), headers: () => headers(true), lang: LANG, onReview: () => { showTab("paste"); $("text").focus(); } });
   async function readFile(f) {
     if (!f) return;
-    if (!/\.(txt|md)$/i.test(f.name) && !(f.type || "").startsWith("text/")) { alertInline(L("هذا النوع من الملفات غير مدعوم بعد. استخدم ملفًا نصيًا ‎.txt‎ أو الصق النص.", "This file type is not supported yet. Use a .txt file or paste the text.")); return; }
+    if (!/\.(txt|md)$/i.test(f.name) && !(f.type || "").startsWith("text/")) {
+      const scan = /\.pdf$/i.test(f.name) || (f.type || "") === "application/pdf" || (f.type || "").startsWith("image/");   // a PDF or a picture belongs in the scan tab
+      alertInline(scan ? L("لقراءة ملف PDF أو صورة استخدم «مسح PDF أو صورة».", "To read a PDF or a picture use “Scan a PDF or image”.") : L("هذا النوع من الملفات غير مدعوم بعد. استخدم ملفًا نصيًا ‎.txt‎ أو الصق النص.", "This file type is not supported yet. Use a .txt file or paste the text.")); return;
+    }
     $("text").value = (await f.text()).trim(); showTab("paste"); updateCount(); $("text").focus();
   }
-  $("file").addEventListener("change", e => readFile(e.target.files[0]));
-  $("drop").addEventListener("dragover", e => { e.preventDefault(); $("drop").style.borderColor = "var(--brand)"; });
-  $("drop").addEventListener("dragleave", () => { $("drop").style.borderColor = ""; });
-  $("drop").addEventListener("drop", e => { e.preventDefault(); $("drop").style.borderColor = ""; readFile(e.dataTransfer.files[0]); });
+  // Uploading a text file is a button beside "Review the text" (no tab of its own); a .txt or .md file can also be dropped anywhere on the input box.
+  $("uploadBtn").onclick = () => $("file").click();
+  $("file").addEventListener("change", e => { const f = e.target.files[0]; e.target.value = ""; readFile(f); });
+  { const box = document.querySelector(".composer"), hasFiles = e => [...((e.dataTransfer && e.dataTransfer.types) || [])].includes("Files");
+    box.addEventListener("dragover", e => { if (hasFiles(e)) { e.preventDefault(); box.classList.add("dropping"); } });
+    box.addEventListener("dragleave", e => { if (!box.contains(e.relatedTarget)) box.classList.remove("dropping"); });
+    box.addEventListener("drop", e => { if (!hasFiles(e)) return; e.preventDefault(); box.classList.remove("dropping"); readFile(e.dataTransfer.files[0]); }); }
   function alertInline(msg) {
     let el = document.querySelector("#inputView .err");
     if (!el) { el = document.createElement("div"); el.className = "err"; el.setAttribute("role", "alert"); document.querySelector(".composer").appendChild(el); }

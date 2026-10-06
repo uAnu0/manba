@@ -24,7 +24,7 @@
       t: ["الصق نصك", "Paste your text"],
       d: ["خطبة أو مقال أو منشور أو درس: تكتبه، أو ترفع ملفًا، أو صورة وPDF. بالعربية أو بالإنجليزية أو بلغات أخرى. قد تعالج النص ذاكرة مؤقتة ومزوّدو الذكاء الاصطناعي؛ اقرأ تفاصيل الخصوصية أدناه.",
         "A khutbah, article, post or lesson: type it, upload a file, or a photo or PDF. Arabic, English or other languages. Temporary caches and AI providers may process your text; see the privacy details below."],
-      scene: () => `<div class="ts-compose"><div class="ts-tabs"><span class="on">${L("كتابة", "Type")}</span><span>${L("ملف", "File")}</span><span>${L("صورة أو PDF", "Image or PDF")}</span></div>
+      scene: () => `<div class="ts-compose"><div class="ts-tabs"><span class="on">${L("كتابة", "Type")}</span><span>${L("صورة أو PDF", "Image or PDF")}</span></div>
         <div class="ts-area">${khutbah(false)}<span class="caret" aria-hidden="true"></span></div>
         <div class="ts-row"><span class="cap">${L(`${D(WORDS)} كلمة`, `${WORDS} words`)}</span><span class="btn small primary ts-pulse">${L("راجع النص", "Review the text")}</span></div></div>`,
     },
