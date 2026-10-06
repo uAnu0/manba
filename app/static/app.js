@@ -713,9 +713,13 @@
   }
   // OCR text -> serial: letters only from base32 (A-Z, 2-7) are possible, so look-alikes are put right (0 -> O, 1 -> I, 8 -> B) and the hyphens are put back
   function serialFromReadText(text) {
-    const flat = String(text || "").toUpperCase().replace(/[\s\-_.]/g, "").replace(/0/g, "O").replace(/1/g, "I").replace(/8/g, "B");
-    const at = flat.indexOf("MNB2"); if (at < 0) return null;
-    const body = flat.slice(at + 4, at + 4 + 55); if (!/^[A-Z2-7]{55}$/.test(body)) return null;
+    const src = String(text || ""), direct = SERIAL.exec(src.replace(/\s+/g, "")); if (direct) return direct[0];
+    // otherwise piece by piece: the serial can be broken over lines with other words between its parts (a link, a date); the pieces are upper-case tokens of base32 letters and digits
+    const toks = src.split(/\s+/).filter(Boolean), at = toks.findIndex(t => /MNB2/i.test(t)); if (at < 0) return null;
+    const put = t => { const u = t.toUpperCase().replace(/[-_.]/g, "").replace(/0/g, "O").replace(/1/g, "I").replace(/8/g, "B"); return /^[A-Z2-7]+$/.test(u) ? u : ""; };
+    let body = put(toks[at].replace(/^.*?MNB2/i, ""));
+    for (let i = at + 1; i < toks.length && body.length < 55; i++) { const t = toks[i]; if (/[A-Z]/.test(t) && !/[a-z]/.test(t)) body += put(t); }   // lower-case words and plain numbers are not part of it
+    body = body.slice(0, 55); if (body.length !== 55) return null;
     const code = "MNB2-" + body.match(/.{1,4}/g).join("-"); return SERIAL.test(code) ? code : null;
   }
   let smallPicture = false;   // a picture under 600 px is too small to read the serial's tiny letters reliably
@@ -723,10 +727,28 @@
     const bmp = await createImageBitmap(file); smallPicture = Math.max(bmp.width, bmp.height) < 600; const k = Math.min(3, 1800 / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
     c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
     const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(bmp, 0, 0, c.width, c.height);
+    return serialFromCanvas(c);
+  }
+  async function serialFromCanvas(c) {
     const res = await fetch("/api/ocr", { method: "POST", headers: headers(true), body: JSON.stringify({ image: c.toDataURL("image/jpeg", 0.92), page: 1 }) });
     if (res.status === 401) throw new Error(L("القراءة من الصور تحتاج رمز الدخول: أدخله من الإعدادات، أو ارفع ملف الشارة SVG.", "Reading a picture needs the access code: add it in Settings, or upload the badge's SVG file."));
     if (!res.ok) throw new Error(L("تعذرت قراءة الصورة. اكتب الرقم بيدك، أو ارفع ملف الشارة SVG.", "The picture could not be read. Type the serial, or upload the badge's SVG file."));
     return serialFromReadText((await res.json()).text);
+  }
+  // A PDF report (the printed report carries the badge's seal): the serial is taken from the PDF's own text first, exactly; only if it is not there is the first page read as a picture.
+  async function serialFromPdf(file) {
+    await Ocr.loadPdfJs();
+    const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise, pages = Math.min(pdf.numPages, 6);
+    for (let n = 1; n <= pages; n++) {
+      const tc = await (await pdf.getPage(n)).getTextContent(), flat = tc.items.map(i => i.str).join(" ").replace(/\s+/g, ""), m = SERIAL.exec(flat);
+      if (m) return { code: m[0], exact: true };
+    }
+    const page = await pdf.getPage(1), v0 = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: Math.min(3, 1800 / Math.max(v0.width, v0.height)) }), c = document.createElement("canvas");
+    c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: x, viewport: vp, intent: "print" }).promise;
+    smallPicture = false;
+    return { code: await serialFromCanvas(c), exact: false };
   }
   // A serial read from a picture can have look-alike characters wrong (S and 5, ...): the server puts them right only if the signature then accepts it.
   async function recoverSerial(code) {
@@ -744,12 +766,15 @@
     const note = $("vScanNote"); if (!file) return;
     note.className = "cap"; note.textContent = L("نقرأ الشارة…", "Reading the badge…");
     try {
-      const isSvg = /svg/i.test(file.type) || /\.svg$/i.test(file.name);
-      if (!isSvg && !/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error(L("ارفع ملف الشارة (SVG) أو صورة لها (PNG أو JPEG أو WebP).", "Upload the badge file (SVG) or a picture of it (PNG, JPEG or WebP)."));
-      if (file.size > (isSvg ? 2e6 : 10e6)) throw new Error(L("الملف كبير.", "The file is too large."));
-      let code = isSvg ? serialFromSvg(await file.text(), file.name) : await serialFromImage(file), fix = null;
-      if (code && !isSvg) { fix = await recoverSerial(code); code = fix.code; }   // the file itself is exact; a picture is only a reading of it
-      const small = !isSvg && smallPicture ? L(" الصورة صغيرة: جرّب صورة أكبر.", " The picture is small: try a larger one.") : "";
+      const isSvg = /svg/i.test(file.type) || /\.svg$/i.test(file.name), isPdf = /pdf/i.test(file.type) || /\.pdf$/i.test(file.name);
+      if (!isSvg && !isPdf && !/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error(L("ارفع ملف الشارة (SVG) أو تقرير PDF أو صورة (PNG أو JPEG أو WebP).", "Upload the badge file (SVG), a PDF report, or a picture (PNG, JPEG or WebP)."));
+      if (file.size > (isSvg ? 2e6 : 15e6)) throw new Error(L("الملف كبير.", "The file is too large."));
+      let code, exact = isSvg, fix = null;
+      if (isSvg) code = serialFromSvg(await file.text(), file.name);
+      else if (isPdf) { const r = await serialFromPdf(file); code = r.code; exact = r.exact; }
+      else code = await serialFromImage(file);
+      if (code && !exact) { fix = await recoverSerial(code); code = fix.code; }   // the SVG, or a PDF's own text, is exact; a picture is only a reading of it
+      const small = !exact && smallPicture ? L(" الصورة صغيرة: جرّب صورة أكبر.", " The picture is small: try a larger one.") : "";
       if (!code) { note.className = "cap vbad"; note.textContent = L("لم نجد رقمًا تسلسليًا في هذا الملف. اكتبه بيدك، أو ارفع ملف الشارة (SVG) الذي نزّلته.", "No serial found in this file. Type it, or upload the badge file (SVG) you downloaded.") + small; return; }
       await typeSerial(code); $("vCode").dispatchEvent(new Event("input"));
       if (fix && fix.found === false) { note.className = "cap vbad"; note.textContent = L("قُرئ هذا الرقم من الصورة لكنه لا يطابق شارة صادرة عن مَنبَع، فربما قُرئ بخطأ. اكتبه بيدك أو ارفع ملف الشارة (SVG).", "This serial was read from the picture but does not match any badge issued by Manba, so it may have been misread. Type it, or upload the badge file (SVG).") + small; }
@@ -870,7 +895,6 @@
     const s = (sg && sg.source) || (v.simItem && v.simItem.source);
     if (isQuran(s) && /^\d+:\d+/.test(s.number)) h += `<div class="actions"><button class="btn small" data-tafsir="${esc(s.number)}">${L("التفسير الميسر والسعدي", "Tafsir (al-Muyassar, al-Saadi)")}</button></div><div class="tafsir-out"></div>`;
     if (v.dorar) h += `<div class="dorar" data-q="${esc(quoteOf((sg && sg.segment_text) || it.text))}"><span class="cap">${L("جارٍ جلب أحكام المحدثين من الدرر السنية…", "Loading the scholars' rulings from Dorar…")}</span></div>`;
-    h += `<div class="explain"><button class="btn small" data-explain="${e.n}">${L("اشرح النتيجة بالعربية", "Explain the result (Arabic)")}</button> <span class="gen">${L("مولَّد بالذكاء الاصطناعي", "AI-generated")}</span><div class="explain-out"></div></div>`;
     return h;
   }
   function openCard(e, card) {
@@ -958,20 +982,6 @@
     } catch (e) { out.innerHTML = `<span class="cap">${L("تعذر تحميل التفسير.", "The tafsir could not be loaded.")}</span>`; btn.disabled = false; }
   }
 
-  async function explain(btn) {
-    const e = store.entries.find(x => x.n === +btn.dataset.explain), out = btn.parentElement.querySelector(".explain-out");
-    const payload = e.it.kind === "claim" ? { claim: e.it.text, result: e.it.result } : e.it.kind === "quote" ? { claim: e.it.text, segment: e.it.quote } : null;
-    if (!payload) { out.innerHTML = `<span class="cap">${L("لا يتوفر شرح لهذا النوع.", "No explanation for this kind of result.")}</span>`; return; }
-    btn.disabled = true; out.innerHTML = `<span class="cap">${L("جارٍ كتابة الشرح…", "Writing the explanation…")}</span>`;
-    try {
-      const res = await fetch("/api/explain", { method: "POST", headers: headers(true), body: JSON.stringify(payload) });
-      const d = await res.json(); if (!res.ok) throw new Error();
-      out.innerHTML = `<div class="src" style="border-style: dashed"><span class="gen" style="align-self: flex-start">${d.ai_written ? L("كتبه الذكاء الاصطناعي من النصوص المعروضة فقط، وليس من نصوص المصادر", "Written by the AI from the texts shown only; not a source text") : L("شرح مبسّط مولَّد آليًا من النتيجة", "A plain explanation generated from the result")}</span>
-        ${d.summary_ar ? `<b>${esc(d.summary_ar)}</b>` : ""}${(d.points || []).map(p => `<p style="margin: 0; line-height: 1.9">${esc(p.text)}</p>`).join("")}${d.caution ? `<span class="cap">${esc(d.caution)}</span>` : ""}</div>`;
-      btn.remove();
-    } catch (err) { out.innerHTML = `<span class="cap">${L("تعذر كتابة الشرح الآن.", "The explanation could not be written right now.")}</span>`; btn.disabled = false; }
-  }
-
   function summaryText() {
     const hl = document.getElementById("headline");
     const lines = [L("تقرير مراجعة مَنبَع", "Manba review report"), hl ? hl.textContent : "", ""];
@@ -1039,7 +1049,6 @@
     if (t.dataset.copy) { const e = store.entries.find(x => x.n === +t.dataset.copy); copy(e.v.copy, t); return; }
     if (t.dataset.f) { store.filter = t.dataset.f; applyFilter(); return; }
     if (t.dataset.tafsir) { loadTafsir(t); return; }
-    if (t.dataset.explain) { explain(t); return; }
     if (t.hasAttribute("data-allrows")) { t.parentElement.querySelectorAll("[data-extra]").forEach(r => { r.hidden = false; }); t.remove(); return; }
     if (t.id === "copySummary") { copy(summaryText(), t, L("تم نسخ ملخص التقرير إلى الحافظة", "The report summary was copied to your clipboard")); return; }
     if (t.dataset.fix || t.dataset.manual) { if (t.dataset.fix && store.manualDraft !== undefined) return; store.fixes[+(t.dataset.fix || t.dataset.manual)] = t.dataset.fix ? "applied" : "manual"; refreshFixes(); return; }
@@ -1130,7 +1139,7 @@
     let seen = false;
     try { seen = sessionStorage.getItem("manba_intro") === "1"; sessionStorage.setItem("manba_intro", "1"); } catch (e) {}
     // Once per visit: a reload during a demo goes straight to the page.
-    if (seen || matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); $("inputView").classList.remove("wait"); return; }
+    if (seen || matchMedia("(prefers-reduced-motion: reduce)").matches) { cover.remove(); popIn(); return; }   // no cover, but the page still pops in (the CSS turns that off for reduced motion)
     let done = false, hold = null;
     const finish = () => { if (done) return; done = true; clearTimeout(hold); document.documentElement.style.overflow = ""; placePill(); cover.classList.add("out"); popIn(); setTimeout(() => cover.remove(), 700); };
     document.documentElement.style.overflow = "hidden";
@@ -1167,13 +1176,13 @@
   })();
   function showView(name, push) {
     const page = VIEWS[name];
-    const fromIdx = VIEW_ORDER.indexOf(currentView), toIdx = VIEW_ORDER.indexOf(name === "review" || !page ? "review" : name);
+    const cameFrom = currentView, fromIdx = VIEW_ORDER.indexOf(currentView), toIdx = VIEW_ORDER.indexOf(name === "review" || !page ? "review" : name);
     document.documentElement.style.setProperty("--vfrom", toIdx > fromIdx ? "-44px" : "44px");   // a tab further left brings its section in from the left
     currentView = name === "review" || !page ? "review" : name;
     for (const id of Object.values(VIEWS)) $(id).hidden = id !== page;
     if (page) { $("inputView").hidden = true; $("reportView").hidden = true; $("loadingView").hidden = true; }
     else if (store.data && store.onReport) { $("reportView").hidden = false; $("inputView").hidden = true; }
-    else { $("reportView").hidden = true; $("inputView").hidden = false; $("inputView").classList.remove("wait"); }
+    else { $("reportView").hidden = true; $("inputView").hidden = false; $("inputView").classList.remove("wait"); if (cameFrom !== "review") popIn(); }   // back from a section: the parts of the page pop in again
     document.querySelectorAll(".view-tab").forEach(a => { if ((a.dataset.view === name) || (!page && a.dataset.view === "review")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     if (push) history.pushState({}, "", page ? "#" + name : store.onReport ? "#report" : "#");
     window.scrollTo({ top: 0 });

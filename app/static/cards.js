@@ -264,11 +264,6 @@ const Cards = (() => {
     } else {
       tabs.push({ id: "similar", label: "Close text", html: () => similarHtml(e.similar) });
     }
-    const payload = e.kind === "claim" ? { claim: e.text, result: r } : e.kind === "quote" ? { claim: e.text, segment: e.quote } : null;
-    if (payload && !(e.kind === "claim" && r.outcome === "out_of_scope")) {
-      store[idx] = payload;
-      tabs.push({ id: "explain", label: "Explain · اشرح", html: () => `<div class="explain"><button class="explain-btn" data-i="${idx}">Explain in Arabic · اشرح</button><div class="small">Written by an AI from the texts in this card only. It starts only when you click.</div><div class="explain-out"></div></div>` });
-    }
     return tabs;
   }
 
@@ -373,16 +368,6 @@ const Cards = (() => {
         }
         return;
       }
-      const btn = ev.target.closest(".explain-btn");
-      if (!btn) return;
-      const out = btn.parentElement.querySelector(".explain-out");
-      btn.disabled = true; out.innerHTML = `<div class="small">Writing the explanation…</div>`;
-      try {
-        const res = await fetch("/api/explain", { method: "POST", headers: Object.assign({ "Content-Type": "application/json" }, opts.headers ? opts.headers() : {}), body: JSON.stringify(store[+btn.dataset.i]) });
-        const d = await res.json();
-        if (!res.ok) throw new Error(res.status === 401 ? "The server needs an access code: enter it in Settings." : JSON.stringify(d));
-        out.innerHTML = explainHtml(d); btn.remove();
-      } catch (e) { out.innerHTML = `<div class="err">${esc(e.message)}</div>`; btn.disabled = false; }
     });
 
     function applyFilters() {
@@ -419,16 +404,6 @@ const Cards = (() => {
       });
       applyFilters();
     } else if (entries.length === 1) toggle(cardsEl.querySelector(".card"), true);  // a single claim opens straight away
-  }
-
-  function explainHtml(e) {
-    let h = `<div class="item" dir="rtl"><div class="meta"><span class="chip ${e.ai_written ? "blue" : ""}">${e.ai_written ? "شرح مولَّد بالذكاء الاصطناعي من النصوص المعروضة فقط، وليس من نصوص المصادر" : "شرح مبسّط مولَّد آليًا من النتيجة"}</span></div>`;
-    if (e.summary_ar) h += `<p><b>${esc(e.summary_ar)}</b></p>`;
-    h += (e.points || []).map(p => `<p>${esc(p.text)} <span class="small">[${p.cites.join("، ")}]</span></p>`).join("");
-    if (e.caution) h += `<p class="small">${esc(e.caution)}</p>`;
-    h += (e.texts || []).map(t => `<div class="small">[${t.n}] ${esc(t.label)}${t.stance_ar ? " — " + esc(t.stance_ar) : ""}${t.strength_ar ? " — " + esc(t.strength_ar) : ""}</div>`).join("");
-    if (!e.ai_written && e.note) h += `<div class="small" dir="ltr">(${esc(e.note)})</div>`;
-    return h + "</div>";
   }
 
   return { render, esc, statusOf, fiqhFlag };

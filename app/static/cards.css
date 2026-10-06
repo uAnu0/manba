@@ -27,7 +27,6 @@
 .seg[aria-pressed="true"] { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
 .warnseg[aria-pressed="true"] { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
 .none { padding: 18px; text-align: center; }
-.explain { margin: 8px 0; } .explain-btn { cursor: pointer; }
 @media (max-width: 560px) {
   .card-head { grid-template-columns: 1fr auto; }
   .badge { grid-column: 1; } .chev { grid-column: 2; grid-row: 1; }

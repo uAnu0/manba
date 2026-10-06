@@ -65,3 +65,6 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 - Known baseline gap seen today: "وقال: إنما الأعمال بالنيات" (attribution with no named speaker) is not verified, while the bare text is.
 - Before going public: decide how the hadith corpus ships (build at deploy time from the pinned sources, or limit to the Unlicense data).
 - A Sharia mentor to review `golden/fiqh_golden.json` and the wording of the fiqh outcomes.
+
+**Removed: the AI explanation (Oct 6)**
+- The **Explain** button, the AI-written Arabic explanation under each result and `POST /api/explain` (with `app/services/explain.py`, its schemas and the `EXPLAIN_MODEL` setting) are gone: the result already says what the sources contain, and a second AI-written text only repeated it. Results are now built from the sources and the code's own sentences.

@@ -19,7 +19,7 @@ GOOGLE_DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 # A model name may carry its provider: "google:gemini-2.5-flash" (Google's own API, with GEMINI_API_KEY: it has a free
 # tier, so tests cost nothing) or "openrouter:openai/gpt-4o-mini". Without a prefix it is an OpenRouter model.
-# LLM_PROVIDER (and JUDGE_PROVIDER, EXPLAIN_PROVIDER, EMBED_PROVIDER for one step) picks the default provider.
+# LLM_PROVIDER (and JUDGE_PROVIDER, EMBED_PROVIDER for one step) picks the default provider.
 
 
 # What the person chose in the web page's Settings for THIS request (provider and their own keys). It lives only in the request's

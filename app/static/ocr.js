@@ -243,5 +243,5 @@ const Ocr = (() => {
       }
     });
   }
-  return { mount, active, warningHtml };
+  return { mount, active, warningHtml, loadPdfJs };   // loadPdfJs: the verify page reads a badge's serial out of a PDF report with it
 })();

@@ -418,35 +418,3 @@ class OcrResponse(BaseModel):
     note: Optional[str] = None
 
 
-class ExplainRequest(BaseModel):
-    claim: str = Field(..., min_length=3, max_length=3000)
-    result: Optional[ClaimResponse] = None  # a claim-check result as returned by /api/claim (or an item of /api/check)
-    segment: Optional[Segment] = None  # or one quoted-text result from /api/verify or /api/check
-
-    _words = field_validator("claim")(_limit_words)
-
-
-class ExplainText(BaseModel):
-    n: int
-    kind: str  # quran | hadith | quote
-    label: str  # the source in Arabic, or the quoted text
-    stance_ar: str = ""
-    strength_ar: str = ""
-    grades_ar: str = ""
-
-
-class ExplainPoint(BaseModel):
-    text: str  # Arabic
-    cites: list[int]  # numbers into `texts`
-
-
-class ExplainResponse(BaseModel):
-    claim: str
-    outcome: str  # the verdict the explanation is about (never changed by the writer)
-    summary_ar: str = ""
-    points: list[ExplainPoint]
-    caution: Optional[str] = None
-    texts: list[ExplainText]
-    ai_written: bool  # False: built by code from the same facts (the writer failed or failed the checks)
-    model: Optional[str] = None
-    note: Optional[str] = None  # why the AI-written explanation was not used

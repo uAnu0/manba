@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
 <script>try { if (localStorage.getItem("manba_theme") === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}</script>
-<link rel="stylesheet" href="/static/app.css?v=20261006i">
+<link rel="stylesheet" href="/static/app.css?v=20261006l">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%230B6E5C' stroke-width='3'%3E%3Crect x='9' y='9' width='22' height='22' rx='2'/%3E%3Crect x='9' y='9' width='22' height='22' rx='2' transform='rotate(45 20 20)'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -161,7 +161,7 @@
     <article class="persona principle">
       <img class="p-img" src="/static/img/principle-labelled.webp" alt="" width="720" height="538" loading="lazy" decoding="async">
       <h3 data-en="AI-written lines are labelled">ما كتبه الذكاء الاصطناعي معلَّم</h3>
-      <p class="p-does" data-en="Every line the AI wrote, such as a plain-language explanation or a machine translation, carries a label that keeps it apart from the source texts.">كل سطر كتبه الذكاء الاصطناعي، كالشرح المبسط أو الترجمة الآلية، يحمل علامة تفصله عن نصوص المصادر.</p>
+      <p class="p-does" data-en="Every line the AI wrote, such as a machine translation, carries a label that keeps it apart from the source texts.">كل سطر كتبه الذكاء الاصطناعي، كالترجمة الآلية، يحمل علامة تفصله عن نصوص المصادر.</p>
     </article>
     </div>
   </section>
@@ -173,7 +173,7 @@
       <h2 data-en="Who decides what">من يقرّر ماذا</h2>
       <ul class="ticks">
         <li data-en="<b>Code, from the sources:</b> whether a verse matches the Mushaf, which book and number a hadith has, whether the encyclopedia reports agreement or disagreement, and which ruling it gives each school."><b>الكود، من المصادر:</b> هل تطابق الآية المصحف، وما كتاب الحديث ورقمه، وهل تنقل الموسوعة اتفاقًا أم خلافًا، وما حكم كل مذهب فيها.</li>
-        <li data-en="<b>The AI:</b> finding unquoted claims, choosing relevant passages, assessing whether evidence supports a claim, and labelled explanations or translations. Evidence assessments require human review."><b>الذكاء الاصطناعي:</b> العثور على الادعاءات غير المقتبسة، واختيار المقاطع ذات الصلة، وتقدير دلالة الأدلة على الادعاء، وشرح أو ترجمة معلَّمة. تحتاج تقديرات الأدلة مراجعة بشرية.</li>
+        <li data-en="<b>The AI:</b> finding unquoted claims, choosing relevant passages, assessing whether evidence supports a claim, and labelled machine translations. Evidence assessments require human review."><b>الذكاء الاصطناعي:</b> العثور على الادعاءات غير المقتبسة، واختيار المقاطع ذات الصلة، وتقدير دلالة الأدلة على الادعاء، وترجمة آلية معلَّمة. تحتاج تقديرات الأدلة مراجعة بشرية.</li>
         <li data-en="<b>Limits:</b> this automated review issues no fatwa or preference between opinions. Check the cited passage and refer personal cases to a scholar."><b>الحدود:</b> لا تصدر هذه المراجعة الآلية فتوى ولا ترجّح بين الأقوال. راجع المقطع المستشهد به وأحِل الحالات الشخصية إلى عالم.</li>
       </ul>
     </div>
@@ -444,7 +444,7 @@
     <input id="vCode" dir="ltr" autocomplete="off" spellcheck="false" placeholder="MNB2-…">
     <div class="vscan">
       <button class="btn small" id="vScanBtn" type="button" data-en="Read the serial from a downloaded badge">اقرأ الرقم من شارة محمّلة</button>
-      <input type="file" id="vScanFile" accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp" hidden>
+      <input type="file" id="vScanFile" accept=".svg,image/svg+xml,.pdf,application/pdf,image/png,image/jpeg,image/webp" hidden>
       <span class="cap" id="vScanNote" role="status" aria-live="polite"></span>
     </div>
     <label for="vText" class="cap" data-en="The text (optional)">النص (اختياري)</label>
@@ -504,9 +504,9 @@
   <form method="dialog"><button class="btn primary" data-en="Save">حفظ</button></form>
 </dialog>
 
-<script src="/static/grades.js?v=20261006i"></script>
-<script src="/static/ocr.js?v=20261006i"></script>
-<script src="/static/app.js?v=20261006i"></script>
-<script src="/static/tour.js?v=20261006i"></script>
+<script src="/static/grades.js?v=20261006l"></script>
+<script src="/static/ocr.js?v=20261006l"></script>
+<script src="/static/app.js?v=20261006l"></script>
+<script src="/static/tour.js?v=20261006l"></script>
 </body>
 </html>

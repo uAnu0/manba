@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import badge, check, claim, dorar, evidence, explain, fiqh, ocr, tafsir, verify
+from app.routers import badge, check, claim, dorar, evidence, fiqh, ocr, tafsir, verify
 from app.schemas import HealthResponse
 from app.services import verifier
 from app.services.fiqh import fiqh_index
@@ -31,7 +31,6 @@ app.include_router(evidence.router)
 app.include_router(claim.router)
 app.include_router(check.router)
 app.include_router(badge.router)
-app.include_router(explain.router)
 app.include_router(tafsir.router)
 app.include_router(fiqh.router)
 app.include_router(dorar.router)

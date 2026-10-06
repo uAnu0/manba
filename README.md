@@ -165,15 +165,6 @@ keywords only 22% of the expected texts (32% of the questions); meaning + keywor
 Precision (how many shown texts are really relevant) is not measured yet. That is a baseline on a small set, not a quality bar: it needs scholar-reviewed questions. Run `python evals/eval_evidence.py [--llm] [--no-meaning]` to re-measure.
 Memory with everything loaded is about 510 MB and startup about 20 s (the indexes are built at first use).
 
-## Arabic explanation (on demand)
-
-`POST /api/explain` with `{claim, result}` (a claim result) or `{claim, segment}` (a checked quote). The UI shows an **Explain** button under each
-result; nothing is written until it is clicked. A cheap writer model (`EXPLAIN_MODEL`, default `google/gemini-3.1-flash-lite`) phrases the already
-finished result in Arabic, citing the numbered texts. It never sees anything but those facts and cannot change the outcome. Code rejects the output if it
-changes the verdict, cites a missing text, quotes words not in the cited text, invents a number or a grading, calls anything fabricated, or gives a fatwa;
-then a plain template explanation (`ai_written: false`) is returned instead. Writer bake-off: DeepSeek V4 Flash passed 8/10 after raising max tokens but
-needs more care; Gemini 2.5 Flash Lite passed 9/10. All text inputs are limited to 500 words (HTTP 422 beyond that).
-
 ## Close to a known text (no chat model)
 
 A reworded hadith ("فإنما تنصرون وترزقون بضعفائكم") matches nothing word for word and reads like advice, so it used to pass silently.
@@ -188,7 +179,7 @@ a tenth of a cent per sermon.
 ## Result cards (test console)
 
 `/claim` shows each quote, claim and close match as one compact card (status badge, the sentence, the strongest source). A card
-opens like a tab: Evidence, Partial & related, Quote check, Close text, and Explain (the Arabic explanation, only on click).
+opens like a tab: Evidence, Partial & related, Quote check and Close text.
 A strip of status counts and the filters (All, Claims, Quran & hadith quotes, Close matches, Short phrases, Needs attention)
 keep a long sermon manageable. Verified runs of four words or fewer are counted apart as "Matched phrase", so they do not
 inflate "verified". The code is `app/static/cards.js` and `cards.css` (served under `/static`); the API did not change.
@@ -199,7 +190,7 @@ Each test page has Settings with **AI provider** (Server default, OpenRouter, Go
 teammate picks the provider and pastes their own key; the choice and the keys stay in their browser (localStorage) and travel
 with each request as `X-LLM-Provider`, `X-OpenRouter-Key` and `X-Gemini-Key`. They apply to that request only: never stored,
 never logged, and error messages are scrubbed of key-like text. A chosen provider uses that provider's default models (the
-server's `LLM_MODEL` / `JUDGE_MODEL` / `EXPLAIN_MODEL` names belong to one provider, so they are ignored then). Without a choice
+server's `LLM_MODEL` / `JUDGE_MODEL` names belong to one provider, so they are ignored then). Without a choice
 the server's `LLM_PROVIDER` is used if it is set; otherwise **Google Gemini is the default** when a Gemini key is available (the server's `GEMINI_API_KEY`,
 or one added in Settings), and OpenRouter only when it is the only key there is (a person who adds only an OpenRouter key gets OpenRouter). `/api/config` tells the page which providers the
 server holds a key for. The cache keeps answers of different providers apart.
@@ -274,10 +265,10 @@ Run `python evals/eval_golden.py` before and after any change to matching code. 
 app/              the FastAPI service
   main.py         app, routers, startup (builds the indexes)
   schemas.py      every request and response model
-  routers/        one file per endpoint group (verify, check, claim, evidence, explain, tafsir, fiqh, dorar)
+  routers/        one file per endpoint group (verify, check, claim, evidence, tafsir, fiqh, dorar)
   services/       the logic: verifier.py, quote_finder.py, pipeline.py (quotes); claim_card.py, text_claims.py (claims);
                   fiqh.py (fiqh check); levels.py (content levels); dorar.py (Dorar gradings); evidence*.py, dense.py,
-                  similar.py (search); llm_*.py, cache.py (model calls); explain.py, tafsir.py, strength.py
+                  similar.py (search); llm_*.py, cache.py (model calls); tafsir.py, strength.py
   static/         the test pages and the result cards (cards.js, cards.css)
 data/             corpora shipped with the app: Quran, hadith, embeddings, tafsir, fiqh encyclopedia, Tanzil sources
 scripts/          rebuild the data (ingest_*.py, embed_corpus.py) and check it (validate_corpus.py)
