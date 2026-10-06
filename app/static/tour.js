@@ -78,19 +78,60 @@
   ];
 
   // The tour plays by itself, one step every few seconds, and loops; Back and Next move it by hand and the clock restarts.
-  let at = 0, timer = null, paused = reduced;
+  let at = 0, shown = null, landing = false, timer = null, paused = reduced;   // landing: the new circle is drawn empty, a drop is on its way
   const DWELL = 6500, active = () => !$("howView").hidden && !document.hidden;
 
   function renderSteps() {
     $("tourSteps").innerHTML = STEPS.map((s, i) => `<li class="${i === at ? "on" : i < at ? "past" : ""}">
-      <button type="button" data-step="${i}" aria-current="${i === at ? "step" : "false"}"><span class="fi">${D(i + 1)}</span><b>${L(...s.t)}</b></button>
+      <button type="button" data-step="${i}" aria-current="${i === at ? "step" : "false"}"><span class="fi${i === at && landing ? " waiting" : ""}">${D(i + 1)}</span><b>${L(...s.t)}</b></button>
       ${i === at ? `<p>${L(...s.d)}</p>` : ""}</li>`).join("");
     $("tourDots").innerHTML = STEPS.map((s, i) => `<button type="button" class="dot${i === at ? " on" : ""}" data-step="${i}" aria-label="${L(`الخطوة ${D(i + 1)}: `, `Step ${i + 1}: `)}${L(...s.t)}" aria-current="${i === at ? "step" : "false"}"><i style="animation-duration: ${DWELL}ms"></i></button>`).join("");
   }
+  // The step circles hang on a thin rail. When the tour moves to another step a drop swells on the old circle, falls down the rail (stretching as it speeds up),
+  // lands on the new circle and splashes there; going back, a bubble rises instead.
+  const steps = () => $("tourSteps");
+  const centerOf = el => { const o = steps().getBoundingClientRect(), r = el.getBoundingClientRect(); return r.width ? { x: r.left + r.width / 2 - o.left, y: r.top + r.height / 2 - o.top } : null; };
+  function rail() {
+    const ol = steps(); ol.querySelectorAll(".tour-rail").forEach(r => r.remove());
+    const f = ol.querySelectorAll(".fi"); if (f.length < 2) return;
+    const a = centerOf(f[0]), b = centerOf(f[f.length - 1]); if (!a || !b) return;   // a narrow screen shows only the current step: no rail
+    const r = document.createElement("span"); r.className = "tour-rail"; r.setAttribute("aria-hidden", "true");
+    r.style.left = a.x + "px"; r.style.top = a.y + "px"; r.style.height = Math.max(0, b.y - a.y) + "px"; ol.prepend(r);
+  }
+  function splash(fi) {
+    fi.classList.remove("waiting", "splash"); void fi.offsetWidth; fi.classList.add("splash");   // the circle fills with colour only now, as the drop lands
+    setTimeout(() => fi.classList.remove("splash"), 900);
+  }
+  function dropTo(a, b, falling, target) {
+    const ol = steps(), d = document.createElement("span"); d.className = "tour-drop" + (falling ? "" : " up"); d.setAttribute("aria-hidden", "true"); d.innerHTML = "<i></i>";
+    d.style.left = a.x + "px"; ol.appendChild(d);
+    const at = (y, sx, sy) => `translate(-50%, calc(-50% + ${y}px)) scale(${sx}, ${sy})`, dist = Math.abs(b.y - a.y), duration = Math.round(Math.min(1300, 650 + dist * 1.2));
+    const frames = falling
+      ? [{ transform: at(a.y, .15, .15), opacity: 0, offset: 0, easing: "ease-out" },
+         { transform: at(a.y + 4, 1, 1.15), opacity: 1, offset: .24, easing: "cubic-bezier(.6, 0, 1, .55)" },     // it swells and hangs, then lets go and speeds up
+         { transform: at(b.y - 8, .8, 1.8), opacity: 1, offset: .93, easing: "ease-out" },                          // stretched by the speed
+         { transform: at(b.y, 1.6, .25), opacity: 0, offset: 1 }]                                                  // squashed flat on landing
+      : [{ transform: at(a.y, .15, .15), opacity: 0, offset: 0, easing: "ease-out" },
+         { transform: at(a.y - 2, 1, 1), opacity: 1, offset: .2, easing: "cubic-bezier(.3, 0, .45, 1)" },
+         { transform: at(b.y, .9, 1), opacity: 1, offset: .92, easing: "ease-out" },
+         { transform: at(b.y, 1.5, 1.5), opacity: 0, offset: 1 }];
+    const anim = d.animate(frames, { duration, fill: "forwards" });
+    anim.onfinish = () => { d.remove(); if (target.isConnected) splash(target); };   // a step chosen again meanwhile has redrawn the list: nothing to land on
+    anim.oncancel = () => d.remove();
+  }
   function render(animate) {
     const sc = $("tourScene");
+    const oldFi = document.querySelector("#tourSteps li.on .fi"), from = shown, a = oldFi && centerOf(oldFi);
+    landing = !!(animate && !reduced && from !== null && from !== at && a);
     sc.innerHTML = `<div class="ts-step${animate && !reduced ? " enter" : ""}"><span class="ts-n">${L(`الخطوة ${D(at + 1)} من ${D(STEPS.length)}`, `Step ${at + 1} of ${STEPS.length}`)}</span>${STEPS[at].scene()}</div>`;
-    renderSteps();
+    renderSteps(); rail();
+    if (landing) {
+      const b = document.querySelector("#tourSteps li.on .fi"), to = b && centerOf(b);
+      if (to) dropTo(a, to, at > from, b);   // the new circle was drawn empty (in renderSteps) and fills only when the drop reaches it
+      else if (b) b.classList.remove("waiting");
+    }
+    landing = false;
+    shown = at;
     const last = at === STEPS.length - 1;
     $("tourNext").textContent = last ? L("جرّبه على نصك", "Try it on your text") : L("التالي", "Next");
     $("tourBack").textContent = at === 0 ? L("الخطوة الأخيرة", "Last step") : L("السابق", "Back");
@@ -122,6 +163,7 @@
     if (ev.key === back) { go(at - 1); restart(); ev.preventDefault(); }
   });
 
+  window.addEventListener("resize", () => rail());
   document.addEventListener("manba:lang", () => { render(false); pauseLabel(); });
   document.addEventListener("manba:view", ev => { if (ev.detail === "how") { go(0, false); restart(); } else { clearInterval(timer); timer = null; } });
   render(false);

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
 <script>try { if (localStorage.getItem("manba_theme") === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}</script>
-<link rel="stylesheet" href="/static/app.css?v=20261005c">
+<link rel="stylesheet" href="/static/app.css?v=20261006i">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%230B6E5C' stroke-width='3'%3E%3Crect x='9' y='9' width='22' height='22' rx='2'/%3E%3Crect x='9' y='9' width='22' height='22' rx='2' transform='rotate(45 20 20)'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -28,6 +28,7 @@
 <header class="top">
   <div class="wrap">
     <nav class="views" aria-label="الأقسام" data-en-aria-label="Sections">
+      <span class="views-pill" id="viewsPill" aria-hidden="true"></span>
       <a href="#" class="view-tab" data-view="review" aria-current="page" data-en="Review">المراجعة</a>
       <a href="#how" class="view-tab" data-view="how" data-en="How it works">كيف يعمل</a>
       <a href="#who" class="view-tab" data-view="who" data-en="Who it's for">لمن مَنبَع</a>
@@ -441,6 +442,11 @@
   <section class="panel vform">
     <label for="vCode" class="cap" data-en="Serial">الرقم التسلسلي</label>
     <input id="vCode" dir="ltr" autocomplete="off" spellcheck="false" placeholder="MNB2-…">
+    <div class="vscan">
+      <button class="btn small" id="vScanBtn" type="button" data-en="Read the serial from a downloaded badge">اقرأ الرقم من شارة محمّلة</button>
+      <input type="file" id="vScanFile" accept=".svg,image/svg+xml,image/png,image/jpeg,image/webp" hidden>
+      <span class="cap" id="vScanNote" role="status" aria-live="polite"></span>
+    </div>
     <label for="vText" class="cap" data-en="The text (optional)">النص (اختياري)</label>
     <textarea id="vText" dir="auto" placeholder="ألصق النص الذي يحمل الشارة" data-en-placeholder="Paste the text that carries the badge"></textarea>
     <div><button class="btn primary" id="vGo" type="button" data-en="Verify">تحقق</button></div>
@@ -498,9 +504,9 @@
   <form method="dialog"><button class="btn primary" data-en="Save">حفظ</button></form>
 </dialog>
 
-<script src="/static/grades.js?v=20261005c"></script>
-<script src="/static/ocr.js?v=20261005c"></script>
-<script src="/static/app.js?v=20261005c"></script>
-<script src="/static/tour.js?v=20261005c"></script>
+<script src="/static/grades.js?v=20261006i"></script>
+<script src="/static/ocr.js?v=20261006i"></script>
+<script src="/static/app.js?v=20261006i"></script>
+<script src="/static/tour.js?v=20261006i"></script>
 </body>
 </html>

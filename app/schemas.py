@@ -337,6 +337,13 @@ class BadgeVerifyRequest(BaseModel):
     text: Optional[str] = Field(default=None, max_length=60000)
 
 
+class BadgeRecoverResponse(BaseModel):
+    found: bool  # a serial the signature accepts was found within a few confusable characters of the one given
+    code: Optional[str] = None  # that serial
+    corrected: bool = False  # it differs from the one given
+    checked: bool = True  # False when the server cannot check signatures (no signing key): the serial was not changed
+
+
 class BadgeVerifyResponse(BaseModel):
     valid: bool
     code: str

@@ -701,6 +701,68 @@
     } catch (e) { out.className = "vout bad"; out.textContent = L("تعذر الاتصال بالخادم.", "Could not reach the server."); }
   }
 
+  // ---------- reading a downloaded badge: the serial comes out of the SVG file, or is read from a picture of the badge ----------
+  const SERIAL = /MNB2-(?:[A-Z2-7]{4}-){13}[A-Z2-7]{3}/;
+  function serialFromSvg(svgText, filename) {
+    const direct = SERIAL.exec(svgText); if (direct) return direct[0];                      // the badge's label carries the whole serial
+    try {   // otherwise the lines of small text inside the star, joined (the serial is cut into lines of 20 characters there)
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml"), joined = [...doc.querySelectorAll("text")].map(t => t.textContent.trim()).join("");
+      const m = SERIAL.exec(joined); if (m) return m[0];
+    } catch (e) {}
+    const named = SERIAL.exec(filename || ""); return named ? named[0] : null;               // the downloaded file is called manba-badge-<serial>.svg
+  }
+  // OCR text -> serial: letters only from base32 (A-Z, 2-7) are possible, so look-alikes are put right (0 -> O, 1 -> I, 8 -> B) and the hyphens are put back
+  function serialFromReadText(text) {
+    const flat = String(text || "").toUpperCase().replace(/[\s\-_.]/g, "").replace(/0/g, "O").replace(/1/g, "I").replace(/8/g, "B");
+    const at = flat.indexOf("MNB2"); if (at < 0) return null;
+    const body = flat.slice(at + 4, at + 4 + 55); if (!/^[A-Z2-7]{55}$/.test(body)) return null;
+    const code = "MNB2-" + body.match(/.{1,4}/g).join("-"); return SERIAL.test(code) ? code : null;
+  }
+  let smallPicture = false;   // a picture under 600 px is too small to read the serial's tiny letters reliably
+  async function serialFromImage(file) {
+    const bmp = await createImageBitmap(file); smallPicture = Math.max(bmp.width, bmp.height) < 600; const k = Math.min(3, 1800 / Math.max(bmp.width, bmp.height)), c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(bmp, 0, 0, c.width, c.height);
+    const res = await fetch("/api/ocr", { method: "POST", headers: headers(true), body: JSON.stringify({ image: c.toDataURL("image/jpeg", 0.92), page: 1 }) });
+    if (res.status === 401) throw new Error(L("القراءة من الصور تحتاج رمز الدخول: أدخله من الإعدادات، أو ارفع ملف الشارة SVG.", "Reading a picture needs the access code: add it in Settings, or upload the badge's SVG file."));
+    if (!res.ok) throw new Error(L("تعذرت قراءة الصورة. اكتب الرقم بيدك، أو ارفع ملف الشارة SVG.", "The picture could not be read. Type the serial, or upload the badge's SVG file."));
+    return serialFromReadText((await res.json()).text);
+  }
+  // A serial read from a picture can have look-alike characters wrong (S and 5, ...): the server puts them right only if the signature then accepts it.
+  async function recoverSerial(code) {
+    try {
+      const r = await (await fetch("/api/badge/recover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) })).json();
+      return r.checked === false ? { code, checked: false } : r.found ? { code: r.code, corrected: r.corrected, found: true } : { code, found: false };
+    } catch (e) { return { code, checked: false }; }
+  }
+  function typeSerial(code) {   // the serial is typed into the field, letter by letter
+    const f = $("vCode"); f.focus(); f.value = "";
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) { f.value = code; return Promise.resolve(); }
+    return new Promise(done => { let i = 0; const id = setInterval(() => { f.value = code.slice(0, ++i); if (i >= code.length) { clearInterval(id); done(); } }, 14); });
+  }
+  async function readBadgeFile(file) {
+    const note = $("vScanNote"); if (!file) return;
+    note.className = "cap"; note.textContent = L("نقرأ الشارة…", "Reading the badge…");
+    try {
+      const isSvg = /svg/i.test(file.type) || /\.svg$/i.test(file.name);
+      if (!isSvg && !/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error(L("ارفع ملف الشارة (SVG) أو صورة لها (PNG أو JPEG أو WebP).", "Upload the badge file (SVG) or a picture of it (PNG, JPEG or WebP)."));
+      if (file.size > (isSvg ? 2e6 : 10e6)) throw new Error(L("الملف كبير.", "The file is too large."));
+      let code = isSvg ? serialFromSvg(await file.text(), file.name) : await serialFromImage(file), fix = null;
+      if (code && !isSvg) { fix = await recoverSerial(code); code = fix.code; }   // the file itself is exact; a picture is only a reading of it
+      const small = !isSvg && smallPicture ? L(" الصورة صغيرة: جرّب صورة أكبر.", " The picture is small: try a larger one.") : "";
+      if (!code) { note.className = "cap vbad"; note.textContent = L("لم نجد رقمًا تسلسليًا في هذا الملف. اكتبه بيدك، أو ارفع ملف الشارة (SVG) الذي نزّلته.", "No serial found in this file. Type it, or upload the badge file (SVG) you downloaded.") + small; return; }
+      await typeSerial(code); $("vCode").dispatchEvent(new Event("input"));
+      if (fix && fix.found === false) { note.className = "cap vbad"; note.textContent = L("قُرئ هذا الرقم من الصورة لكنه لا يطابق شارة صادرة عن مَنبَع، فربما قُرئ بخطأ. اكتبه بيدك أو ارفع ملف الشارة (SVG).", "This serial was read from the picture but does not match any badge issued by Manba, so it may have been misread. Type it, or upload the badge file (SVG).") + small; }
+      else { note.className = "cap vok"; note.textContent = fix && fix.corrected ? L("قُرئ الرقم من الصورة وصُحّحت فيه أحرف متشابهة (مثل S و5). اضغط «تحقق».", "The serial was read from the picture and look-alike characters (like S and 5) were put right. Press Verify.") : L("قُرئ الرقم من الشارة. اضغط «تحقق».", "The serial was read from the badge. Press Verify."); }
+    } catch (e) { note.className = "cap vbad"; note.textContent = e.message || L("تعذرت قراءة الشارة.", "The badge could not be read."); }
+  }
+  $("vScanBtn").onclick = () => $("vScanFile").click();
+  $("vScanFile").onchange = () => { const f = $("vScanFile").files[0]; $("vScanFile").value = ""; readBadgeFile(f); };
+  { const panel = document.querySelector(".vform");
+    panel.addEventListener("dragover", ev => { if ([...(ev.dataTransfer.types || [])].includes("Files")) { ev.preventDefault(); panel.classList.add("dropping"); } });
+    panel.addEventListener("dragleave", ev => { if (!panel.contains(ev.relatedTarget)) panel.classList.remove("dropping"); });
+    panel.addEventListener("drop", ev => { ev.preventDefault(); panel.classList.remove("dropping"); readBadgeFile(ev.dataTransfer.files[0]); }); }
+
   // ---------- the printable report (PDF) ----------
   const K_EXPLAIN = { bad: ["لا يُنشر كما هو: لم يثبت، أو نُسب إلى غير قائله", "cannot be published as it is: not established, or misattributed"],
     fix: ["لفظ محرّف أو إحالة خطأ أو درجة غير مبيّنة", "altered wording, a wrong reference, or no grading"],
@@ -922,8 +984,25 @@
     lines.push("", L("بيان لمواضع النصوص في المصادر وليس فتوى. المصادر: المصحف، الكتب التسعة، الدرر السنية، الموسوعة الفقهية الكويتية.", "Shows where texts are found in the sources; not a fatwa. Sources: the Mushaf, the nine hadith books, Dorar, the Kuwaiti Fiqh Encyclopedia."));
     return lines.join("\n");
   }
-  async function copy(text, btn) {
-    try { await navigator.clipboard.writeText(text); const t = btn.textContent; btn.textContent = L("نُسخ", "Copied"); setTimeout(() => { btn.textContent = t; }, 1500); }
+  // A small notice at the bottom of the page: it says what was copied and fades away by itself.
+  let toastTimer = null;
+  function toast(message) {
+    let el = $("toast");
+    if (!el) {
+      el = document.createElement("div"); el.id = "toast"; el.className = "toast"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite");
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span></span>`;
+    el.lastChild.textContent = message;
+    el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  }
+  async function copy(text, btn, message) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(message || L("تم النسخ إلى الحافظة", "Copied to your clipboard"));
+      const t = btn.textContent; btn.textContent = L("نُسخ", "Copied"); setTimeout(() => { btn.textContent = t; }, 1500);
+    }
     catch (e) { window.prompt(L("انسخ النص:", "Copy the text:"), text); }
   }
 
@@ -962,16 +1041,16 @@
     if (t.dataset.tafsir) { loadTafsir(t); return; }
     if (t.dataset.explain) { explain(t); return; }
     if (t.hasAttribute("data-allrows")) { t.parentElement.querySelectorAll("[data-extra]").forEach(r => { r.hidden = false; }); t.remove(); return; }
-    if (t.id === "copySummary") { copy(summaryText(), t); return; }
+    if (t.id === "copySummary") { copy(summaryText(), t, L("تم نسخ ملخص التقرير إلى الحافظة", "The report summary was copied to your clipboard")); return; }
     if (t.dataset.fix || t.dataset.manual) { if (t.dataset.fix && store.manualDraft !== undefined) return; store.fixes[+(t.dataset.fix || t.dataset.manual)] = t.dataset.fix ? "applied" : "manual"; refreshFixes(); return; }
     if (t.dataset.unfix) { delete store.fixes[+t.dataset.unfix]; refreshFixes(); return; }
-    if (t.id === "copyDraft" || t.id === "copyDraft2") { copy($("draftBox") ? $("draftBox").value : (store.verifiedText || draftNow()), t); return; }
+    if (t.id === "copyDraft" || t.id === "copyDraft2") { copy($("draftBox") ? $("draftBox").value : (store.verifiedText || draftNow()), t, L("تم نسخ النص المصحح إلى الحافظة", "The corrected text was copied to your clipboard")); return; }
     if (t.id === "recheckBtn") { const text = $("draftBox").value.trim(); store.recheck = true; $("text").value = text; updateCount(); run(); return; }
-    if (t.id === "shareBtn") { shareLink(store.data.original_text).then(link => copy(link, t)); return; }
-    if (t.id === "copyBadgeLink") { copy(store.badge.link, t); return; }
+    if (t.id === "shareBtn") { shareLink(store.data.original_text).then(link => copy(link, t, L("تم نسخ رابط التقرير إلى الحافظة", "The report link was copied to your clipboard"))); return; }
+    if (t.id === "copyBadgeLink") { copy(store.badge.link, t, L("تم نسخ رابط الشارة إلى الحافظة", "The badge link was copied to your clipboard")); return; }
     if (t.id === "dlBadge") { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([store.badge.svg], { type: "image/svg+xml" })); a.download = `manba-badge-${store.badge.code}.svg`; a.click(); return; }
     if (t.id === "printBtn") { preparePrint(); window.print(); return; }
-    if (t.id === "copySerial") { copy(store.badge.code, t); return; }
+    if (t.id === "copySerial") { copy(store.badge.code, t, L("تم نسخ رقم الشارة إلى الحافظة", "The badge serial was copied to your clipboard")); return; }
     if (t.id === "applyAll") { applyAll(); return; }
     if (t.id === "editBtn" || t.id === "newBtn") { newReview(); return; }
   });
@@ -1070,8 +1149,27 @@
 
   // ---------- sections: review, how it works, who it is for ----------
   const VIEWS = { how: "howView", who: "whoView", verify: "verifyView", legal: "legalView" };
+  // Moving between the sections: a pill slides under the chosen tab, and the new section slides in from the side where its tab is (the tabs run right to left).
+  const VIEW_ORDER = ["review", "how", "who", "verify", "legal"];
+  let currentView = "review", viewsPillReady = false;
+  function placeViewsPill() {
+    const bar = document.querySelector(".top .views"), pill = $("viewsPill"), tab = bar && bar.querySelector('.view-tab[aria-current="page"]');
+    if (!bar || !pill || !tab || !tab.offsetWidth) return;   // the "legal" page has no tab of its own: the pill stays where it was
+    pill.style.width = tab.offsetWidth + "px"; pill.style.height = tab.offsetHeight + "px";
+    pill.style.transform = `translate(${tab.offsetLeft}px, ${tab.offsetTop}px)`;
+    if (!viewsPillReady) { viewsPillReady = true; requestAnimationFrame(() => requestAnimationFrame(() => pill.classList.add("slide"))); }   // the first placement is not animated
+  }
+  (() => {
+    const bar = document.querySelector(".top .views"); if (!bar) return;
+    bar.classList.add("has-pill");
+    if (window.ResizeObserver) { const ro = new ResizeObserver(placeViewsPill); ro.observe(bar); bar.querySelectorAll(".view-tab").forEach(t => ro.observe(t)); }   // a tab changes width when the language changes
+    window.addEventListener("resize", placeViewsPill); if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeViewsPill);
+  })();
   function showView(name, push) {
     const page = VIEWS[name];
+    const fromIdx = VIEW_ORDER.indexOf(currentView), toIdx = VIEW_ORDER.indexOf(name === "review" || !page ? "review" : name);
+    document.documentElement.style.setProperty("--vfrom", toIdx > fromIdx ? "-44px" : "44px");   // a tab further left brings its section in from the left
+    currentView = name === "review" || !page ? "review" : name;
     for (const id of Object.values(VIEWS)) $(id).hidden = id !== page;
     if (page) { $("inputView").hidden = true; $("reportView").hidden = true; $("loadingView").hidden = true; }
     else if (store.data && store.onReport) { $("reportView").hidden = false; $("inputView").hidden = true; }
@@ -1080,6 +1178,7 @@
     if (push) history.pushState({}, "", page ? "#" + name : store.onReport ? "#report" : "#");
     window.scrollTo({ top: 0 });
     if (!page) placePill();
+    placeViewsPill();
     document.dispatchEvent(new CustomEvent("manba:view", { detail: name }));
   }
   document.addEventListener("click", ev => {
@@ -1112,7 +1211,7 @@
       });
     }
     document.title = L("مَنبَع · مراجعة المحتوى الشرعي قبل النشر", "Manba · review Islamic content before publishing");
-    renderSamples(); updateCount(); labelTheme(); cfgNote(); placePill();
+    renderSamples(); updateCount(); labelTheme(); cfgNote(); placePill(); placeViewsPill();
     if (store.data && !$("reportView").hidden) renderReport(store.data);
     document.dispatchEvent(new CustomEvent("manba:lang", { detail: LANG }));
   }

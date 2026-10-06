@@ -152,3 +152,34 @@ def verify(code: str, text: str | None = None) -> BadgeVerifyResponse:
     if text is not None:
         out.text_matches = hmac.compare_digest(fingerprint(text), payload[2:18])
     return out
+
+
+# Letters and digits that a picture of the serial confuses (S and 5, Z and 2, G and 6, I and L): all of them are valid in the serial's alphabet,
+# so the only way to tell which was meant is to ask the signature.
+CONFUSABLE = {"S": "5", "5": "S", "Z": "2", "2": "Z", "G": "6", "6": "G", "I": "L", "L": "I"}
+
+
+def recover(code: str, max_swaps: int = 3) -> BadgeVerifyResponse | None:
+    """A serial that was READ from a picture (OCR) may have a few of the confusable characters wrong. Returns the verified result of the serial that
+    differs from the one given in at most `max_swaps` of those characters, or None. It only ever accepts a serial the signature accepts, so it
+    cannot make a wrong serial valid; with no signing key it checks nothing and returns None."""
+    import itertools
+
+    shown = code.strip().upper()
+    first = verify(shown)
+    if first.valid or first.reason in ("legacy_serial", "signing_unavailable"):
+        return first if first.valid else None
+    body = shown[5:].replace("-", "") if shown.startswith("MNB2-") else ""
+    if len(body) != 55:
+        return None
+    spots = [i for i, ch in enumerate(body) if ch in CONFUSABLE]
+    for k in range(1, max_swaps + 1):
+        for combo in itertools.combinations(spots, k):
+            chars = list(body)
+            for i in combo:
+                chars[i] = CONFUSABLE[chars[i]]
+            candidate = "MNB2-" + "-".join("".join(chars)[j:j + 4] for j in range(0, 55, 4))
+            result = verify(candidate)
+            if result.valid:
+                return result
+    return None
