@@ -849,3 +849,42 @@ html:not([lang="en"]) .legal-en, html[lang="en"] .legal-ar { display: none; }
 .row-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 #uploadBtn { padding: 0 20px; font-size: 15px; }
 .composer.dropping { border-color: var(--brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 35%, transparent); }
+
+/* ---------- the pictures on the "who it is for" cards ----------
+   Each picture drifts slowly (a gentle camera move), and a few small details move on top of it: the lamp glows, a screen catches the light, a tick lands.
+   The details are drawn in the picture's own coordinates (viewBox 720 x 538), so they sit on the same spot at every card size and drift together with it. */
+.p-pic { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); margin-bottom: 6px; background: var(--soft); }
+.p-pic .p-img { border: 0; margin: 0; }
+.p-zoom { position: relative; transform-origin: 50% 60%; animation: pic-drift 18s ease-in-out infinite alternate; will-change: transform; }
+.persona[data-scenario="post"] .p-zoom { transform-origin: 62% 40%; animation-delay: -5s; }
+.persona[data-scenario="lesson"] .p-zoom { transform-origin: 70% 35%; animation-delay: -9s; }
+.persona[data-scenario="english"] .p-zoom { transform-origin: 35% 60%; animation-delay: -3s; }
+.persona[data-scenario="reviewer"] .p-zoom { transform-origin: 45% 45%; animation-delay: -12s; }
+.principle:nth-child(1) .p-zoom { transform-origin: 40% 50%; animation-delay: -2s; }
+.principle:nth-child(2) .p-zoom { transform-origin: 50% 40%; animation-delay: -7s; }
+.principle:nth-child(3) .p-zoom { transform-origin: 30% 50%; animation-delay: -10s; }
+.principle:nth-child(4) .p-zoom { transform-origin: 60% 45%; animation-delay: -14s; }
+.p-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.p-fx * { transform-box: fill-box; transform-origin: center; }
+@keyframes pic-drift { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.07) translate(-1.1%, -.8%); } }
+.fx-glow { mix-blend-mode: screen; }
+.fx-breathe { animation: fx-breathe 3.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+@keyframes fx-breathe { 0%, 100% { opacity: .65; transform: scale(1); } 50% { opacity: 1; transform: scale(1.08); } }
+.fx-mote { animation: fx-mote 5.5s ease-out infinite; animation-delay: var(--d, 0s); opacity: 0; }
+@keyframes fx-mote { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translate(14px, -62px); opacity: 0; } }
+.fx-sweep { animation: fx-sweep 6s ease-in-out infinite; opacity: 0; }
+.fx-sweep.fx-slowrun { animation-duration: 11s; }
+@keyframes fx-sweep { 0% { transform: translateX(0) skewX(-18deg); opacity: 0; } 8% { opacity: 1; } 50% { opacity: 1; } 62%, 100% { transform: translateX(var(--run, 260px)) skewX(-18deg); opacity: 0; } }
+.fx-ring { animation: fx-ring 2.6s ease-out infinite; animation-delay: var(--d, 0s); opacity: 0; }
+@keyframes fx-ring { 0% { transform: scale(.5); opacity: .9; } 100% { transform: scale(2.6); opacity: 0; } }
+.fx-draw { stroke-dasharray: 1; animation: fx-draw 6s ease-in-out infinite; opacity: 0; }
+@keyframes fx-draw { 0% { stroke-dashoffset: 1; opacity: 0; } 3% { stroke-dashoffset: 1; opacity: 1; } 28%, 78% { stroke-dashoffset: 0; opacity: 1; } 92%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+.fx-twinkle { animation: fx-twinkle 4.2s ease-in-out infinite; animation-delay: var(--d, 0s); opacity: 0; }
+@keyframes fx-twinkle { 0%, 55%, 100% { transform: scale(0) rotate(0deg); opacity: 0; } 70% { transform: scale(1) rotate(45deg); opacity: 1; } 85% { transform: scale(.3) rotate(90deg); opacity: 0; } }
+.fx-read { animation: fx-read 6.4s ease-in-out infinite; opacity: 0; }
+@keyframes fx-read {
+  0% { transform: translateY(0) skewY(-6deg); opacity: 0; } 6%, 22% { transform: translateY(0) skewY(-6deg); opacity: .7; }
+  30%, 46% { transform: translateY(8px) skewY(-6deg); opacity: .7; } 54%, 70% { transform: translateY(16px) skewY(-6deg); opacity: .7; }
+  78%, 90% { transform: translateY(24px) skewY(-6deg); opacity: .7; } 100% { transform: translateY(24px) skewY(-6deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .p-zoom { animation: none; } .p-fx { display: none; } }
