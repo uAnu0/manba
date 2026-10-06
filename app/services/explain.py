@@ -23,7 +23,7 @@ from app.schemas import (
 from app.services.llm_extractor import chat_json, env_models, role_default
 from app.services.verifier import normalize
 
-DEFAULT_WRITER = "google/gemini-2.5-flash-lite"  # best of the bake-off; set EXPLAIN_MODEL to try another
+DEFAULT_WRITER = "google/gemini-3.1-flash-lite"  # the Flash-Lite family used on Google ("gemini-flash-lite-latest" has no OpenRouter name); set EXPLAIN_MODEL to try another
 MAX_TEXTS = {"supports": 4, "partial": 3, "contradicts": 3, "related": 2}
 EXCERPT_CHARS = 300
 

@@ -13,7 +13,8 @@ load_dotenv()
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 GOOGLE_BASE_URL = os.getenv("GOOGLE_BASE_URL") or "https://generativelanguage.googleapis.com/v1beta/openai/"
-DEFAULT_MODEL = "openai/gpt-4o-mini"
+# On OpenRouter the defaults are the same Gemini models that are used on Google's own API (GOOGLE_DEFAULT_MODEL and the Google names in role_default calls).
+DEFAULT_MODEL = "google/gemini-3.5-flash-lite"
 GOOGLE_DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 # A model name may carry its provider: "google:gemini-2.5-flash" (Google's own API, with GEMINI_API_KEY: it has a free

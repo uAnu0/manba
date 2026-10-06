@@ -168,7 +168,7 @@ Memory with everything loaded is about 510 MB and startup about 20 s (the indexe
 ## Arabic explanation (on demand)
 
 `POST /api/explain` with `{claim, result}` (a claim result) or `{claim, segment}` (a checked quote). The UI shows an **Explain** button under each
-result; nothing is written until it is clicked. A cheap writer model (`EXPLAIN_MODEL`, default `google/gemini-2.5-flash-lite`) phrases the already
+result; nothing is written until it is clicked. A cheap writer model (`EXPLAIN_MODEL`, default `google/gemini-3.1-flash-lite`) phrases the already
 finished result in Arabic, citing the numbered texts. It never sees anything but those facts and cannot change the outcome. Code rejects the output if it
 changes the verdict, cites a missing text, quotes words not in the cited text, invents a number or a grading, calls anything fabricated, or gives a fatwa;
 then a plain template explanation (`ai_written: false`) is returned instead. Writer bake-off: DeepSeek V4 Flash passed 8/10 after raising max tokens but
@@ -211,7 +211,9 @@ Set `GEMINI_API_KEY` and `LLM_PROVIDER=google` in `.env` to run every model step
 explanation writer `gemini-flash-lite-latest`. The judge benchmark (10 overreach and control cases, 3 runs each) gave 30/30 for
 `gemini-3.1-flash-lite` and 29/30 for `gemini-3.5-flash-lite` (gpt-4o-mini: 23/30). The free tier allows about 15
 requests per minute per Flash-Lite model and 5 per Flash model, so the client spaces calls and retries after a 429; a golden run
-takes about 20 minutes. Gemini is the default provider, so a host that has `GEMINI_API_KEY` uses it with no further setting; a host that only has
+takes about 20 minutes. On OpenRouter the defaults are the same Gemini models (`google/gemini-3.5-flash-lite` for router, recall and triage,
+`google/gemini-3.1-flash-lite` for the judge, the writer and the scan readers; embeddings `google/gemini-embedding-001`), so the answers
+do not depend on which provider carries them. Gemini is the default provider, so a host that has `GEMINI_API_KEY` uses it with no further setting; a host that only has
 `OPENROUTER_API_KEY` keeps using OpenRouter until a Gemini key is added. A free-tier key lets Google use the content to improve its products:
 for private texts use a paid (billing-enabled) key.
 
