@@ -1322,6 +1322,17 @@
   $("langSeg").addEventListener("click", ev => { const b = ev.target.closest("[data-lang]"); if (b) setLang(b.dataset.lang); });
   if (LANG === "en") applyLang(); else syncLang();
   { const h = location.hash.slice(1); if (VIEWS[h]) showView(h, false); }
+  // An access link (#code=...) was opened: the script at the top of the page already saved the code and cleared the address bar. Here the settings are refreshed and the
+  // person is told (after the intro, which would cover the notice), then the text box is ready for a paste.
+  if (window.__manbaCode) {
+    const saved = window.__manbaCode === 1; if (saved) loadSettings();
+    const tell = n => {
+      if ($("intro") && n < 30) { setTimeout(() => tell(n + 1), 300); return; }
+      if (saved) { toast(L("حُفظ رمز الدخول في هذا المتصفح. ألصق نصًا وابدأ.", "Access code saved in this browser. Paste a text to start.")); if (!$("inputView").hidden) $("text").focus({ preventScroll: true }); }
+      else alertInline(L("تعذر حفظ رمز الدخول في هذا المتصفح (ربما النافذة خاصة). افتح الرابط في نافذة عادية.", "The access code could not be saved in this browser (maybe a private window). Open the link in a normal window."));
+    };
+    tell(0);
+  }
   // A shared report (#s=): the text is unpacked and checked again from the sources.
   { const m = /^#s=(.+)$/.exec(location.hash);
     if (m) unpackText(m[1]).then(text => { $("text").value = text; updateCount(); showTab("paste"); run(); }).catch(() => alertInline(L("تعذر فتح الرابط المشارَك.", "The shared link could not be opened."))); }

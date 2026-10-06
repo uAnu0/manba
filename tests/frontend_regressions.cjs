@@ -33,4 +33,20 @@ assert.equal(fixPlan(entry), null);
 const v = verdictOf({kind:'quote', text:'نص', quote:{classification:'quran', status:'verified', source:{book:'القرآن الكريم',number:'1:1'}}, verdict_kind:'neu', needs_action:true});
 assert.equal(v.k, 'neu');
 assert.match(v.label, /مراجعة/);
-console.log('6 frontend regression scenarios passed');
+// An access link (#code=...) saves the code and leaves a clean address; any other address is left alone.
+{
+  const html = fs.readFileSync(path.resolve(__dirname, '../app/static/app.html'), 'utf8');
+  const early = html.match(/<script>\/\* An access link[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g, '');
+  const open = (hash, failStorage) => {
+    const saved = {}, urls = [];
+    const win = { location: { hash, pathname: '/', search: '?x=1' }, history: { replaceState: (a, b, u) => urls.push(u) },
+      localStorage: { setItem: (k, v) => { if (failStorage) throw new Error('blocked'); saved[k] = v; } } };
+    vm.runInNewContext(early, { ...win, window: win });
+    return { saved, urls, flag: win.__manbaCode };
+  };
+  let r = open('#code=abc%2B123%3D');
+  assert.deepEqual(r.saved, { manba_access_token: 'abc+123=' }); assert.deepEqual(r.urls, ['/?x=1']); assert.equal(r.flag, 1);
+  r = open('#how'); assert.deepEqual(r.saved, {}); assert.deepEqual(r.urls, []); assert.equal(r.flag, undefined);
+  r = open('#code=secret', true); assert.deepEqual(r.urls, ['/?x=1']); assert.equal(r.flag, -1);   // storage blocked: the address is still cleaned
+}
+console.log('7 frontend regression scenarios passed');
