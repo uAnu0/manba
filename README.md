@@ -11,10 +11,10 @@ Manba helps a khateeb, teacher, translator, or content team review religious tex
 1. Open the application and choose one of the **six examples** below the text box. They open labelled, saved reports without an access code. They demonstrate the workflow and do not issue badges.
 2. Inspect the numbered highlights and source cards. The khutbah example includes an altered verse, a hadith attribution that needs attention, and a claimed consensus on a disputed fiqh issue.
 3. Open the corrected draft. Apply the suggested corrections where available; handle disputed rulings manually. The application preserves your edits.
-4. To review a new text, obtain the access code from the team and save it in **Settings → Access**. The hosted AI key is supplied by the server. Arabic, English, and appearance options are in Settings.
+4. **Your link works out of the box.** The link the team sent you already carries the access code (it ends in `#code=…`). Opening it saves the code in your browser and removes it from the address bar, so you can paste a new text and press **Review the text** at once; nothing needs to be entered in Settings. The code stays in that browser, so use the same browser again and a normal window, not a private one. If you do not have the link, ask the team for the access code and save it in **Settings → Access**. The hosted AI key is supplied by the server. Arabic, English, and appearance options are in Settings. The first request after the site has been idle can take 20–25 seconds.
 5. Reports can be copied, shared, or printed to PDF. A new badge is available only when the server completes the required review and no unresolved findings remain.
 
-**للتجربة السريعة:** افتح أحد الأمثلة الستة دون رمز دخول، ثم راجع المواضع المظللة ومصادرها والنص المصحح. لمراجعة نص جديد احصل على رمز الدخول من الفريق وأدخله في الإعدادات. الأمثلة المحفوظة لا تمنح شارة.
+**للتجربة السريعة:** افتح أحد الأمثلة الستة دون رمز دخول، ثم راجع المواضع المظللة ومصادرها والنص المصحح. لمراجعة نص جديد افتح الرابط الذي أرسله لك الفريق: فهو يحمل رمز الدخول، فيحفظه في متصفحك ويخفيه من شريط العنوان، وتلصق نصك مباشرة دون المرور بالإعدادات (استخدم نافذة عادية لا خاصة، ونفس المتصفح في كل مرة). الأمثلة المحفوظة لا تمنح شارة.
 
 ## What Manba checks
 
@@ -85,7 +85,7 @@ On Vercel, set variables for the intended environment and **redeploy after chang
 
 ## Privacy, sources, and scope
 
-Text is processed in server memory and may reach model providers during AI steps. Model caches reuse results for up to six hours; unused entries may remain in process memory until eviction or restart. Dorar lookups have a separate cache. Shared report and badge links include the text: anyone receiving the link can read it. Personal provider keys and the access code are saved in browser storage when Settings is saved.
+Text is processed in server memory and may reach model providers during AI steps. Model caches reuse results for up to six hours; unused entries may remain in process memory until eviction or restart. Dorar lookups have a separate cache. Shared report and badge links include the text: anyone receiving the link can read it. Personal provider keys and the access code are saved in browser storage when Settings is saved, or when a judges' link (`#code=…`) is opened; the part after `#` is never sent to the server, and the page removes it from the address bar at once. Access codes are shared privately and never published here.
 
 Code is licensed under [MIT](LICENSE). **Data has separate source terms.** Tanzil attribution is preserved. Permissions for parts of the hadith corpus, the Kuwaiti encyclopedia, al-Muyassar, English hadith translations, and Dorar access remain unresolved in [SOURCES.md](SOURCES.md); public availability alone does not settle redistribution rights.
 
