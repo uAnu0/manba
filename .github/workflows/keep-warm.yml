@@ -1,0 +1,25 @@
+name: Keep the site awake
+
+# The server on Vercel switches itself off after a few quiet minutes, and the next visitor then waits for it to build its indexes (about 20 s).
+# This asks the site's /health page every 5 minutes, which keeps a copy running. If the site does not answer, the run fails and GitHub emails the
+# person who last edited this schedule. (GitHub can delay scheduled runs by a few minutes; it is not a guarantee, only a strong help. If the domain changes, change it below.)
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ask the site if it is up
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://manba-psi.vercel.app/health || true)
+            if [ "$code" = "200" ]; then echo "up (200)"; exit 0; fi
+            echo "attempt $attempt: got '$code'"; sleep 10
+          done
+          echo "the site did not answer 200"; exit 1
