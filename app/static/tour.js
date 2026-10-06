@@ -119,8 +119,28 @@
     anim.onfinish = () => { d.remove(); if (target.isConnected) splash(target); };   // a step chosen again meanwhile has redrawn the list: nothing to land on
     anim.oncancel = () => d.remove();
   }
+  // The step boxes glide: the step being left folds up, the step being opened unfolds, the boxes below follow, the new
+  // text fades in and the opened box gives a ring of light. (The list is redrawn at once, then the two boxes are animated from their old heights.)
+  const boxes = () => [...steps().querySelectorAll(":scope > li")];
+  const geometry = () => { const o = steps().getBoundingClientRect(), g = boxes().map(li => { const r = li.getBoundingClientRect(); return { top: r.top - o.top, h: r.height }; }); return g.length && g.every(x => x.h > 0) ? g : null; };
+  function glide(before) {
+    const after = geometry(); if (!before || !after || before.length !== after.length) return;
+    const opts = { duration: 520, easing: "cubic-bezier(.2, .8, .2, 1)" };
+    boxes().forEach((li, i) => {   // only the boxes whose height changes are animated; the ones below them follow as the layout flows
+      if (Math.abs(before[i].h - after[i].h) < 1) return;
+      li.style.overflow = "hidden";
+      const a = li.animate([{ height: before[i].h + "px" }, { height: after[i].h + "px" }], opts);
+      a.onfinish = a.oncancel = () => { li.style.overflow = ""; };
+    });
+    const last = after.length - 1, rail = steps().querySelector(".tour-rail");   // the rail follows the last circle while it moves
+    if (rail) { const h = rail.offsetHeight, shift = before[last].top - after[last].top; if (Math.abs(shift) >= 1) rail.animate([{ height: Math.max(0, h + shift) + "px" }, { height: h + "px" }], opts); }
+    const on = steps().querySelector("li.on"), p = on && on.querySelector("p");
+    if (p) p.animate([{ opacity: 0, transform: "translateY(-8px)" }, { opacity: 1, transform: "none" }], { duration: 420, delay: 140, easing: "ease-out", fill: "backwards" });
+    if (on) on.animate([{ boxShadow: "0 0 0 0 color-mix(in srgb, var(--brand) 55%, transparent)" }, { boxShadow: "0 0 0 9px transparent" }], { duration: 750, easing: "ease-out" });
+  }
   function render(animate) {
     const sc = $("tourScene");
+    const stepsBefore = animate && !reduced && shown !== null && shown !== at ? geometry() : null;
     const oldFi = document.querySelector("#tourSteps li.on .fi"), from = shown, a = oldFi && centerOf(oldFi);
     landing = !!(animate && !reduced && from !== null && from !== at && a);
     sc.innerHTML = `<div class="ts-step${animate && !reduced ? " enter" : ""}"><span class="ts-n">${L(`الخطوة ${D(at + 1)} من ${D(STEPS.length)}`, `Step ${at + 1} of ${STEPS.length}`)}</span>${STEPS[at].scene()}</div>`;
@@ -131,6 +151,7 @@
       else if (b) b.classList.remove("waiting");
     }
     landing = false;
+    glide(stepsBefore);   // last: every position above was measured before the boxes start to move
     shown = at;
     const last = at === STEPS.length - 1;
     $("tourNext").textContent = last ? L("جرّبه على نصك", "Try it on your text") : L("التالي", "Next");

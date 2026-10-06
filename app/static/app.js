@@ -287,7 +287,7 @@
       const res = demo ? await fetch(`/static/demo/${sample + 1}.json`) : await fetch("/api/check", { method: "POST", headers: headers(true), body: JSON.stringify({ text, use_llm: true, use_meaning: true }) });
       const data = await res.json().catch(() => ({}));
       if (demo) data.demo = true;
-      if (res.status === 401) { stopLoading(); $("inputView").hidden = false; alertInline(L("الخادم يطلب رمز دخول: أدخله من الإعدادات.", "The server needs an access code: enter it in Settings.")); openSettings(); return; }
+      if (res.status === 401) { stopLoading(); $("inputView").hidden = false; alertInline(L("الخادم يطلب رمز دخول: أدخله من الإعدادات.", "The server needs an access code: enter it in Settings.")); openSettings("secAccess"); return; }
       if (res.status === 422) throw new Error(L("النص طويل أو غير صالح للفحص. اختصره إلى 500 كلمة أو أقل.", "The text is too long or not valid. Keep it to 500 words or fewer."));
       if (!res.ok) throw new Error(L("تعذر الفحص الآن. أعد المحاولة بعد قليل.", "The check could not run right now. Try again shortly."));
       await finishLoading();
@@ -1064,22 +1064,43 @@
     if (t.id === "editBtn" || t.id === "newBtn") { newReview(); return; }
   });
 
-  // ---------- theme: dark is the default; the button switches to light and back, and the choice is remembered ----------
-  const root = document.documentElement, themeBtn = $("themeBtn");
-  const isLight = () => root.dataset.theme === "light";
-  function labelTheme() { const t = isLight() ? L("الوضع الداكن", "Dark mode") : L("الوضع الفاتح", "Light mode"); themeBtn.setAttribute("aria-label", t); themeBtn.title = t; }
-  themeBtn.onclick = () => {
-    root.classList.add("theme-anim"); const next = isLight() ? "dark" : "light";
-    if (next === "light") root.dataset.theme = "light"; else delete root.dataset.theme;
-    try { localStorage.setItem("manba_theme", next); } catch (e) {}
-    labelTheme(); themeBtn.classList.remove("spin"); void themeBtn.offsetWidth; themeBtn.classList.add("spin");
-    setTimeout(() => root.classList.remove("theme-anim"), 500);
-  };
-  labelTheme();
+  // ---------- themes ----------
+  // The Settings window draws its theme cards from this list. To add a theme: (1) add an entry here (id, names, and four colours for its little preview),
+  // (2) add a `:root[data-theme="<id>"] { ... }` block of colour variables in app.css (copy the "light" block and change the colours). Nothing else changes.
+  // "dark" is the default and has no data-theme attribute. The choice is remembered in this browser.
+  const THEMES = [
+    { id: "dark", name: ["داكن", "Dark"], swatch: { bg: "#0A0A0B", surface: "#151516", ink: "#EDEDEF", brand: "#3FBF9E" } },
+    { id: "light", name: ["فاتح", "Light"], swatch: { bg: "#F4F5FA", surface: "#FFFFFF", ink: "#16163F", brand: "#0B6E5C" } },
+  ];
+  const root = document.documentElement;
+  const themeId = () => root.dataset.theme || "dark";
+  function renderThemes() {
+    $("themeGrid").innerHTML = THEMES.map(t => `<button type="button" class="theme-card" role="radio" data-theme-id="${t.id}">
+      <span class="swatch" aria-hidden="true" style="--sw-bg: ${t.swatch.bg}; --sw-surface: ${t.swatch.surface}; --sw-ink: ${t.swatch.ink}; --sw-brand: ${t.swatch.brand}"><i class="sw-bar"></i><i class="sw-card"><b></b><b></b></i><i class="sw-dot"></i></span>
+      <span class="tname">${esc(L(...t.name))}</span></button>`).join("");
+    syncThemes();
+  }
+  function syncThemes() {
+    document.querySelectorAll("#themeGrid .theme-card").forEach(b => { const on = b.dataset.themeId === themeId(); b.setAttribute("aria-checked", String(on)); b.classList.toggle("on", on); b.tabIndex = on ? 0 : -1; });
+  }
+  function applyTheme(id) {
+    const t = THEMES.find(x => x.id === id) || THEMES[0];
+    root.classList.add("theme-anim");
+    if (t.id === "dark") delete root.dataset.theme; else root.dataset.theme = t.id;
+    try { localStorage.setItem("manba_theme", t.id); } catch (e) {}
+    syncThemes(); updateSummaries(); setTimeout(() => root.classList.remove("theme-anim"), 500);
+  }
+  $("themeGrid").addEventListener("click", ev => { const b = ev.target.closest(".theme-card"); if (b) applyTheme(b.dataset.themeId); });
+  $("themeGrid").addEventListener("keydown", ev => {   // arrow keys move through the themes, as in any radio group
+    const k = ev.key; if (!/^Arrow(Left|Right|Up|Down)$/.test(k)) return;
+    const i = THEMES.findIndex(t => t.id === themeId()), step = (k === "ArrowRight" || k === "ArrowDown") === (document.dir !== "rtl" && root.dir !== "rtl") ? 1 : -1;
+    applyTheme(THEMES[(i + step + THEMES.length) % THEMES.length].id); const on = $("themeGrid").querySelector(".theme-card.on"); if (on) on.focus(); ev.preventDefault();
+  });
+  renderThemes();
   // a printed report is always on white paper, so it is printed in the light theme
-  let themeBeforePrint = null;
-  window.addEventListener("beforeprint", () => { themeBeforePrint = isLight(); root.dataset.theme = "light"; });
-  window.addEventListener("afterprint", () => { if (themeBeforePrint === false) delete root.dataset.theme; themeBeforePrint = null; });
+  let themeBeforePrint;
+  window.addEventListener("beforeprint", () => { themeBeforePrint = root.dataset.theme; root.dataset.theme = "light"; });
+  window.addEventListener("afterprint", () => { if (themeBeforePrint === undefined) delete root.dataset.theme; else root.dataset.theme = themeBeforePrint; });
 
   // ---------- dialogs and settings ----------
   // Settings are saved only by the Save button. Closing the window any other way (a click outside it, Esc) throws the edits away, and the fields show what is saved the next time.
@@ -1096,10 +1117,33 @@
   });
   const SETTING_FIELDS = [["token", "manba_access_token"], ["orkey", "manba_openrouter_key"], ["gkey", "manba_gemini_key"], ["provider", "manba_llm_provider"]];
   const settingsDlg = $("settingsDlg");
-  const loadSettings = () => { for (const [id, key] of SETTING_FIELDS) { let v = ""; try { v = localStorage.getItem(key) || ""; } catch (e) {} $(id).value = v; } };
+  // Each section of the window folds and unfolds; all start folded so the window is short, and each folded row says what is set (its summary).
+  const secs = () => [...document.querySelectorAll("#settingsDlg .set-sec")];
+  function setSection(sec, open) {
+    sec.classList.toggle("open", open);
+    sec.querySelector(".sec-toggle").setAttribute("aria-expanded", String(open));
+    const body = sec.querySelector(".sec-body"); if (open) body.removeAttribute("inert"); else body.setAttribute("inert", "");
+  }
+  secs().forEach(sec => { setSection(sec, false); sec.querySelector(".sec-toggle").addEventListener("click", () => setSection(sec, !sec.classList.contains("open"))); });
+  function updateSummaries() {
+    const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+    const p = $("provider"), hasKey = (p.value === "openrouter" && $("orkey").value.trim()) || (p.value === "google" && $("gkey").value.trim());
+    set("sumAccess", $("token").value.trim() ? L("مُدخَل", "Entered") : L("غير مُدخَل", "Not set"));
+    set("sumAI", (p.selectedOptions[0] ? p.selectedOptions[0].textContent : "") + (hasKey ? " · " + L("مفتاحك", "your key") : ""));
+    const t = THEMES.find(x => x.id === themeId()); set("sumTheme", t ? L(...t.name) : "");
+    set("sumLang", LANG === "en" ? "English" : "العربية");
+  }
+  ["token", "provider", "orkey", "gkey"].forEach(id => $(id).addEventListener("input", updateSummaries));
+  // Choosing a provider opens (drops down) the field for that provider's key; the others stay folded.
+  function syncProvider() {
+    const p = $("provider").value;
+    document.querySelectorAll(".key-reveal").forEach(el => { const open = el.dataset.for === p; el.classList.toggle("open", open); if (open) el.removeAttribute("inert"); else el.setAttribute("inert", ""); });
+  }
+  $("provider").addEventListener("change", () => { syncProvider(); updateSummaries(); });
+  const loadSettings = () => { for (const [id, key] of SETTING_FIELDS) { let v = ""; try { v = localStorage.getItem(key) || ""; } catch (e) {} $(id).value = v; } syncProvider(); updateSummaries(); };
   const saveSettings = () => { for (const [id, key] of SETTING_FIELDS) { try { localStorage.setItem(key, $(id).value.trim()); } catch (e) {} } };
-  function openSettings() { loadSettings(); settingsDlg.showModal(); }
-  $("settingsBtn").onclick = openSettings;
+  function openSettings(sectionId) { loadSettings(); const sec = sectionId && $(sectionId); if (sec) setSection(sec, true); settingsDlg.showModal(); }   // sectionId: unfold that section (e.g. the access code when the server asks for it)
+  $("settingsBtn").onclick = () => openSettings();
   loadSettings();
   settingsDlg.querySelector("form button").addEventListener("click", saveSettings);
   // A click outside any dialog closes it (with the closing animation). The press must also start outside, so selecting text inside and letting go outside does not close it.
@@ -1220,12 +1264,16 @@
       });
     }
     document.title = L("مَنبَع · مراجعة المحتوى الشرعي قبل النشر", "Manba · review Islamic content before publishing");
-    renderSamples(); updateCount(); labelTheme(); cfgNote(); placePill(); placeViewsPill();
+    renderSamples(); updateCount(); renderThemes(); syncLang(); updateSummaries(); cfgNote(); placePill(); placeViewsPill();
     if (store.data && !$("reportView").hidden) renderReport(store.data);
     document.dispatchEvent(new CustomEvent("manba:lang", { detail: LANG }));
   }
-  $("langBtn").onclick = () => { LANG = LANG === "en" ? "ar" : "en"; try { localStorage.setItem("manba_lang", LANG); } catch (e) {} applyLang(); };
-  if (LANG === "en") applyLang();
+  function syncLang() {
+    document.querySelectorAll("#langSeg [data-lang]").forEach(b => { const on = b.dataset.lang === LANG; b.setAttribute("aria-checked", String(on)); b.classList.toggle("on", on); b.tabIndex = on ? 0 : -1; });
+  }
+  function setLang(l) { if (l === LANG) return; LANG = l; try { localStorage.setItem("manba_lang", LANG); } catch (e) {} applyLang(); }
+  $("langSeg").addEventListener("click", ev => { const b = ev.target.closest("[data-lang]"); if (b) setLang(b.dataset.lang); });
+  if (LANG === "en") applyLang(); else syncLang();
   { const h = location.hash.slice(1); if (VIEWS[h]) showView(h, false); }
   // A shared report (#s=): the text is unpacked and checked again from the sources.
   { const m = /^#s=(.+)$/.exec(location.hash);

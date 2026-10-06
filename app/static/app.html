@@ -7,8 +7,8 @@
 <meta name="description" content="مساعد المراجعة الشرعية للمحتوى الدعوي: يتحقق من الآيات والأحاديث والأحكام الفقهية في النص، ويبيّن المصدر والخطوة التالية.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
-<script>try { if (localStorage.getItem("manba_theme") === "light") document.documentElement.setAttribute("data-theme", "light"); } catch (e) {}</script>
-<link rel="stylesheet" href="/static/app.css?v=20261006m">
+<script>try { var t = localStorage.getItem("manba_theme"); if (t && t !== "dark" && /^[a-z0-9-]{1,24}$/.test(t)) document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
+<link rel="stylesheet" href="/static/app.css?v=20261006u">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%230B6E5C' stroke-width='3'%3E%3Crect x='9' y='9' width='22' height='22' rx='2'/%3E%3Crect x='9' y='9' width='22' height='22' rx='2' transform='rotate(45 20 20)'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -40,13 +40,8 @@
     </a>
     <nav>
       <a class="btn small legal-link" href="#legal" data-view="legal" aria-label="الشروط والخصوصية" data-en-aria-label="Terms and privacy" data-en="&lt;span class=&quot;lf&quot;&gt;Terms &amp;amp; privacy&lt;/span&gt;&lt;span class=&quot;ls&quot;&gt;Terms&lt;/span&gt;"><span class="lf">الشروط والخصوصية</span><span class="ls">الشروط</span></a>
-      <button class="btn small" id="langBtn" lang="en" aria-label="English" data-en="عربي" data-en-aria-label="العربية">English</button>
       <button class="btn small" id="settingsBtn" aria-haspopup="dialog" aria-label="الإعدادات" data-en-aria-label="Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"></path></svg>
-      </button>
-      <button class="btn small" id="themeBtn" aria-label="الوضع الفاتح" title="الوضع الفاتح">
-        <svg class="i-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
-        <svg class="i-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
       </button>
     </nav>
   </div>
@@ -465,8 +460,7 @@
 
 <footer class="foot">
   <div class="wrap">
-    <span data-en="Sources: Quran text from <a href='https://tanzil.net' target='_blank' rel='noopener'>Tanzil</a> (CC BY 3.0) · the nine hadith books · Dorar's hadith encyclopedia · the Kuwaiti Fiqh Encyclopedia (Ministry of Awqaf, Kuwait) · Tafsir al-Muyassar and al-Saadi · QuranEnc approved translations.">المصادر: نص المصحف من <a href="https://tanzil.net" target="_blank" rel="noopener">Tanzil</a> (CC BY 3.0) · الكتب التسعة · الموسوعة الحديثية في الدرر السنية · الموسوعة الفقهية الكويتية (وزارة الأوقاف بالكويت) · التفسير الميسر وتفسير السعدي.</span>
-    <span data-en="Manba is an automated tool, not a scholar or a mufti. Anything the AI writes is always labelled and kept apart from the source texts. <a href='#verify' data-view='verify'>Verify a badge</a> · <a href='/claim'>Developer tools</a>">مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="#verify" data-view="verify">تحقق من شارة</a> · <a href="/claim">أدوات الاختبار للمطورين</a></span>
+    <span data-en="Manba is an automated tool, not a scholar or a mufti. Anything the AI writes is always labelled and kept apart from the source texts. <a href='#verify' data-view='verify'>Verify a badge</a>">مَنبَع أداة آلية: ليس عالمًا ولا مفتيًا. ما يكتبه الذكاء الاصطناعي معلَّم دائمًا ومنفصل عن نصوص المصادر. <a href="#verify" data-view="verify">تحقق من شارة</a></span>
   </div>
 </footer>
 
@@ -493,20 +487,54 @@
 
 <dialog id="settingsDlg" aria-labelledby="settingsTitle">
   <h2 id="settingsTitle" style="margin-top: 0" data-en="Settings">الإعدادات</h2>
-  <label for="token"><span data-en="Access code (if the server asks for one)">رمز الدخول (إن طلبه الخادم)</span><input id="token" type="password" autocomplete="off"></label>
-  <label for="provider"><span data-en="AI provider">مزوّد الذكاء الاصطناعي</span>
-    <select id="provider"><option value="" data-en="Server default">افتراضي الخادم</option><option value="openrouter">OpenRouter</option><option value="google">Google Gemini</option></select></label>
-  <label for="orkey"><span data-en="Your OpenRouter key (optional)">مفتاح OpenRouter الخاص بك (اختياري)</span><input id="orkey" type="password" autocomplete="off" dir="ltr"></label>
-  <label for="gkey"><span data-en="Your Google Gemini key (optional)">مفتاح Google Gemini الخاص بك (اختياري)</span><input id="gkey" type="password" autocomplete="off" dir="ltr"></label>
-  <p class="cap" id="cfgNote" style="line-height: 1.8">تبقى المفاتيح في متصفحك فقط، وتُرسل مع كل طلب ولا تُحفظ على الخادم.</p>
-  <div class="llm-test"><button class="btn small" id="llmTest" type="button" data-en="Test the AI connection">اختبر اتصال الذكاء الاصطناعي</button>
-    <span class="cap" id="llmTestOut" role="status" aria-live="polite"></span></div>
-  <form method="dialog"><button class="btn primary" data-en="Save">حفظ</button></form>
+
+  <section class="set-sec" id="secAccess">
+    <h3><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="secAccessBody"><span class="sec-name" data-en="Access">الدخول</span><span class="sec-sum" id="sumAccess"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></h3>
+    <div class="sec-body" id="secAccessBody"><div class="sec-inner">
+      <label for="token"><span data-en="Access code (if the server asks for one)">رمز الدخول (إن طلبه الخادم)</span><input id="token" type="password" autocomplete="off"></label>
+    </div></div>
+  </section>
+
+  <section class="set-sec" id="secAI">
+    <h3><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="secAIBody"><span class="sec-name" data-en="Artificial intelligence">الذكاء الاصطناعي</span><span class="sec-sum" id="sumAI"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></h3>
+    <div class="sec-body" id="secAIBody"><div class="sec-inner">
+      <label for="provider"><span data-en="AI provider">مزوّد الذكاء الاصطناعي</span>
+        <select id="provider"><option value="" data-en="Server default">افتراضي الخادم</option><option value="openrouter">OpenRouter</option><option value="google">Google Gemini</option></select></label>
+      <div class="key-reveal" data-for="openrouter"><div class="key-inner">
+        <label for="orkey"><span data-en="Your OpenRouter key (optional)">مفتاح OpenRouter الخاص بك (اختياري)</span><input id="orkey" type="password" autocomplete="off" dir="ltr"></label></div></div>
+      <div class="key-reveal" data-for="google"><div class="key-inner">
+        <label for="gkey"><span data-en="Your Google Gemini key (optional)">مفتاح Google Gemini الخاص بك (اختياري)</span><input id="gkey" type="password" autocomplete="off" dir="ltr"></label></div></div>
+      <p class="cap" id="cfgNote" style="line-height: 1.8">تبقى المفاتيح في متصفحك فقط، وتُرسل مع كل طلب ولا تُحفظ على الخادم.</p>
+      <div class="llm-test"><button class="btn small" id="llmTest" type="button" data-en="Test the AI connection">اختبر اتصال الذكاء الاصطناعي</button>
+        <span class="cap" id="llmTestOut" role="status" aria-live="polite"></span></div>
+    </div></div>
+  </section>
+
+  <section class="set-sec" id="secTheme">
+    <h3><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="secThemeBody"><span class="sec-name" data-en="Appearance">المظهر</span><span class="sec-sum" id="sumTheme"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></h3>
+    <div class="sec-body" id="secThemeBody"><div class="sec-inner">
+      <div class="theme-grid" id="themeGrid" role="radiogroup" aria-label="المظهر" data-en-aria-label="Appearance"></div>
+      <p class="cap set-hint" data-en="Applied at once; no need to press Save.">يُطبَّق فورًا، ولا يحتاج إلى «حفظ».</p>
+    </div></div>
+  </section>
+
+  <section class="set-sec" id="secLang">
+    <h3><button type="button" class="sec-toggle" aria-expanded="false" aria-controls="secLangBody"><span class="sec-name" data-en="Language">اللغة</span><span class="sec-sum" id="sumLang"></span><svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button></h3>
+    <div class="sec-body" id="secLangBody"><div class="sec-inner">
+      <div class="lang-seg" id="langSeg" role="radiogroup" aria-label="اللغة" data-en-aria-label="Language">
+        <button type="button" role="radio" data-lang="ar" lang="ar">العربية</button>
+        <button type="button" role="radio" data-lang="en" lang="en">English</button>
+      </div>
+      <p class="cap set-hint" data-en="Applied at once; no need to press Save.">يُطبَّق فورًا، ولا يحتاج إلى «حفظ».</p>
+    </div></div>
+  </section>
+
+  <form method="dialog" class="set-save"><button class="btn primary" data-en="Save">حفظ</button></form>
 </dialog>
 
-<script src="/static/grades.js?v=20261006m"></script>
-<script src="/static/ocr.js?v=20261006m"></script>
-<script src="/static/app.js?v=20261006m"></script>
-<script src="/static/tour.js?v=20261006m"></script>
+<script src="/static/grades.js?v=20261006u"></script>
+<script src="/static/ocr.js?v=20261006u"></script>
+<script src="/static/app.js?v=20261006u"></script>
+<script src="/static/tour.js?v=20261006u"></script>
 </body>
 </html>
