@@ -1251,6 +1251,41 @@
     ev.preventDefault(); showView(a.dataset.view === "review" ? "review" : a.dataset.view, true);
   });
   window.addEventListener("popstate", () => { const h = location.hash.slice(1); if (VIEWS[h]) showView(h, false); else if (!h.includes("report")) showView("review", false); });
+  // The "who decides what" fold opens and closes smoothly: its height eases and the two panels pop in. With reduced motion it simply opens.
+  (() => {
+    const d = document.querySelector("details.how-more"), sum = d && d.querySelector("summary"); if (!d || !sum) return;
+    let anim = null, closing = false;
+    const closedH = () => { const cs = getComputedStyle(d); return sum.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth); };
+    sum.addEventListener("click", ev => {
+      if (!d.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      ev.preventDefault();
+      const from = d.getBoundingClientRect().height, opening = closing || !d.open;   // a click in the middle of a move turns it around
+      if (anim) anim.cancel();
+      d.classList.remove("opening", "closing"); closing = !opening;
+      if (opening) d.open = true;
+      const to = opening ? d.getBoundingClientRect().height : closedH();
+      d.classList.add(opening ? "opening" : "closing"); d.style.overflow = "hidden";
+      const a = anim = d.animate([{ height: from + "px" }, { height: to + "px" }], { duration: opening ? 460 : 320, easing: "cubic-bezier(.2, .8, .2, 1)" });
+      a.onfinish = () => { if (anim !== a) return; anim = null; d.style.overflow = ""; d.classList.remove("opening", "closing"); if (!opening) { d.open = false; closing = false; } };
+    });
+  })();
+  // The figures under "What every finding is checked against" count up from zero the first time they come into view (they show their full value when printed
+  // and when motion is reduced).
+  (() => {
+    const nums = [...document.querySelectorAll(".trust .stats b")];
+    if (!nums.length || !("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const show = (b, n) => { b.textContent = Math.round(n).toLocaleString("en-US"); };
+    nums.forEach(b => { b.dataset.to = b.textContent.replace(/[^\d]/g, ""); show(b, 0); });
+    window.addEventListener("beforeprint", () => nums.forEach(b => show(b, Number(b.dataset.to))));
+    const run = b => {
+      if (document.getElementById("intro")) { setTimeout(() => run(b), 300); return; }   // not while the intro is still covering the page
+      const to = Number(b.dataset.to), t0 = performance.now(), dur = 1600;
+      const step = now => { const k = Math.min(1, (now - t0) / dur); show(b, to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    };
+    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); run(e.target); } }), { threshold: 0.6 });
+    nums.forEach(b => io.observe(b));
+  })();
   // Each person on "who it is for" opens the reviewer with their scenario.
   const SCENARIOS = {
     khutbah: SAMPLES[0][1],

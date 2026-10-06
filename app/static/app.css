@@ -888,3 +888,11 @@ html:not([lang="en"]) .legal-en, html[lang="en"] .legal-ar { display: none; }
   78%, 90% { transform: translateY(24px) skewY(-6deg); opacity: .7; } 100% { transform: translateY(24px) skewY(-6deg); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .p-zoom { animation: none; } .p-fx { display: none; } }
+
+/* the fold on "How it works": the panels pop in as it opens and fade as it closes (the height is eased in app.js) */
+.how-more.opening > .split > .panel { animation: pop-in .55s cubic-bezier(.2, .8, .2, 1) backwards; }
+.how-more.opening > .split > .panel:nth-child(2) { animation-delay: .12s; }
+.how-more.closing > .split { opacity: 0; transition: opacity .2s; }
+@media (prefers-reduced-motion: reduce) { .how-more.opening > .split > .panel { animation: none; } }
+/* the label above the text box is gone; the row that held it only shows when the Clear button does */
+#panePaste > .row-between:has(> #clearBtn[hidden]) { display: none; }
