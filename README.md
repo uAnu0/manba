@@ -1,6 +1,11 @@
-# مَنبَع | Manba
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.png">
+    <img src="docs/brand/logo-light.png" alt="مَنبَع | Manba" width="260">
+  </picture>
+</p>
 
-**مراجعة المحتوى الشرعي قبل النشر، مع الرجوع إلى المصدر.**
+<p align="center"><b>مراجعة المحتوى الشرعي قبل النشر، مع الرجوع إلى المصدر.</b></p>
 
 Manba helps a khateeb, teacher, translator, or content team review religious text before publishing it. Paste a draft, see the passages that need attention, inspect their sources, apply corrections, and review the corrected text again.
 
