@@ -207,7 +207,9 @@ async def verify_claim(
     if fiqh_task is not None:
         try:
             fiqh = await fiqh_task
-        except Exception:  # the fiqh lookup is an addition: the claim check stands without it
+        except Exception as exc:
+            # Keep source results, but a failed required lookup cannot certify the review.
+            result.llm.error = (result.llm.error + "; " if result.llm.error else "") + "fiqh: " + _redact(f"{type(exc).__name__}: {exc}")
             fiqh = None
         if fiqh is not None and fiqh.status != "not_fiqh" and result.claim_type in ("topic", "unknown"):
             result.fiqh = fiqh

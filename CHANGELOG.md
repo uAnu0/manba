@@ -71,3 +71,12 @@ Everything before tag `v0-baseline` is the declared starting version (see `BASEL
 
 **Removed: the developer pages (Oct 6)**
 - The three test pages `/test`, `/evidence` and `/claim` (`index.html`, `evidence.html`, `claim.html`) and the result-card scripts only they used (`cards.js`, `cards.css`) are gone. The reviewer page `/` is the only page; the API endpoints (`/api/check`, `/api/claim`, `/api/verify`, `/api/evidence`, `/api/fiqh`, ...) and the engine are unchanged (tests, evals and API answers checked before and after).
+
+## Tuesday 6 October: submission review
+
+- Replaced the README with a judge-oriented guide: live link, six saved examples, source checks, badge verification, architecture, setup, privacy, limitations, and team credit.
+- Failed fiqh lookups now remain visible as review errors and cannot silently contribute to a clean badge result.
+- Serial verification distinguishes unavailable or malformed server responses from a genuine invalid signature.
+- Corrected the source register's obsolete signing-key fallback and the baseline document's obsolete tag status. Clarified cache reuse versus actual process-memory retention.
+- Removed automated tool co-author trailers from repository history while preserving human authors, source trees, original dates, merge structure, and the declared baseline. A complete recovery bundle was saved before cleanup.
+- Submission-day validation is code inspection only. No new tests, paid model probes, or badge issuance requests were run; these edits use `[skip ci]` to honour that constraint.

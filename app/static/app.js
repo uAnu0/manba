@@ -692,7 +692,9 @@
     out.hidden = false; out.className = "vout"; out.textContent = L("نتحقق…", "Checking…");
     try {
       const res = await fetch("/api/badge/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, text: text.length ? text : null }) });
+      if (!res.ok) throw new Error("verification unavailable");
       const r = await res.json();
+      if (typeof r.valid !== "boolean") throw new Error("invalid verification response");
       if (!r.valid) { out.className = "vout bad"; out.innerHTML = `<b>${L("رقم غير صالح", "Not a valid serial")}</b><span>${esc(P(VERIFY_WHY[r.reason] || VERIFY_WHY.not_issued))}</span>`; return; }
       const mode = r.mode === "full" ? L("مراجعة كاملة: الاقتباسات والادعاءات والأحكام، بمساعدة الذكاء الاصطناعي، والحكم للمصادر", "Full review: quotes, claims and rulings, with the AI's help; the sources decide")
         : L("مراجعة بالمطابقة المباشرة فقط (دون الذكاء الاصطناعي)", "Direct matching only (without the AI)");
@@ -703,7 +705,7 @@
       out.innerHTML = `<div class="seal">${badgeSvg(r.code, r.date)}</div><div><b>${L("رقم صادر عن مَنبَع", "Issued by Manba")}</b>
         <span>${L(`رُوجع بتاريخ ${r.date}، ولم تظهر مواضع غير محسومة في تلك المراجعة الآلية.`, `Reviewed on ${r.date}, with no unresolved findings in that automated review.`)}</span><span class="cap">${mode}</span>${match}
         ${text ? `<button class="btn small" id="vRerun" type="button">${L("أعد مراجعة النص الآن", "Review the text again now")}</button>` : ""}</div>`;
-    } catch (e) { out.className = "vout bad"; out.textContent = L("تعذر الاتصال بالخادم.", "Could not reach the server."); }
+    } catch (e) { out.className = "vout bad"; out.textContent = L("تعذر التحقق الآن. تأكد من طول الرقم والنص، ثم حاول مرة أخرى.", "Verification is unavailable. Check the serial and text lengths, then try again."); }
   }
 
   // ---------- reading a downloaded badge: the serial comes out of the SVG file, or is read from a picture of the badge ----------

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet">
 <script>try { var t = localStorage.getItem("manba_theme"); if (t && /^[a-z0-9-]{1,24}$/.test(t)) document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
-<link rel="stylesheet" href="/static/app.css?v=20261007b">
+<link rel="stylesheet" href="/static/app.css?v=20261006submission">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%230B6E5C' stroke-width='3'%3E%3Crect x='9' y='9' width='22' height='22' rx='2'/%3E%3Crect x='9' y='9' width='22' height='22' rx='2' transform='rotate(45 20 20)'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -285,7 +285,7 @@
     <h3>2. ما لا نجمعه</h3>
     <p>لا حسابات ولا تسجيل دخول، ولا قاعدة بيانات للنصوص أو التقارير، ولا ملفات تعريف ارتباط للتتبع أو الإعلان، ولا أدوات تحليل للزيارات.</p>
     <h3>3. كيف نعالج النص ومدة بقائه</h3>
-    <p>يُعالج النص في ذاكرة الخادم أثناء الفحص ولا يُكتب في قاعدة بيانات أو سجل دائم. ولتسريع الطلبات المتكررة تبقى نتائج خطوات الذكاء الاصطناعي في ذاكرة الخادم المؤقتة حتى ست ساعات، ونتائج البحث في الدرر السنية حتى يوم واحد، وتزول كلها عند إعادة تشغيل الخادم.</p>
+    <p>يُعالج النص في ذاكرة الخادم أثناء الفحص ولا يُكتب في قاعدة بيانات أو سجل دائم. تُعاد الاستفادة من نتائج الذكاء الاصطناعي المؤقتة لمدة تصل إلى ست ساعات، ومن نتائج الدرر السنية لمدة تصل إلى يوم. قد تبقى النتائج المنتهية في ذاكرة العملية حتى استبدالها أو إعادة تشغيل الخادم.</p>
     <h3>4. من يطّلع على النص</h3>
     <ul>
       <li><b>مزودو الذكاء الاصطناعي</b>: عند الخطوات التي تحتاجه يُرسل النص أو أجزاء منه إلى OpenRouter، ومنه إلى مزوّد النموذج (مثل OpenAI أو Google)، وإلى Google Gemini لحساب المتجهات، وتُرسل صفحات الصور المختارة لقراءتها. ويخضع ذلك لسياسات هؤلاء المزودين.</li>
@@ -378,7 +378,7 @@
     <h3>2. What we do not collect</h3>
     <p>No accounts or sign-in, no database of texts or reports, no tracking or advertising cookies, and no visitor analytics.</p>
     <h3>3. How the text is handled, and for how long</h3>
-    <p>The text is processed in server memory during the review and is not written to a database or permanent log. To speed up repeated requests, results of AI steps stay in the server's temporary memory for up to six hours and Dorar search results for up to one day; all of it is lost when the server restarts.</p>
+    <p>The text is processed in server memory during the review and is not written to a database or permanent log. Cached AI results can be reused for up to six hours and Dorar results for up to one day. Expired entries may remain in process memory until replaced or the server restarts.</p>
     <h3>4. Who sees the text</h3>
     <ul>
       <li><b>AI providers:</b> for the steps that need it, the text or parts of it are sent to OpenRouter and from there to the model provider (such as OpenAI or Google), and to Google Gemini to compute embeddings; image pages you select are sent to be read. This is subject to those providers' policies.</li>
@@ -526,9 +526,9 @@
   <form method="dialog" class="set-save"><button class="btn primary" data-en="Save">حفظ</button></form>
 </dialog>
 
-<script src="/static/grades.js?v=20261007b"></script>
-<script src="/static/ocr.js?v=20261007b"></script>
-<script src="/static/app.js?v=20261007b"></script>
-<script src="/static/tour.js?v=20261007b"></script>
+<script src="/static/grades.js?v=20261006submission"></script>
+<script src="/static/ocr.js?v=20261006submission"></script>
+<script src="/static/app.js?v=20261006submission"></script>
+<script src="/static/tour.js?v=20261006submission"></script>
 </body>
 </html>
