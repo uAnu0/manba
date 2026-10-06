@@ -19,7 +19,7 @@ import sys
 from collections import Counter
 
 from app.services.verifier import CORPUS_PATH, normalize
-from scripts.ingest_quran import BASMALA_WORDS, EXPECTED_AYAHS, load_tanzil, strip_basmala
+from scripts.ingest_quran import EXPECTED_AYAHS, load_tanzil, strip_basmala
 
 
 def tanzil_without_basmala(name: str) -> dict[tuple[int, int], str]:

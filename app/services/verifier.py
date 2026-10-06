@@ -170,11 +170,6 @@ def load_corpus() -> tuple[Entry, ...]:
     return tuple(entries)
 
 
-def split_segments(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?؟\n])\s+", text.strip())
-    return [p.strip() for p in parts if p.strip()]
-
-
 class CorpusIndex:
     """Inverted word index plus exact-text lookup over a list of entries."""
 

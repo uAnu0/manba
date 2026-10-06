@@ -33,7 +33,6 @@ CLOSE_HADITH = 0.62  # hadith renderings vary more and the books are larger: a h
 MIN_QUOTE_WORDS = 4
 MAX_CLAIMS = 12
 
-LANG_NAMES_AR = {"en": "الإنجليزية", "fr": "الفرنسية", "ur": "الأردية", "id": "الإندونيسية", "tr": "التركية", "es": "الإسبانية", "other": "لغة أخرى"}
 _STOP = {
     "en": "the and of is to that in it for was he his with allah prophet said says not be are this you they",
     "fr": "le la les et des est que qui dans pour une un du au il elle dit ne pas allah prophète",
@@ -182,12 +181,6 @@ def find_quotes(text: str) -> list[tuple[int, int, str, str]]:
                 hint = "hadith" if re.search(r"prophet|messenger|prophète|nabi|profeta|peygamber", m.group(1), re.I) else "quran"
                 found.append((m.end(), m.end() + len(text[m.end():b].rstrip(" .,;:")), words, hint))
     return sorted(found)
-
-
-def _missing(quote: str, official: str) -> list[str]:
-    have = set(_tokens(official))
-    miss = [w for w in dict.fromkeys(_tokens(quote)) if w not in have]
-    return miss[:12]
 
 
 def match_quote(quote: str, lang: str, hint: str = "", ref: tuple[int, int] | None = None) -> Segment:

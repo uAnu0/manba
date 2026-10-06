@@ -326,7 +326,7 @@ class TextClaimItem(BaseModel):
 class BadgeInfo(BaseModel):
     """The serial of a clean review, signed by the server (services/badge.py). Anyone can check it at /api/badge/{code}."""
 
-    code: str  # MNB-XXXX-XXXX-XXXX-XXXX
+    code: str  # MNB2-XXXX-XXXX-… (13 groups of four and a last of three)
     date: str  # the day of the review, YYYY-MM-DD
     mode: str  # "full": quotes, claims and rulings with the AI's help; "matching": direct matching only (no model)
     items: int  # how many texts and rulings were checked

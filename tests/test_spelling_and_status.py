@@ -1,6 +1,4 @@
 """Common modern spellings of Quranic words still match, and the AI status check reports instead of failing."""
-import asyncio
-
 from fastapi.testclient import TestClient
 
 from app.main import app

@@ -8,7 +8,7 @@ sensitive topics are sent to a scholar.
 import asyncio
 
 from app.schemas import ClaimLLMInfo, ClaimResponse, EvidenceItem
-from app.services.evidence import excerpt, index, search_text, stem, terms
+from app.services.evidence import excerpt, index, search_text, terms
 from app.services.evidence_card import JUDGE_POOL, NOTICE_AR, NOTICE_EN, extend, gather, referral
 from app.services.fiqh import assertion_of, fiqh_check
 from app.services.tafsir import context_of

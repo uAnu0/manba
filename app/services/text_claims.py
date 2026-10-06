@@ -235,7 +235,6 @@ async def check_text(
     spans = sentence_spans(text)
     truncated = len(spans) > MAX_SENTENCES
     spans = spans[:MAX_SENTENCES]
-    sentences = [text[a:b] for a, b in spans]
     covered = [sum(_overlap(span, q) for q in quote_spans) >= 0.5 * (span[1] - span[0]) for span in spans]
 
     # 3. The claims in what the quotes leave of each sentence (one model call for the whole text).

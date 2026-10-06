@@ -14,8 +14,6 @@ router = APIRouter(prefix="/api", tags=["verify"])
 @router.get("/config")
 def config() -> dict:
     """What the client needs to know to talk to this server. Booleans only, never a secret."""
-    import os
-
     return {
         "access_required": bool(settings.api_access_token),
         "server_has_llm_key": server_has_key(),

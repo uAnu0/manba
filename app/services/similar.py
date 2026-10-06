@@ -17,7 +17,7 @@ from app.services.dense import dense_index, embed_query
 from app.services.evidence import STOPWORDS, index, item_for, retrieve, search_text, stem, terms
 from app.services.quote_finder import tokenize
 from app.services.strength import level_of
-from app.services.verifier import load_corpus, normalize
+from app.services.verifier import load_corpus
 
 MIN_TERMS = 3  # a sentence with fewer distinctive words says too little to match
 POOL = 12  # candidates from each search

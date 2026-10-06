@@ -433,15 +433,11 @@ dialog.preview { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh -
 .page-head h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.25; }
 .page-head .lede { margin: 0; font-size: 17px; line-height: 1.9; color: var(--muted); }
 .eyebrow { color: var(--brand); font-weight: 700; font-size: 14px; letter-spacing: .02em; }
-.panel, .flow li, .persona { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+.panel, .persona { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .panel, .flow li, .persona { background: var(--glass); border-color: var(--glass-line); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); }
+  .panel, .persona { background: var(--glass); border-color: var(--glass-line); -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4); }
 }
 .panel h2, .persona h2 { margin: 0 0 10px; font-size: 19px; }
-.flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; counter-reset: step; }
-.flow li { display: flex; flex-direction: column; gap: 6px; position: relative; }
-.flow li span:last-child { color: var(--muted); font-size: 14px; line-height: 1.8; }
-.flow .fi { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--brand); color: var(--brand-ink); font-weight: 700; }
 .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
 .ticks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; line-height: 1.8; }
 .ticks li { padding-inline-start: 28px; position: relative; }

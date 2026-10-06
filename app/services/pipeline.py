@@ -10,7 +10,7 @@ results that were NOT verified and that overlap it; verified local results are n
 """
 import re
 
-from app.schemas import ExtractionInfo, Segment, VerifyResponse
+from app.schemas import ExtractionInfo, VerifyResponse
 from app.services.levels import segment_level
 from app.services.llm_extractor import extract_claims
 from app.services.quote_finder import REGION_MIN_WORDS, Located, locate_quotes, tokenize, _TRIM

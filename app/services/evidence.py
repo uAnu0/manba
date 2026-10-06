@@ -6,7 +6,6 @@ It never says what the ruling is. An LLM may be used to turn a question (any lan
 the evidence itself always comes from the corpus.
 """
 import math
-import re
 from array import array
 from collections import Counter, defaultdict
 from functools import lru_cache
@@ -134,7 +133,6 @@ def index() -> Bm25Index:
 def excerpt(text: str, classification: str, query_words: set[str]) -> str:
     """The stretch of the text (up to EXCERPT_WORDS words) richest in query words; whole text if it is short."""
     start_char = matn_start(text) if classification == "hadith" else 0
-    full = text
     text = text[start_char:]
     words = tokenize(text)
     if len(words) <= EXCERPT_WORDS:
@@ -202,16 +200,3 @@ def retrieve(
         for classification, limit in (("quran", quran_limit), ("hadith", hadith_limit))
     )
     return quran, hadith, query
-
-
-def find_evidence(
-    question: str, extra_terms: list[str] | None = None, quran_limit: int = 6, hadith_limit: int = 8
-) -> tuple[list[EvidenceItem], list[EvidenceItem], list[str]]:
-    """(Quran items, hadith items, the search words used)."""
-    quran, hadith, query = retrieve(question, extra_terms, quran_limit, hadith_limit)
-    words = set(query)
-    return (
-        [_item(i, s, m, words) for i, s, m in quran],
-        [_item(i, s, m, words) for i, s, m in hadith],
-        sorted(query),
-    )
