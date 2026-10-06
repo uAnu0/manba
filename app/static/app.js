@@ -1070,17 +1070,20 @@
   });
 
   // ---------- themes ----------
-  // The Settings window draws its theme cards from this list. To add a theme: (1) add an entry here (id, names, and four colours for its little preview),
-  // (2) add a `:root[data-theme="<id>"] { ... }` block of colour variables in app.css (copy the "paper" block and change the colours). Nothing else changes.
-  // "dark" is the default and has no data-theme attribute. The choice is remembered in this browser.
+  // The Settings window draws its theme cards from this list, and the first theme is the default. To add a theme: (1) add an entry here (id, names, and four colours
+  // for its little preview), (2) add a `:root[data-theme="<id>"] { ... }` block of colour variables in app.css (copy any block there and change the colours).
+  // Nothing else changes. The choice is remembered in this browser.
   const THEMES = [
+    { id: "emerald", name: ["زمردي", "Emerald"], swatch: { bg: "#060D0B", surface: "#0E1815", ink: "#E8F1EC", brand: "#34D399" } },
     { id: "dark", name: ["داكن", "Dark"], swatch: { bg: "#0A0A0B", surface: "#151516", ink: "#EDEDEF", brand: "#3FBF9E" } },
     { id: "light", name: ["فاتح", "Light"], swatch: { bg: "#F4F5FA", surface: "#FFFFFF", ink: "#16163F", brand: "#0B6E5C" } },
     { id: "paper", name: ["ورقي", "Paper"], swatch: { bg: "#F3EBDD", surface: "#FBF6EC", ink: "#2B2118", brand: "#0F6B58" } },
-    { id: "emerald", name: ["زمردي", "Emerald"], swatch: { bg: "#060D0B", surface: "#0E1815", ink: "#E8F1EC", brand: "#34D399" } },
+    { id: "diamond", name: ["ألماسي", "Diamond"], swatch: { bg: "#EAF3F8", surface: "#FFFFFF", ink: "#0B1E2B", brand: "#0A6FA8" } },
+    { id: "ruby", name: ["ياقوتي", "Ruby"], swatch: { bg: "#0D0607", surface: "#190D0F", ink: "#F6EAEB", brand: "#FF5C7A" } },
+    { id: "violet", name: ["بنفسجي", "Violet"], swatch: { bg: "#0A0713", surface: "#140E21", ink: "#EEE9FA", brand: "#A78BFA" } },
   ];
   const root = document.documentElement;
-  const themeId = () => root.dataset.theme || "dark";
+  const themeId = () => root.dataset.theme || THEMES[0].id;
   function renderThemes() {
     $("themeGrid").innerHTML = THEMES.map(t => `<button type="button" class="theme-card" role="radio" data-theme-id="${t.id}">
       <span class="swatch" aria-hidden="true" style="--sw-bg: ${t.swatch.bg}; --sw-surface: ${t.swatch.surface}; --sw-ink: ${t.swatch.ink}; --sw-brand: ${t.swatch.brand}"><i class="sw-bar"></i><i class="sw-card"><b></b><b></b></i><i class="sw-dot"></i></span>
@@ -1093,7 +1096,7 @@
   function applyTheme(id) {
     const t = THEMES.find(x => x.id === id) || THEMES[0];
     root.classList.add("theme-anim");
-    if (t.id === "dark") delete root.dataset.theme; else root.dataset.theme = t.id;
+    root.dataset.theme = t.id;
     try { localStorage.setItem("manba_theme", t.id); } catch (e) {}
     syncThemes(); updateSummaries(); setTimeout(() => root.classList.remove("theme-anim"), 500);
   }
